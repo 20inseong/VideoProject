@@ -49,7 +49,7 @@
                     <MenuItem Header="프로젝트 열기"/>
                     <MenuItem Header="최근 파일 열기" />
                     <Separator/>
-                    <MenuItem Header="미디어 가져오기"/>
+                    <MenuItem Header="미디어 가져오기" Click="btnSelectMedia_Click"/>
                     <Separator/>
                     <MenuItem Header="프로젝트 저장" />
                     <MenuItem Header="편집 파일 저장" />
@@ -132,8 +132,14 @@
                 
                 <!-- 영상 리스트 -->
                 <Border Grid.Column="0" Grid.RowSpan="2" Background="#36443d" BorderBrush="Black" BorderThickness="1">
-                    <Expander Header="📹 동영상" IsExpanded="True" DataContext="{Binding}" VerticalAlignment="Top">
-                        <ListBox/>
+                    <Expander Header="📹 미디어" IsExpanded="True" DataContext="{Binding}" VerticalAlignment="Top">
+                        <ListBox ItemsSource="{Binding VideoList.MyVideoes}"
+                                 DisplayMemberPath="Title"  AllowDrop="True"
+                                 Drop="Timeline_Drop"
+                                 DragOver="Timeline_DragOver"
+                                 SelectionChanged="VideoList_SelectionChanged"
+                                 PreviewMouseLeftButtonDown="VideoList_PreviewMouseLeftButtonDown"
+                                 PreviewMouseMove="VideoList_PreviewMouseMove"/>
                     </Expander>
                 </Border>
 

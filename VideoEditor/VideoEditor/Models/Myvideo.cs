@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace VideoEditor.Models
 {
-    class Myvideo
+    public class Myvideo
     {
-        public string name { get; set; }
+        public string Title { get; set; }
         public string FullPath { get; set; }
         public string Category { get; set; } = "미분류";
     }
