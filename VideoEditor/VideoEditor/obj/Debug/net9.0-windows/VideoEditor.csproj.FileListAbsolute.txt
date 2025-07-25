@@ -1,3 +1,10 @@
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\VideoEditor.csproj.AssemblyReference.cache
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\MainWindow.g.cs
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\App.g.cs
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\VideoEditor_Content.g.cs
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\GeneratedInternalTypeHelper.g.cs
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\VideoEditor_MarkupCompile.cache
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\VideoEditor_MarkupCompile.lref
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\libvlc\win-x64\libvlc.dll
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\libvlc\win-x64\libvlc.lib
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\libvlc\win-x64\libvlccore.dll
@@ -883,12 +890,7 @@ C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\run
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\runtimes\win-x86\native\msvcp140_atomic_wait.dll
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\runtimes\win-x86\native\msvcp140_codecvt_ids.dll
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\runtimes\win-x86\native\vcruntime140.dll
-C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\VideoEditor.csproj.AssemblyReference.cache
-C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\MainWindow.g.cs
-C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\App.g.cs
-C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\VideoEditor_Content.g.cs
-C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\VideoEditor_MarkupCompile.cache
-C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\VideoEditor_MarkupCompile.lref
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\App.baml
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\MainWindow.baml
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\VideoEditor.g.resources
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\VideoEditor.GeneratedMSBuildEditorConfig.editorconfig
@@ -901,4 +903,3 @@ C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\ref
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\VideoEditor.pdb
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\VideoEditor.genruntimeconfig.cache
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\ref\VideoEditor.dll
-C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\App.baml

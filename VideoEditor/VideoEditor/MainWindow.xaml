@@ -6,6 +6,7 @@
         xmlns:local="clr-namespace:VideoEditor"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
+        xmlns:Common="clr-namespace:VideoEditor.Common"
         mc:Ignorable="d"
         Title="MainWindow" Height="800" Width="1500"
         WindowStyle="None"
@@ -13,6 +14,11 @@
         Background="#2B2B2B"
         ResizeMode="CanResizeWithGrip"
         WindowState="Normal">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <Common:TimeConverter x:Key="Converter" />
+    </Window.Resources>
 
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="30" ResizeBorderThickness="5" />
@@ -134,10 +140,11 @@
                 <Border Grid.Column="0" Grid.RowSpan="2" Background="#36443d" BorderBrush="Black" BorderThickness="1">
                     <Expander Header="📹 미디어" IsExpanded="True" DataContext="{Binding}" VerticalAlignment="Top">
                         <ListBox ItemsSource="{Binding VideoList.MyVideoes}"
-                                 DisplayMemberPath="Title"  AllowDrop="True"
+                                 DisplayMemberPath="Title"
+                                 SelectedItem="{Binding VideoList.SelectedVideoItem}"
+                                 AllowDrop="True"
                                  Drop="Timeline_Drop"
                                  DragOver="Timeline_DragOver"
-                                 SelectionChanged="VideoList_SelectionChanged"
                                  PreviewMouseLeftButtonDown="VideoList_PreviewMouseLeftButtonDown"
                                  PreviewMouseMove="VideoList_PreviewMouseMove"/>
                     </Expander>
@@ -159,25 +166,33 @@
                             <vlc:VideoView x:Name="videoView" />
                         </Grid>
 
-                        <StackPanel x:Name="show_VideoBar" Orientation="Horizontal" Grid.Row="1" Margin="10,0,10,10" Visibility="Hidden" VerticalAlignment="Bottom" Grid.ColumnSpan="2">
-                            <!-- 재생/일시정지 버튼 -->
-                            <Button Width="40" />
+                        <StackPanel x:Name="show_VideoBar" 
+                                    Orientation="Horizontal" 
+                                    Grid.Row="1" 
+                                    Margin="10,0,10,10" 
+                                    Visibility="{Binding PlayerViewModel.IsControlBarVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    VerticalAlignment="Bottom" 
+                                    Grid.ColumnSpan="2">
+                            <Button Content="{Binding PlayerViewModel.PlayPauseButtonContent}"
+                                    Command="{Binding PlayerViewModel.PlayPauseCommand}"
+                                    Width="40"/>
 
-                            <!-- 정지 버튼 -->
-                            <Button x:Name="btnStop" Content="■" Width="40" Margin="5,0,0,0"/>
+                            <Button x:Name="btnStop" Content="■" Width="40" Margin="5,0,0,0"
+                                    Command="{Binding PlayerViewModel.StopCommand}"/>
 
-                            <!-- 현재 재생 시간 표시 -->
-                            <TextBlock/>
+                            <TextBlock Text="{Binding PlayerViewModel.CurrentTime, Converter={StaticResource Converter}}"
+                                       VerticalAlignment="Center" Margin="5,0"/>
 
-                            <!-- 탐색 슬라이더 (클릭 시 즉시 이동) -->
-                            <Slider Width="300" Minimum="0" />
+                            <Slider Width="300" Minimum="0"
+                                    Value="{Binding PlayerViewModel.CurrentTime, Mode=TwoWay}"
+                                    Maximum="{Binding PlayerViewModel.TotalDuration}"
+                                    IsSnapToTickEnabled="True" TickFrequency="1000" />
+                            <TextBlock Text="{Binding PlayerViewModel.TotalDuration, Converter={StaticResource Converter}}"
+                                       Margin="10,0,10,0" VerticalAlignment="Center"/>
 
-                            <!-- 총 길이(마지막 탐색시간) 표시 -->
-                            <TextBlock Margin="10,0,10,0" VerticalAlignment="Center"/>
-
-                            <!-- 볼륨 슬라이더 (0 ~ 1) -->
                             <TextBlock Text="볼륨" VerticalAlignment="Center" Margin="10,0,5,0"/>
-                            <Slider Width="100" Minimum="0" Maximum="100" VerticalAlignment="Center"/>
+                            <Slider Width="100" Minimum="0" Maximum="100" VerticalAlignment="Center"
+            Value="{Binding PlayerViewModel.Volume, Mode=TwoWay}"/>
                         </StackPanel>
                     </Grid>
                 </Border>

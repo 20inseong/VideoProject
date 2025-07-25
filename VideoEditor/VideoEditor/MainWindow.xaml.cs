@@ -53,13 +53,13 @@ namespace VideoEditor
             }
         }
 
-        private void VideoList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (sender is ListBox listBox && listBox.SelectedItem is Myvideo selectedMyVideo)
-            {
-                _mainViewModel.PlayerViewModel.LoadMedia(selectedMyVideo.FullPath);
-            }
-        }
+        //private void VideoList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        //{
+        //    if (sender is ListBox listBox && listBox.SelectedItem is Myvideo selectedMyVideo)
+        //    {
+        //        _mainViewModel.PlayerViewModel.LoadMedia(selectedMyVideo.FullPath);
+        //    }
+        //}
 
         // 드래그앤드롭 관련 함수들은 현재 고려하지 않으므로 비워두거나 삭제해도 됩니다.
         private void Timeline_Drop(object sender, DragEventArgs e) { }

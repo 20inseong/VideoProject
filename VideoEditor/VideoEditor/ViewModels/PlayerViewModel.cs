@@ -18,6 +18,13 @@ namespace VideoEditor.ViewModels
         public ICommand PlayPauseCommand { get; }
         public ICommand StopCommand { get; }
 
+        private bool _isControlBarVisible;
+        public bool IsControlBarVisible
+        {
+            get => _isControlBarVisible;
+            set => SetProperty(ref _isControlBarVisible, value);
+        }
+
         public bool IsPlaying
         {
             get => _isPlaying;
@@ -26,9 +33,11 @@ namespace VideoEditor.ViewModels
                 if (SetProperty(ref _isPlaying, value))
                 {
                     OnPropertyChanged(nameof(PlayPauseButtonContent));
+                    //IsControlBarVisible = value;
                 }
             }
         }
+
 
         public string PlayPauseButtonContent => IsPlaying ? "❚❚" : "▶";
 
@@ -36,7 +45,17 @@ namespace VideoEditor.ViewModels
         public long CurrentTime
         {
             get => _currentTime;
-            set => SetProperty(ref _currentTime, value);
+            set
+            {
+                if (SetProperty(ref _currentTime, value))
+                {
+                    // MediaPlayer.Time과 현재 CurrentTime 값이 다를 때만 MediaPlayer의 시간을 업데이트하여 무한 루프 방지
+                    if (MediaPlayer != null && Math.Abs(MediaPlayer.Time - value) > 50) // 50ms 오차 허용
+                    {
+                        MediaPlayer.Time = value;
+                    }
+                }
+            }
         }
 
         private long _totalDuration;
@@ -85,14 +104,24 @@ namespace VideoEditor.ViewModels
                 IsPlaying = false;
                 MediaPlayer.Stop();
             };
-            MediaPlayer.TimeChanged += (s, e) => CurrentTime = e.Time;
+            MediaPlayer.TimeChanged += (s, e) => {
+                // MediaPlayer에서 시간이 변경될 때 CurrentTime 업데이트 (슬라이더와 텍스트에 반영됨)
+                if (Math.Abs(_currentTime - e.Time) > 50) // 50ms 오차 허용 (무한 루프 방지)
+                {
+                    CurrentTime = e.Time;
+                }
+            };
             MediaPlayer.LengthChanged += (s, e) => TotalDuration = e.Length;
             MediaPlayer.Volume = _volume;
         }
 
         public void LoadMedia(string filePath)
         {
-            if (string.IsNullOrEmpty(filePath)) return;
+            if (string.IsNullOrEmpty(filePath))
+            {
+                IsControlBarVisible = false; // 파일 경로가 없으면 컨트롤 바 숨김
+                return;
+            }
 
             if (MediaPlayer.Media != null)
             {
@@ -102,19 +131,38 @@ namespace VideoEditor.ViewModels
             }
             var media = new Media(_libVLC, new Uri(filePath));
             MediaPlayer.Media = media;
-            media.Dispose();
+
+            IsControlBarVisible = true;
 
             (PlayPauseCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (StopCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
 
         private void ExecutePlayPause(object? parameter)
         {
-            MediaPlayer.Play();
+            if (MediaPlayer.IsPlaying)
+            {
+                MediaPlayer.Pause();
+            }
+            else
+            {
+                MediaPlayer.Play();
+            }
+        }
+
+        private bool CanExecutePlayPause(object? parameter)
+        {
+            return MediaPlayer.Media != null;
         }
 
         private void ExecuteStop(object? parameter)
         {
             MediaPlayer.Stop();
+        }
+
+        private bool CanExecuteStop(object? parameter)
+        {
+            return MediaPlayer.Media != null && (MediaPlayer.IsPlaying || MediaPlayer.State == VLCState.Paused);
         }
         public void Dispose()
         {
