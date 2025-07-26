@@ -141,6 +141,7 @@
                     <Expander Header="📹 미디어" IsExpanded="True" DataContext="{Binding}" VerticalAlignment="Top">
                         <ListBox ItemsSource="{Binding VideoList.MyVideoes}"
                                  DisplayMemberPath="Title"
+                                 x:Name="mideaListBox"
                                  SelectedItem="{Binding VideoList.SelectedVideoItem}"
                                  AllowDrop="True"
                                  Drop="Timeline_Drop"

@@ -84,8 +84,6 @@ namespace VideoEditor.ViewModels
         public PlayerViewModel()
         {
             Core.Initialize();
-
-            // 2. LibVLC 및 MediaPlayer 인스턴스 생성
             _libVLC = new LibVLC();
             MediaPlayer = new MediaPlayer(_libVLC);
 
@@ -117,12 +115,6 @@ namespace VideoEditor.ViewModels
 
         public void LoadMedia(string filePath)
         {
-            if (string.IsNullOrEmpty(filePath))
-            {
-                IsControlBarVisible = false; // 파일 경로가 없으면 컨트롤 바 숨김
-                return;
-            }
-
             if (MediaPlayer.Media != null)
             {
                 MediaPlayer.Stop();
@@ -150,7 +142,7 @@ namespace VideoEditor.ViewModels
             }
         }
 
-        private bool CanExecutePlayPause(object? parameter)
+        public bool CanExecutePlayPause(object? parameter)
         {
             return MediaPlayer.Media != null;
         }
@@ -158,9 +150,9 @@ namespace VideoEditor.ViewModels
         private void ExecuteStop(object? parameter)
         {
             MediaPlayer.Stop();
-        }
+        }virtual 
 
-        private bool CanExecuteStop(object? parameter)
+        public bool CanExecuteStop(object? parameter)
         {
             return MediaPlayer.Media != null && (MediaPlayer.IsPlaying || MediaPlayer.State == VLCState.Paused);
         }

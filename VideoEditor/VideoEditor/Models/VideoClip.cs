@@ -8,7 +8,7 @@ using System.Windows.Media.Imaging;
 
 namespace VideoEditor.Models
 {
-    class VideoClip
+    public class VideoClip
     {
         private string _name;
         private double _startPosition; // 타임라인 상의 시작 위치 (초)
