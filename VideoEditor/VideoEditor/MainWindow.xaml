@@ -144,8 +144,6 @@
                                  x:Name="mideaListBox"
                                  SelectedItem="{Binding VideoList.SelectedVideoItem}"
                                  AllowDrop="True"
-                                 Drop="Timeline_Drop"
-                                 DragOver="Timeline_DragOver"
                                  PreviewMouseLeftButtonDown="VideoList_PreviewMouseLeftButtonDown"
                                  PreviewMouseMove="VideoList_PreviewMouseMove"/>
                     </Expander>
@@ -340,6 +338,8 @@ BorderThickness="1">
                                 <Canvas x:Name="TimelineClipsCanvas"
                                         Background="#3B3B3B"
                                         AllowDrop="True"
+                                        Drop="Timeline_Drop"
+                                        DragOver="Timeline_DragOver"
                                         Height="300"
                                         Panel.ZIndex="10">
                                     <ItemsControl x:Name="ClipsItemsControl"

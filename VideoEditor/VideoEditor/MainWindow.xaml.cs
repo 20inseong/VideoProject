@@ -60,7 +60,7 @@ namespace VideoEditor
                 _mainViewModel.VideoList.AddVideo(newVideo);
                 _mainViewModel.VideoList.SelectedVideoItem = newVideo;
 
-                StatusTextBlock.Text = $"미디어가 목록에 추가되었습니다.";
+                //StatusTextBlock.Text = $"미디어가 목록에 추가되었습니다.";
             }
         }
 
@@ -78,8 +78,8 @@ namespace VideoEditor
                     _mainViewModel.PlayerViewModel.LoadMedia(droppedVideo.FullPath);
                     _mainViewModel.PlayerViewModel.MediaPlayer.Play();
 
-                             // 상태 표시 업데이트
-                    StatusTextBlock.Text = $" 타임라인에 추가되었습니다. 재생을 시작합니다.";
+                    // 상태 표시 업데이트
+                    //StatusTextBlock.Text = $" 타임라인에 추가되었습니다. 재생을 시작합니다.";
 
                 }
             }

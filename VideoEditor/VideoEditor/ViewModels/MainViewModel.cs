@@ -14,6 +14,14 @@ namespace VideoEditor.ViewModels
         public PlayerViewModel PlayerViewModel { get; }
         public VideoListViewModel VideoList { get; }
         public VideoEditorViewModel VideoEditor { get; }
+        private string _statusMessage;
+
+        public string StatusMessage
+        {
+            get => _statusMessage;
+            set => SetProperty(ref _statusMessage, value);
+        }
+
         public MainViewModel()
         {
             PlayerViewModel = new PlayerViewModel();
