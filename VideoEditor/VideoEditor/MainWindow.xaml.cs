@@ -1,4 +1,6 @@
-﻿ using System.Text;
+﻿using System.ComponentModel;
+using System.IO;
+ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -7,11 +9,10 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
+using System.Windows.Shapes;
 using Microsoft.Win32;
 using VideoEditor.Models;
 using VideoEditor.ViewModels;
-using System.IO;
-using System.Windows.Shapes;
 
 namespace VideoEditor
 {
@@ -20,6 +21,8 @@ namespace VideoEditor
         private MainViewModel _mainViewModel;
         private Myvideo _draggedVideo = null;
         private Point _dragStartPoint;
+        private Line _playheadLine;
+        private double _currentTimelineDurationSec = 300;
         public MainWindow()
         {
             InitializeComponent();
@@ -29,6 +32,13 @@ namespace VideoEditor
 
             videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MediaPlayer;
 
+            // 창이 완전히 로드된 후 초기화 작업을 수행하도록 이벤트를 연결합니다.
+            this.Loaded += MainWindow_Loaded;
+            // MediaPlayer의 시간이 바뀔 때마다 플레이헤드를 업데이트하도록 이벤트를 연결합니다.
+            _mainViewModel.PlayerViewModel.MediaPlayer.TimeChanged += MediaPlayer_TimeChanged;
+            // MediaPlayer의 전체 길이가 바뀔 때마다 눈금자를 업데이트하도록 이벤트를 연결합니다.
+            _mainViewModel.PlayerViewModel.MediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
+
             TimelineScrollViewer.ScrollChanged += (s, e) =>
             {
                 RulerScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset);
@@ -36,6 +46,8 @@ namespace VideoEditor
 
             ThumbnailItemsControl.DataContext = _mainViewModel.VideoEditor;
             ClipsItemsControl.DataContext = _mainViewModel.VideoEditor;
+
+            //_mainViewModel.PlayerViewModel.PropertyChanged += PlayerViewModel_PropertyChanged;
 
             DrawTimelineRuler();
         }
@@ -125,47 +137,123 @@ namespace VideoEditor
             }
         }
 
-        // 타임라인 눈금자 그리기 (예시, 실제로는 더 정교한 로직 필요)
         private void DrawTimelineRuler()
         {
-            TimelineRulerCanvas.Children.Clear(); // 기존 눈금자 지우기
+            if (TimelineRulerCanvas == null || ThumbnailItemsControl == null) return;
 
-            double totalWidth = TimelineClipsCanvas.Width; // 타임라인 캔버스의 현재 너비
-            double pixelsPerSecond = _mainViewModel.VideoEditor.PixelsPerSecond; // 1초당 픽셀 수
+            TimelineRulerCanvas.Children.Clear();
 
-            // 1초 단위로 눈금 그리기
-            for (double i = 0; i < totalWidth; i += pixelsPerSecond)
+            double pixelsPerSecond = _mainViewModel.VideoEditor.PixelsPerSecond;
+            double totalDuration = _currentTimelineDurationSec; // VideoEditor의 변수 이름 사용
+            double totalWidth = totalDuration * pixelsPerSecond;
+
+            TimelineRulerCanvas.Width = totalWidth;
+
+            if (ThumbnailItemsControl != null)
             {
-                Line line = new Line
+                ThumbnailItemsControl.Width = totalWidth;
+            }
+
+            // 1초마다 얇은 선, 5초마다 굵은 선+숫자
+            for (int sec = 0; sec <= totalDuration; sec++)
+            {
+                double x = sec * pixelsPerSecond;
+                bool isMajorTick = sec % 5 == 0;
+
+                var line = new Line
                 {
-                    X1 = i,
+                    X1 = x,
+                    X2 = x,
                     Y1 = 0,
-                    X2 = i,
-                    Y2 = 20, // 짧은 눈금 길이
-                    Stroke = Brushes.LightGray,
-                    StrokeThickness = 1
+                    Y2 = isMajorTick ? 30 : 10,
+                    Stroke = isMajorTick ? Brushes.LightGray : Brushes.Gray,
+                    StrokeThickness = isMajorTick ? 2 : 1
                 };
+
                 TimelineRulerCanvas.Children.Add(line);
 
-                // 5초 단위로 긴 눈금 및 시간 텍스트
-                if ((i / pixelsPerSecond) % 5 == 0)
+                // 5초마다 숫자 표시
+                if (isMajorTick)
                 {
-                    line.Y2 = 30; // 긴 눈금 길이
-                    TextBlock textBlock = new TextBlock
+                    var text = new TextBlock
                     {
-                        Text = TimeSpan.FromSeconds(i / pixelsPerSecond).ToString(@"mm\:ss"),
+                        Text = TimeSpan.FromSeconds(sec).ToString(@"m\:ss"),
                         Foreground = Brushes.White,
-                        Margin = new Thickness(i + 5, 35, 0, 0) // 눈금 옆에 시간 표시
+                        FontSize = 12
                     };
-                    TimelineRulerCanvas.Children.Add(textBlock);
+                    Canvas.SetLeft(text, x + 2);
+                    Canvas.SetTop(text, 10);
+                    TimelineRulerCanvas.Children.Add(text);
                 }
             }
         }
+        //private void TimelineClipsCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+        //{
+        //    DrawTimelineRuler();
+        //}
 
-        // 타임라인 캔버스 크기 변경 시 눈금자 다시 그리기 (선택 사항)
-        private void TimelineClipsCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            InitializePlayhead();
             DrawTimelineRuler();
         }
+
+        private void InitializePlayhead()
+        {
+            _playheadLine = new Line
+            {
+                Stroke = Brushes.Red,
+                StrokeThickness = 2,
+                Y1 = 0,
+                Y2 = PlayheadCanvas.ActualHeight > 0 ? PlayheadCanvas.ActualHeight : 300
+            };
+            PlayheadCanvas.Children.Add(_playheadLine);
+        }
+
+        private void MediaPlayer_LengthChanged(object sender, LibVLCSharp.Shared.MediaPlayerLengthChangedEventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                double videoDurationSec = e.Length / 1000.0;
+
+                _currentTimelineDurationSec = Math.Max(300.0, videoDurationSec);
+
+                DrawTimelineRuler();
+            });
+        }
+
+        private void MediaPlayer_TimeChanged(object sender, LibVLCSharp.Shared.MediaPlayerTimeChangedEventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (_playheadLine == null) return;
+
+                double currentSeconds = e.Time / 1000.0;
+
+                double newX = currentSeconds * _mainViewModel.VideoEditor.PixelsPerSecond;
+
+                _playheadLine.X1 = newX;
+                _playheadLine.X2 = newX;
+            });
+        }
+
+        //private void PlayerViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        //{
+        //    if (e.PropertyName == nameof(PlayerViewModel.TotalDuration))
+        //    {
+        //        Dispatcher.Invoke(() =>
+        //        {
+        //            long totalMilliseconds = _mainViewModel.PlayerViewModel.TotalDuration;
+
+        //            double totalSeconds = totalMilliseconds / 1000.0;
+
+        //            if (totalSeconds > 0)
+        //            {
+        //                _currentVideoLengthSec = totalSeconds;
+        //                DrawTimelineRuler();
+        //            }
+        //        });
+        //    }
+        //}
     }
 }

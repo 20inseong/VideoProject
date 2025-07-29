@@ -12,7 +12,7 @@ namespace VideoEditor.ViewModels
     public class VideoEditorViewModel : ViewModelBase
     {
         private ObservableCollection<VideoClip> _timelineClips;
-        private double _pixelsPerSecond = 100.0;
+        private double _pixelsPerSecond = 10.0;
         private LibVLC _libVLC;
 
         public ObservableCollection<VideoClip> TimelineClips
