@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using System.Windows.Data;
+using VideoEditor.ViewModels;
 
 namespace VideoEditor.Common
 {
@@ -26,8 +27,46 @@ namespace VideoEditor.Common
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            // 이 시나리오에서는 역변환이 필요하지 않습니다. (UI 텍스트를 밀리초로)
             throw new NotImplementedException();
+        }
+
+        public class TimeToPixelConverter : IValueConverter
+        {
+            public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            {
+                if (value is double seconds && App.Current.MainWindow is MainWindow mainWindow)
+                {
+                    var viewModel = mainWindow.DataContext as MainViewModel;
+                    if (viewModel != null)
+                    {
+                        return seconds * viewModel.VideoEditor.PixelsPerSecond;
+                    }
+                }
+                return 0.0;
+            }
+
+            public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            {
+                throw new NotImplementedException();
+            }
+        }
+        public class TrackToPositionConverter : IValueConverter
+        {
+            private const double TrackHeight = 60.0;
+
+            public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            {
+                if (value is int trackIndex)
+                {
+                    return trackIndex * TrackHeight;
+                }
+                return 0.0;
+            }
+
+            public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            {
+                throw new NotImplementedException();
+            }
         }
     }
 }

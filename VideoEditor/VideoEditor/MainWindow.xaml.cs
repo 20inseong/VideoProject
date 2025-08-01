@@ -44,11 +44,6 @@ namespace VideoEditor
                 RulerScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset);
             };
 
-            ThumbnailItemsControl.DataContext = _mainViewModel.VideoEditor;
-            ClipsItemsControl.DataContext = _mainViewModel.VideoEditor;
-
-            //_mainViewModel.PlayerViewModel.PropertyChanged += PlayerViewModel_PropertyChanged;
-
             DrawTimelineRuler();
         }
 
@@ -76,26 +71,31 @@ namespace VideoEditor
             }
         }
 
-        private void Timeline_Drop(object sender, DragEventArgs e) 
+        private async void Timeline_Drop(object sender, DragEventArgs e) 
         {
             if (e.Data.GetDataPresent("Myvideo"))
             {
                 Myvideo droppedVideo = e.Data.GetData("Myvideo") as Myvideo;
-                if (droppedVideo != null)
-                {
-                    Point dropPosition = e.GetPosition(TimelineClipsCanvas);
+                if (droppedVideo == null || !System.IO.File.Exists(droppedVideo.FullPath)) return;
 
-                    _mainViewModel.VideoEditor.AddVideoClip(droppedVideo, dropPosition.X);
+                try
+                    {
+                    Point dropPosition = e.GetPosition(TimelineClipsCanvas);
+                    double startTimeInSeconds = dropPosition.X / _mainViewModel.VideoEditor.PixelsPerSecond;
+
+                    await _mainViewModel.VideoEditor.AddVideoClip(droppedVideo, startTimeInSeconds);
+
+                    StatusTextBlock.Text = $"'{droppedVideo.Title}' 클립이 타임라인에 추가되었습니다.";
 
                     _mainViewModel.PlayerViewModel.LoadMedia(droppedVideo.FullPath);
                     _mainViewModel.PlayerViewModel.MediaPlayer.Play();
-
-                    // 상태 표시 업데이트
-                    //StatusTextBlock.Text = $" 타임라인에 추가되었습니다. 재생을 시작합니다.";
-
-                }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"클립 추가 중 오류 발생: {ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                    e.Handled = true; // 이벤트 처리 완료
             }
-            e.Handled = true; // 이벤트 처리 완료
         }
 
         private void Timeline_DragOver(object sender, DragEventArgs e) 

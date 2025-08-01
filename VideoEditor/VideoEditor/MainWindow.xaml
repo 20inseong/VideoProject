@@ -18,6 +18,8 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <Common:TimeConverter x:Key="Converter" />
+        <Common:TimeConverter x:Key="TimeToPixelConverter" />
+        <Common:TimeConverter x:Key="TrackToPositionConverter" />
     </Window.Resources>
 
     <WindowChrome.WindowChrome>
@@ -327,9 +329,30 @@ BorderThickness="1">
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <StackPanel>
-                                                <Image Source="{Binding Image}" Width="120" Height="80"/>
-                                            </StackPanel>
+                                            <Border Width="{Binding Width}" Height="50"
+                                                    BorderBrush="Black" BorderThickness="1"
+                                                    CornerRadius="3" ClipToBounds="True">
+
+                                                <!-- 핵심: Border의 배경을 ImageBrush로 설정 -->
+                                                <Border.Background>
+                                                    <ImageBrush ImageSource="{Binding Thumbnail}"
+                                                                TileMode="Tile"
+                                                                Stretch="UniformToFill"
+                                                                ViewportUnits="Absolute"
+                                                                Viewport="0,0,80,50" />
+                                                </Border.Background>
+
+                                                <!-- 텍스트 가독성을 위한 반투명 오버레이와 텍스트들 -->
+                                                <Grid>
+                                                    <Rectangle Fill="#60000000" />
+                                                    <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold"
+                                                               VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                                                    <!-- StringFormat을 사용하여 시간을 분:초 형식으로 표시 -->
+                                                    <TextBlock Text="{Binding Duration, StringFormat='{}{0:mm\\:ss}'}"
+                                                               Foreground="White" VerticalAlignment="Bottom" HorizontalAlignment="Right"
+                                                               Margin="0,0,8,5" FontSize="10"/>     
+                                                </Grid>
+                                            </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
@@ -351,23 +374,28 @@ BorderThickness="1">
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemContainerStyle>
                                             <Style TargetType="ContentPresenter">
-                                                
+                                                <Setter Property="Canvas.Left" Value="{Binding StartPosition, Converter={StaticResource TimeToPixelConverter}}"/>
+                                                <Setter Property="Canvas.Top" Value="{Binding TrackIndex, Converter={StaticResource TrackToPositionConverter}}"/>
                                             </Style>
                                         </ItemsControl.ItemContainerStyle>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Border Width="{Binding Width}" Height="50"
-                                                        Background="#4A6D8C"
                                                         BorderBrush="Black"
-                                                        BorderThickness="1">
+                                                        BorderThickness="1"
+                                                        CornerRadius="3" ClipToBounds="True">
+                                                    <Border.Background>
+                                                        <ImageBrush ImageSource="{Binding Thumbnail}"
+                                                                    TileMode="Tile" Stretch="UniformToFill"
+                                                                    ViewportUnits="Absolute" Viewport="0,0,80,50" />
+                                                    </Border.Background>
                                                     <Grid>
-                                                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" Opacity="0.7"/>
+                                                        <Rectangle Fill="#60000000" />
                                                         <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold"
-                                                                   VerticalAlignment="Top" HorizontalAlignment="Left" Margin="5,5,0,0"
-                                                                   Background="#4A000000"/> 
-                                                        <TextBlock Text="{Binding Duration, StringFormat='{}{0:00}:{1:00}'}"
-                                                                   Foreground="White" VerticalAlignment="Bottom" HorizontalAlignment="Right"
-                                                                   Margin="0,0,5,5" Background="#4A000000"/>
+                               VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                                                        <TextBlock Text="{Binding Duration, StringFormat='{}{0:mm\\:ss}'}"
+                               Foreground="White" VerticalAlignment="Bottom" HorizontalAlignment="Right"
+                               Margin="0,0,8,5" FontSize="10"/>
                                                     </Grid>
                                                 </Border>
                                             </DataTemplate>
