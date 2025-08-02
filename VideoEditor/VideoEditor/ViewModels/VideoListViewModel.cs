@@ -34,26 +34,16 @@ namespace VideoEditor.ViewModels
             }
         }
 
-        // 비디오 추가를 위한 Command (옵션: 직접 파일을 열어 추가하는 경우)
         public ICommand AddVideoCommand { get; }
 
         public VideoListViewModel()
         {
             MyVideoes = new ObservableCollection<Myvideo>();
-            // AddVideoCommand = new RelayCommand(ExecuteAddVideo); // 필요한 경우 주석 해제하여 사용
         }
 
-        // 비디오 아이템을 목록에 추가하는 메서드 (외부에서 호출될 수 있음)
         public void AddVideo(Myvideo videoItem)
         {
             MyVideoes.Add(videoItem);
         }
-
-        // AddVideoCommand를 위한 실행 메서드 (필요한 경우)
-        // private void ExecuteAddVideo(object? parameter)
-        // {
-        //     // 파일 다이얼로그를 열어 비디오 선택 후 목록에 추가하는 로직
-        //     // 이 예시에서는 MainWindow에서 파일 선택 로직을 직접 처리하므로 사용하지 않습니다.
-        // }
     }
 }

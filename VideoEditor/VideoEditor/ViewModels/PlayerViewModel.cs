@@ -103,8 +103,7 @@ namespace VideoEditor.ViewModels
                 MediaPlayer.Stop();
             };
             MediaPlayer.TimeChanged += (s, e) => {
-                // MediaPlayer에서 시간이 변경될 때 CurrentTime 업데이트 (슬라이더와 텍스트에 반영됨)
-                if (Math.Abs(_currentTime - e.Time) > 50) // 50ms 오차 허용 (무한 루프 방지)
+                if (Math.Abs(_currentTime - e.Time) > 50)
                 {
                     CurrentTime = e.Time;
                 }
@@ -150,7 +149,8 @@ namespace VideoEditor.ViewModels
         private void ExecuteStop(object? parameter)
         {
             MediaPlayer.Stop();
-        }virtual 
+            CurrentTime = 0;
+        }
 
         public bool CanExecuteStop(object? parameter)
         {

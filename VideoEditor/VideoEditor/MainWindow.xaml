@@ -18,8 +18,8 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <Common:TimeConverter x:Key="Converter" />
-        <Common:TimeConverter x:Key="TimeToPixelConverter" />
-        <Common:TimeConverter x:Key="TrackToPositionConverter" />
+        <Common:TimeToPixelConverter x:Key="TimeToPixelConverter" />
+        <Common:TrackToPositionConverter x:Key="TrackToPositionConverter" />
     </Window.Resources>
 
     <WindowChrome.WindowChrome>
@@ -291,117 +291,74 @@ BorderThickness="1">
 
                         <!-- ✅ (2) 시간 눈금자 -->
                         <ScrollViewer x:Name="RulerScrollViewer"
-              Grid.Row="1"
-              HorizontalScrollBarVisibility="Hidden"
-              VerticalScrollBarVisibility="Disabled"
-              Height="60"
-              Background="Transparent"
-              IsHitTestVisible="False">
+                                      Grid.Row="1"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      Height="60"
+                                      Background="Transparent"
+                                      IsHitTestVisible="False">
                             <Canvas x:Name="TimelineRulerCanvas"
-            Height="60"
-            Panel.ZIndex="5"
-            Background="Transparent"/>
+                                    Height="60"
+                                    Panel.ZIndex="5"
+                                    Background="Transparent"/>
                         </ScrollViewer>
 
-                        <!-- ✅ (3) 타임라인 클립 + 플레이헤드 -->
                         <ScrollViewer x:Name="TimelineScrollViewer"
                                       Grid.Row="2"
                                       HorizontalScrollBarVisibility="Auto"
-                                      VerticalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Auto"
                                       AllowDrop="True"
                                       Background="Transparent">
-                            <Grid x:Name="TimelineCanvas" Height="300" Background="Transparent">
 
-                                <!-- 플레이헤드 -->
+                            <!-- 모든 타임라인 요소를 담을 Grid -->
+                            <Grid x:Name="TimelineCanvas" Height="300" Background="Transparent"
+                                          AllowDrop="True"
+                                          Drop="Timeline_Drop"
+                                          DragOver="Timeline_DragOver">
+
+                                <!-- 플레이헤드 (가장 위에 표시되도록 ZIndex 높게 설정) -->
                                 <Canvas x:Name="PlayheadCanvas"
                                         Height="300"
                                         IsHitTestVisible="False"
                                         Panel.ZIndex="20"/>
 
-                                <!-- 썸네일 -->
-                                <ItemsControl x:Name="ThumbnailItemsControl"
-                                              ItemsSource="{Binding VideoEditor.Thumbnails}"
-                                              Panel.ZIndex="0">
+                                <!-- ✅ 클립을 표시할 단 하나의 ItemsControl -->
+                                <ItemsControl x:Name="ClipsItemsControl" ItemsSource="{Binding VideoEditor.TimelineClips}" Panel.ZIndex="10">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <StackPanel Orientation="Horizontal"/>
+                                            <Canvas />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
+
+                                    <!-- ✅ 각 클립의 위치를 지정하는 규칙 (가장 중요한 부분!) -->
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <Setter Property="Canvas.Left" Value="{Binding StartPosition, Converter={StaticResource TimeToPixelConverter}}"/>
+                                            <Setter Property="Canvas.Top" Value="{Binding TrackIndex, Converter={StaticResource TrackToPositionConverter}}"/>
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
+
+                                    <!-- ✅ 각 클립의 모양(디자인)을 정의 -->
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Width="{Binding Width}" Height="50"
                                                     BorderBrush="Black" BorderThickness="1"
                                                     CornerRadius="3" ClipToBounds="True">
-
-                                                <!-- 핵심: Border의 배경을 ImageBrush로 설정 -->
                                                 <Border.Background>
                                                     <ImageBrush ImageSource="{Binding Thumbnail}"
-                                                                TileMode="Tile"
-                                                                Stretch="UniformToFill"
-                                                                ViewportUnits="Absolute"
-                                                                Viewport="0,0,80,50" />
+                                                                TileMode="Tile" Stretch="UniformToFill"
+                                                                ViewportUnits="Absolute" Viewport="0,0,80,50" />
                                                 </Border.Background>
-
-                                                <!-- 텍스트 가독성을 위한 반투명 오버레이와 텍스트들 -->
                                                 <Grid>
                                                     <Rectangle Fill="#60000000" />
                                                     <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold"
                                                                VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
-                                                    <!-- StringFormat을 사용하여 시간을 분:초 형식으로 표시 -->
-                                                    <TextBlock Text="{Binding Duration, StringFormat='{}{0:mm\\:ss}'}"
-                                                               Foreground="White" VerticalAlignment="Bottom" HorizontalAlignment="Right"
-                                                               Margin="0,0,8,5" FontSize="10"/>     
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
-                                <!-- 클립 -->
-                                <Canvas x:Name="TimelineClipsCanvas"
-                                        Background="#3B3B3B"
-                                        AllowDrop="True"
-                                        Drop="Timeline_Drop"
-                                        DragOver="Timeline_DragOver"
-                                        Height="300"
-                                        Panel.ZIndex="10">
-                                    <ItemsControl x:Name="ClipsItemsControl"
-                                                  ItemsSource="{Binding VideoEditor.TimelineClips}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <Canvas/>
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemContainerStyle>
-                                            <Style TargetType="ContentPresenter">
-                                                <Setter Property="Canvas.Left" Value="{Binding StartPosition, Converter={StaticResource TimeToPixelConverter}}"/>
-                                                <Setter Property="Canvas.Top" Value="{Binding TrackIndex, Converter={StaticResource TrackToPositionConverter}}"/>
-                                            </Style>
-                                        </ItemsControl.ItemContainerStyle>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Width="{Binding Width}" Height="50"
-                                                        BorderBrush="Black"
-                                                        BorderThickness="1"
-                                                        CornerRadius="3" ClipToBounds="True">
-                                                    <Border.Background>
-                                                        <ImageBrush ImageSource="{Binding Thumbnail}"
-                                                                    TileMode="Tile" Stretch="UniformToFill"
-                                                                    ViewportUnits="Absolute" Viewport="0,0,80,50" />
-                                                    </Border.Background>
-                                                    <Grid>
-                                                        <Rectangle Fill="#60000000" />
-                                                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold"
-                               VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
-                                                        <TextBlock Text="{Binding Duration, StringFormat='{}{0:mm\\:ss}'}"
-                               Foreground="White" VerticalAlignment="Bottom" HorizontalAlignment="Right"
-                               Margin="0,0,8,5" FontSize="10"/>
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </Canvas>
                             </Grid>
                         </ScrollViewer>
                     </Grid>

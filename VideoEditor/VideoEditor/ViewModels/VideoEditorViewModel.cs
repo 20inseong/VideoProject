@@ -37,7 +37,7 @@ namespace VideoEditor.ViewModels
             _libVLC = new LibVLC();
         }
 
-        public async Task AddVideoClip(Myvideo video, double dropPosition)
+        public async Task AddVideoClip(Myvideo video, double dropPosition, int trackIndex)
         {
             double duration = 0;
             BitmapImage thumbnail = null;
@@ -83,26 +83,31 @@ namespace VideoEditor.ViewModels
                 duration = 10;
                 thumbnail = new BitmapImage();
             }
-                //double startTimeInSeconds = dropPosition / PixelsPerSecond;
 
+            var clipsOnTrack = this.TimelineClips.Where(c => c.TrackIndex == trackIndex);
+            double newStartPosition = 0;
+
+            if (clipsOnTrack.Any())
+            {
+                newStartPosition = clipsOnTrack.Max(c => c.StartPosition + c.Duration);
+            }
 
             VideoClip newClip = new VideoClip
             {
                 Name = video.Title,
                 VideoPath = video.FullPath,
                 Duration = duration,
-                StartPosition = dropPosition,
+                StartPosition = newStartPosition,
                 Width = duration * this.PixelsPerSecond,
                 Thumbnail = thumbnail,
                 Category = video.Category,
-                TrackIndex = 0
+                TrackIndex = trackIndex
             };
 
             TimelineClips.Add(newClip);
             Console.WriteLine($"클립 추가됨: {newClip.Name}, 시작 위치: {newClip.StartPosition}초, 길이: {newClip.Duration}초");
         }
 
-             // LibVLC 인스턴스 정리
         public void Dispose()
         {
             _libVLC?.Dispose();

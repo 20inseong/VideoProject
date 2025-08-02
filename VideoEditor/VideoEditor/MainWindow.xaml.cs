@@ -32,12 +32,10 @@ namespace VideoEditor
 
             videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MediaPlayer;
 
-            // 창이 완전히 로드된 후 초기화 작업을 수행하도록 이벤트를 연결합니다.
             this.Loaded += MainWindow_Loaded;
-            // MediaPlayer의 시간이 바뀔 때마다 플레이헤드를 업데이트하도록 이벤트를 연결합니다.
             _mainViewModel.PlayerViewModel.MediaPlayer.TimeChanged += MediaPlayer_TimeChanged;
-            // MediaPlayer의 전체 길이가 바뀔 때마다 눈금자를 업데이트하도록 이벤트를 연결합니다.
             _mainViewModel.PlayerViewModel.MediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
+            _mainViewModel.PlayerViewModel.MediaPlayer.Stopped += MediaPlayer_Stopped;
 
             TimelineScrollViewer.ScrollChanged += (s, e) =>
             {
@@ -51,23 +49,29 @@ namespace VideoEditor
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
             openFileDialog.Filter = "Media files (*.mp4;*.avi;*.mkv;*.mov)|*.mp4;*.avi;*.mkv;*.mov|All files (*.*)|*.*";
+            openFileDialog.Multiselect = true;
 
             if (openFileDialog.ShowDialog() == true)
             {
-                string videoPath = openFileDialog.FileName;
-                string videoTitle = System.IO.Path.GetFileNameWithoutExtension(videoPath);
-
-                Myvideo newVideo = new Myvideo
+                foreach (string videoPath in openFileDialog.FileNames)
                 {
-                    Title = videoTitle,
-                    FullPath = videoPath,
-                    Category = "사용자 추가"
-                };
+                    string videoTitle = System.IO.Path.GetFileNameWithoutExtension(videoPath);
 
-                _mainViewModel.VideoList.AddVideo(newVideo);
-                _mainViewModel.VideoList.SelectedVideoItem = newVideo;
+                    Myvideo newVideo = new Myvideo
+                    {
+                        Title = videoTitle,
+                        FullPath = videoPath,
+                        Category = "사용자 추가"
+                    };
 
-                //StatusTextBlock.Text = $"미디어가 목록에 추가되었습니다.";
+                    _mainViewModel.VideoList.AddVideo(newVideo);
+                }
+
+                if (openFileDialog.FileNames.Any())
+                {
+                    _mainViewModel.VideoList.SelectedVideoItem = _mainViewModel.VideoList.MyVideoes.LastOrDefault();
+                    StatusTextBlock.Text = $"{openFileDialog.FileNames.Length}개의 미디어가 목록에 추가되었습니다.";
+                }
             }
         }
 
@@ -80,10 +84,15 @@ namespace VideoEditor
 
                 try
                     {
-                    Point dropPosition = e.GetPosition(TimelineClipsCanvas);
+                    Point dropPosition = e.GetPosition(TimelineCanvas);
                     double startTimeInSeconds = dropPosition.X / _mainViewModel.VideoEditor.PixelsPerSecond;
+                    
+                    int trackIndex = (int)(dropPosition.Y / 60.0);
+                    trackIndex = Math.Clamp(trackIndex, 0, 4);
 
-                    await _mainViewModel.VideoEditor.AddVideoClip(droppedVideo, startTimeInSeconds);
+                    Console.WriteLine($"[Drop LOG] 계산된 TrackIndex: {trackIndex}");
+
+                    await _mainViewModel.VideoEditor.AddVideoClip(droppedVideo, startTimeInSeconds, trackIndex);
 
                     StatusTextBlock.Text = $"'{droppedVideo.Title}' 클립이 타임라인에 추가되었습니다.";
 
@@ -114,9 +123,29 @@ namespace VideoEditor
         private void VideoList_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e) 
         {
             _dragStartPoint = e.GetPosition(null); // 마우스 클릭 시작 지점 저장
-            ListBox parent = (ListBox)sender;
-            _draggedVideo = parent.SelectedItem as Myvideo; // 드래그할 Myvideo 객체 저장
+            if (e.OriginalSource is DependencyObject source)
+            {
+                // 찾은 UI 요소에서 가장 가까운 ListBoxItem을 찾습니다.
+                var listBoxItem = FindParent<ListBoxItem>(source);
+                if (listBoxItem != null)
+                {
+                    // 그 ListBoxItem에 해당하는 Myvideo 객체를 드래그 대상으로 확정합니다.
+                    _draggedVideo = listBoxItem.DataContext as Myvideo;
+                }
+            }
         }
+
+        private static T FindParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            DependencyObject parentObject = VisualTreeHelper.GetParent(child);
+            if (parentObject == null) return null;
+            T parent = parentObject as T;
+            if (parent != null)
+                return parent;
+            else
+                return FindParent<T>(parentObject);
+        }
+
         private void VideoList_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e) 
         {
             if (e.LeftButton == MouseButtonState.Pressed && _draggedVideo != null)
@@ -139,22 +168,17 @@ namespace VideoEditor
 
         private void DrawTimelineRuler()
         {
-            if (TimelineRulerCanvas == null || ThumbnailItemsControl == null) return;
+            if (TimelineRulerCanvas == null) return;
 
             TimelineRulerCanvas.Children.Clear();
 
             double pixelsPerSecond = _mainViewModel.VideoEditor.PixelsPerSecond;
-            double totalDuration = _currentTimelineDurationSec; // VideoEditor의 변수 이름 사용
+            double totalDuration = _currentTimelineDurationSec;
             double totalWidth = totalDuration * pixelsPerSecond;
 
             TimelineRulerCanvas.Width = totalWidth;
+            TimelineCanvas.Width = totalWidth;
 
-            if (ThumbnailItemsControl != null)
-            {
-                ThumbnailItemsControl.Width = totalWidth;
-            }
-
-            // 1초마다 얇은 선, 5초마다 굵은 선+숫자
             for (int sec = 0; sec <= totalDuration; sec++)
             {
                 double x = sec * pixelsPerSecond;
@@ -187,10 +211,6 @@ namespace VideoEditor
                 }
             }
         }
-        //private void TimelineClipsCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
-        //{
-        //    DrawTimelineRuler();
-        //}
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
@@ -237,23 +257,16 @@ namespace VideoEditor
             });
         }
 
-        //private void PlayerViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
-        //{
-        //    if (e.PropertyName == nameof(PlayerViewModel.TotalDuration))
-        //    {
-        //        Dispatcher.Invoke(() =>
-        //        {
-        //            long totalMilliseconds = _mainViewModel.PlayerViewModel.TotalDuration;
-
-        //            double totalSeconds = totalMilliseconds / 1000.0;
-
-        //            if (totalSeconds > 0)
-        //            {
-        //                _currentVideoLengthSec = totalSeconds;
-        //                DrawTimelineRuler();
-        //            }
-        //        });
-        //    }
-        //}
+        private void MediaPlayer_Stopped(object? sender, EventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (_playheadLine != null)
+                {
+                    _playheadLine.X1 = 0;
+                    _playheadLine.X2 = 0;
+                }
+            });
+        }
     }
 }
