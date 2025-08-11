@@ -204,7 +204,7 @@
           }
         }
       },
-      "LibVLCSharp/3.9.3": {
+      "LibVLCSharp/3.9.4": {
         "dependencies": {
           "System.Net.Http": "4.3.4",
           "System.Private.Uri": "4.3.2",
@@ -212,19 +212,19 @@
         },
         "runtime": {
           "lib/net8.0/LibVLCSharp.dll": {
-            "assemblyVersion": "3.9.3.0",
-            "fileVersion": "3.9.3.0"
+            "assemblyVersion": "3.9.4.0",
+            "fileVersion": "3.9.4.0"
           }
         }
       },
-      "LibVLCSharp.WPF/3.9.3": {
+      "LibVLCSharp.WPF/3.9.4": {
         "dependencies": {
-          "LibVLCSharp": "3.9.3"
+          "LibVLCSharp": "3.9.4"
         },
         "runtime": {
           "lib/net6.0-windows7.0/LibVLCSharp.WPF.dll": {
-            "assemblyVersion": "3.9.3.0",
-            "fileVersion": "3.9.3.0"
+            "assemblyVersion": "3.9.4.0",
+            "fileVersion": "3.9.4.0"
           }
         }
       },
@@ -243,6 +243,14 @@
             "assetType": "runtime",
             "assemblyVersion": "9.0.0.0",
             "fileVersion": "9.0.24.52809"
+          }
+        }
+      },
+      "Microsoft.Xaml.Behaviors.Wpf/1.1.135": {
+        "runtime": {
+          "lib/net6.0-windows7.0/Microsoft.Xaml.Behaviors.dll": {
+            "assemblyVersion": "1.1.0.0",
+            "fileVersion": "1.1.135.29210"
           }
         }
       },
@@ -1040,19 +1048,19 @@
       "path": "emgu.runtime.windows.msvc.rt.x86/19.44.35207.1",
       "hashPath": "emgu.runtime.windows.msvc.rt.x86.19.44.35207.1.nupkg.sha512"
     },
-    "LibVLCSharp/3.9.3": {
+    "LibVLCSharp/3.9.4": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-af6EBu2bQksw3u6WQ6f18aJN7GenOMmGY8WAAVr2p2RCESg5Usau1/8yxWIJCjsasUY5wQjKAKdVpGpvGFtP+g==",
-      "path": "libvlcsharp/3.9.3",
-      "hashPath": "libvlcsharp.3.9.3.nupkg.sha512"
+      "sha512": "sha512-SmapcnMarT7eoiZeSIq0UhTrK/fdw+NDodfMft/S4Bnqlnz98zYtaAsQ3fO9U+O2KZKrOOf0R3jONUEShpjK4g==",
+      "path": "libvlcsharp/3.9.4",
+      "hashPath": "libvlcsharp.3.9.4.nupkg.sha512"
     },
-    "LibVLCSharp.WPF/3.9.3": {
+    "LibVLCSharp.WPF/3.9.4": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-Kh7Zz2ItFzrI0vgWF7qT7rHl4+KWsxmqLy3K7DD9Pm7xDIbmheL7P+cHJhgvCPTT2qtEniCD13ctiDe5sDvh2Q==",
-      "path": "libvlcsharp.wpf/3.9.3",
-      "hashPath": "libvlcsharp.wpf.3.9.3.nupkg.sha512"
+      "sha512": "sha512-mU575rJM02MtTXqZG1sYiJF5DpPO6HRFKIYGFK0R9m0BRQKNvbYgIk6FkJPt6OC1Y04WAz+JykYz/MBBJfdpSw==",
+      "path": "libvlcsharp.wpf/3.9.4",
+      "hashPath": "libvlcsharp.wpf.3.9.4.nupkg.sha512"
     },
     "Microsoft.NETCore.Platforms/1.1.1": {
       "type": "package",
@@ -1074,6 +1082,13 @@
       "sha512": "sha512-z8FfGIaoeALdD+KF44A2uP8PZIQQtDGiXsOLuN8nohbKhkyKt7zGaZb+fKiCxTuBqG22Q7myIAioSWaIcOOrOw==",
       "path": "microsoft.win32.systemevents/9.0.0",
       "hashPath": "microsoft.win32.systemevents.9.0.0.nupkg.sha512"
+    },
+    "Microsoft.Xaml.Behaviors.Wpf/1.1.135": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-r8qBEXmQfORso2+MVHnt8PSH4761zJ0SIxgQTSEDVLU97EN2FZdG6/ZCYUPhQy+OrPKgnpYBCAs3PS6Bs7wRsg==",
+      "path": "microsoft.xaml.behaviors.wpf/1.1.135",
+      "hashPath": "microsoft.xaml.behaviors.wpf.1.1.135.nupkg.sha512"
     },
     "runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl/4.3.2": {
       "type": "package",

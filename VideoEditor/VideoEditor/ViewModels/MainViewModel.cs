@@ -28,6 +28,15 @@ namespace VideoEditor.ViewModels
             VideoList = new VideoListViewModel();
             VideoEditor = new VideoEditorViewModel();
 
+            VideoEditor.OnClipAdded += MainViewModel_OnClipAdded;
+        }
+
+        private void MainViewModel_OnClipAdded(object? sender, ClipAddedEventArgs e)
+        {
+            PlayerViewModel.LoadMedia(e.VideoPath);
+            PlayerViewModel.MediaPlayer.Play();
+
+            // StatusMessage = $"'{System.IO.Path.GetFileNameWithoutExtension(e.VideoPath)}' 클립 재생을 시작합니다.";
         }
     }
 }

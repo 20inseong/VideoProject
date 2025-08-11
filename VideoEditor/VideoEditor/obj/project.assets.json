@@ -184,7 +184,7 @@
           }
         }
       },
-      "LibVLCSharp/3.9.3": {
+      "LibVLCSharp/3.9.4": {
         "type": "package",
         "dependencies": {
           "System.Net.Http": "4.3.4",
@@ -202,10 +202,10 @@
           }
         }
       },
-      "LibVLCSharp.WPF/3.9.3": {
+      "LibVLCSharp.WPF/3.9.4": {
         "type": "package",
         "dependencies": {
-          "LibVLCSharp": "3.9.3"
+          "LibVLCSharp": "3.9.4"
         },
         "compile": {
           "lib/net6.0-windows7.0/LibVLCSharp.WPF.dll": {
@@ -260,6 +260,22 @@
             "rid": "win"
           }
         }
+      },
+      "Microsoft.Xaml.Behaviors.Wpf/1.1.135": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0-windows7.0/Microsoft.Xaml.Behaviors.dll": {
+            "related": ".pdb;.xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0-windows7.0/Microsoft.Xaml.Behaviors.dll": {
+            "related": ".pdb;.xml"
+          }
+        },
+        "frameworkReferences": [
+          "Microsoft.WindowsDesktop.App.WPF"
+        ]
       },
       "runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl/4.3.2": {
         "type": "package",
@@ -1332,10 +1348,10 @@
         "runtimes/win-x86/native/vcruntime140.dll"
       ]
     },
-    "LibVLCSharp/3.9.3": {
-      "sha512": "af6EBu2bQksw3u6WQ6f18aJN7GenOMmGY8WAAVr2p2RCESg5Usau1/8yxWIJCjsasUY5wQjKAKdVpGpvGFtP+g==",
+    "LibVLCSharp/3.9.4": {
+      "sha512": "SmapcnMarT7eoiZeSIq0UhTrK/fdw+NDodfMft/S4Bnqlnz98zYtaAsQ3fO9U+O2KZKrOOf0R3jONUEShpjK4g==",
       "type": "package",
-      "path": "libvlcsharp/3.9.3",
+      "path": "libvlcsharp/3.9.4",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -1380,14 +1396,14 @@
         "lib/xamarinios10/LibVLCSharp.xml",
         "lib/xamarinmac20/LibVLCSharp.dll",
         "lib/xamarinmac20/LibVLCSharp.xml",
-        "libvlcsharp.3.9.3.nupkg.sha512",
+        "libvlcsharp.3.9.4.nupkg.sha512",
         "libvlcsharp.nuspec"
       ]
     },
-    "LibVLCSharp.WPF/3.9.3": {
-      "sha512": "Kh7Zz2ItFzrI0vgWF7qT7rHl4+KWsxmqLy3K7DD9Pm7xDIbmheL7P+cHJhgvCPTT2qtEniCD13ctiDe5sDvh2Q==",
+    "LibVLCSharp.WPF/3.9.4": {
+      "sha512": "mU575rJM02MtTXqZG1sYiJF5DpPO6HRFKIYGFK0R9m0BRQKNvbYgIk6FkJPt6OC1Y04WAz+JykYz/MBBJfdpSw==",
       "type": "package",
-      "path": "libvlcsharp.wpf/3.9.3",
+      "path": "libvlcsharp.wpf/3.9.4",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -1399,7 +1415,7 @@
         "lib/net6.0-windows7.0/LibVLCSharp.WPF.xml",
         "lib/netcoreapp3.1/LibVLCSharp.WPF.dll",
         "lib/netcoreapp3.1/LibVLCSharp.WPF.xml",
-        "libvlcsharp.wpf.3.9.3.nupkg.sha512",
+        "libvlcsharp.wpf.3.9.4.nupkg.sha512",
         "libvlcsharp.wpf.nuspec"
       ]
     },
@@ -1463,6 +1479,28 @@
         "runtimes/win/lib/net9.0/Microsoft.Win32.SystemEvents.dll",
         "runtimes/win/lib/net9.0/Microsoft.Win32.SystemEvents.xml",
         "useSharedDesignerContext.txt"
+      ]
+    },
+    "Microsoft.Xaml.Behaviors.Wpf/1.1.135": {
+      "sha512": "r8qBEXmQfORso2+MVHnt8PSH4761zJ0SIxgQTSEDVLU97EN2FZdG6/ZCYUPhQy+OrPKgnpYBCAs3PS6Bs7wRsg==",
+      "type": "package",
+      "path": "microsoft.xaml.behaviors.wpf/1.1.135",
+      "hasTools": true,
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "lib/net462/Design/Microsoft.Xaml.Behaviors.Design.dll",
+        "lib/net462/Design/Microsoft.Xaml.Behaviors.DesignTools.dll",
+        "lib/net462/Microsoft.Xaml.Behaviors.dll",
+        "lib/net462/Microsoft.Xaml.Behaviors.pdb",
+        "lib/net462/Microsoft.Xaml.Behaviors.xml",
+        "lib/net6.0-windows7.0/Design/Microsoft.Xaml.Behaviors.DesignTools.dll",
+        "lib/net6.0-windows7.0/Microsoft.Xaml.Behaviors.dll",
+        "lib/net6.0-windows7.0/Microsoft.Xaml.Behaviors.pdb",
+        "lib/net6.0-windows7.0/Microsoft.Xaml.Behaviors.xml",
+        "microsoft.xaml.behaviors.wpf.1.1.135.nupkg.sha512",
+        "microsoft.xaml.behaviors.wpf.nuspec",
+        "tools/Install.ps1"
       ]
     },
     "runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl/4.3.2": {
@@ -4960,7 +4998,8 @@
       "Emgu.CV >= 4.11.0.5746",
       "Emgu.CV.Bitmap >= 4.11.0.5746",
       "Emgu.CV.runtime.windows >= 4.11.0.5746",
-      "LibVLCSharp.WPF >= 3.9.3",
+      "LibVLCSharp.WPF >= 3.9.4",
+      "Microsoft.Xaml.Behaviors.Wpf >= 1.1.135",
       "VideoLAN.LibVLC.Windows >= 3.0.21",
       "WPF-UI >= 4.0.3"
     ]
@@ -5030,7 +5069,11 @@
           },
           "LibVLCSharp.WPF": {
             "target": "Package",
-            "version": "[3.9.3, )"
+            "version": "[3.9.4, )"
+          },
+          "Microsoft.Xaml.Behaviors.Wpf": {
+            "target": "Package",
+            "version": "[1.1.135, )"
           },
           "VideoLAN.LibVLC.Windows": {
             "target": "Package",

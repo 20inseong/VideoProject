@@ -1,22 +1,37 @@
 ﻿using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Drawing.Imaging;
+using System.IO;
 using System.Runtime.CompilerServices;
+using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media.Imaging;
-using VideoEditor.Models;
+using Emgu.CV;
 using LibVLCSharp.Shared;
 using VideoEditor.Common;
-using Emgu.CV;
-using System.IO;
-using System.Drawing.Imaging;
+using VideoEditor.Models;
+using Wpf.Ui.Input;
 
 namespace VideoEditor.ViewModels
 {
+    public class ClipAddedEventArgs : EventArgs
+    {
+        public string VideoPath { get; }
+        public ClipAddedEventArgs(string videoPath)
+        {
+            VideoPath = videoPath;
+        }
+    }
+
     public class VideoEditorViewModel : ViewModelBase
     {
         private ObservableCollection<VideoClip> _timelineClips;
         private double _pixelsPerSecond = 10.0;
         private LibVLC _libVLC;
+        public event EventHandler<ClipAddedEventArgs>? OnClipAdded;
+        public ICommand DropOnTimelineCommand { get; }
+
 
         public ObservableCollection<VideoClip> TimelineClips
         {
@@ -35,6 +50,38 @@ namespace VideoEditor.ViewModels
             TimelineClips = new ObservableCollection<VideoClip>();
             Core.Initialize();
             _libVLC = new LibVLC();
+
+            DropOnTimelineCommand = new RelayCommand<DragEventArgs>(ExecuteDropOnTimeline);
+        }
+
+        private async void ExecuteDropOnTimeline(DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent("Myvideo"))
+            {
+                Myvideo droppedVideo = e.Data.GetData("Myvideo") as Myvideo;
+                if (droppedVideo == null || !System.IO.File.Exists(droppedVideo.FullPath)) return;
+
+                if (e.Source is FrameworkElement dropTarget)
+                {
+                    try
+                    {
+                        Point dropPosition = e.GetPosition(dropTarget);
+                        double startTimeInSeconds = dropPosition.X / this.PixelsPerSecond;
+
+                        int trackIndex = (int)(dropPosition.Y / 60.0);
+                        trackIndex = Math.Clamp(trackIndex, 0, 4);
+
+                        Console.WriteLine($"[Drop LOG ViewModel] 계산된 TrackIndex: {trackIndex}");
+
+                        await AddVideoClip(droppedVideo, startTimeInSeconds, trackIndex);
+
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"클립 추가 중 오류 발생: {ex.Message}");
+                    }
+                }
+            }
         }
 
         public async Task AddVideoClip(Myvideo video, double dropPosition, int trackIndex)
@@ -106,6 +153,8 @@ namespace VideoEditor.ViewModels
 
             TimelineClips.Add(newClip);
             Console.WriteLine($"클립 추가됨: {newClip.Name}, 시작 위치: {newClip.StartPosition}초, 길이: {newClip.Duration}초");
+
+            OnClipAdded?.Invoke(this, new ClipAddedEventArgs(newClip.VideoPath));
         }
 
         public void Dispose()

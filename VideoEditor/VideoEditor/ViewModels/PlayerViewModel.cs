@@ -7,6 +7,7 @@ using LibVLCSharp.Shared;
 using System.Windows.Input;
 using VideoEditor.Common;
 using System.ComponentModel;
+using Wpf.Ui.Input;
 
 namespace VideoEditor.ViewModels
 {
@@ -37,7 +38,6 @@ namespace VideoEditor.ViewModels
                 }
             }
         }
-
 
         public string PlayPauseButtonContent => IsPlaying ? "❚❚" : "▶";
 
@@ -87,15 +87,38 @@ namespace VideoEditor.ViewModels
             _libVLC = new LibVLC();
             MediaPlayer = new MediaPlayer(_libVLC);
 
-            PlayPauseCommand = new RelayCommand(ExecutePlayPause);
-            StopCommand = new RelayCommand(ExecuteStop);
+            PlayPauseCommand = new RelayCommand<object>(ExecutePlayPause, CanExecutePlayPause);
+            StopCommand = new RelayCommand<object>(ExecuteStop, CanExecuteStop);
 
-            MediaPlayer.Playing += (s, e) => IsPlaying = true;
-            MediaPlayer.Paused += (s, e) => IsPlaying = false;
+            MediaPlayer.Playing += (s, e) =>
+            {
+                UIDispatcher.Invoke(() =>
+                {
+                    IsPlaying = true;
+                    (PlayPauseCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
+                    (StopCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
+                });
+            };
+
+            MediaPlayer.Paused += (s, e) =>
+            {
+                UIDispatcher.Invoke(() =>
+                {
+                    IsPlaying = false;
+                    (PlayPauseCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
+                    (StopCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
+                });
+            };
+
             MediaPlayer.Stopped += (s, e) =>
             {
-                IsPlaying = false;
-                CurrentTime = 0;
+                UIDispatcher.Invoke(() =>
+                {
+                    IsPlaying = false;
+                    CurrentTime = 0;
+                    (PlayPauseCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
+                    (StopCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
+                });
             };
             MediaPlayer.EndReached += (s, e) =>
             {
@@ -125,11 +148,11 @@ namespace VideoEditor.ViewModels
 
             IsControlBarVisible = true;
 
-            (PlayPauseCommand as RelayCommand)?.RaiseCanExecuteChanged();
-            (StopCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (PlayPauseCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
+            (StopCommand as RelayCommand<object>).NotifyCanExecuteChanged();
         }
 
-        private void ExecutePlayPause(object? parameter)
+        private void ExecutePlayPause(object? _)
         {
             if (MediaPlayer.IsPlaying)
             {
@@ -141,20 +164,23 @@ namespace VideoEditor.ViewModels
             }
         }
 
-        public bool CanExecutePlayPause(object? parameter)
+        public bool CanExecutePlayPause(object? _)
         {
             return MediaPlayer.Media != null;
         }
 
-        private void ExecuteStop(object? parameter)
+        private void ExecuteStop(object? _)
         {
             MediaPlayer.Stop();
             CurrentTime = 0;
         }
 
-        public bool CanExecuteStop(object? parameter)
+        public bool CanExecuteStop(object? _)
         {
-            return MediaPlayer.Media != null && (MediaPlayer.IsPlaying || MediaPlayer.State == VLCState.Paused);
+            //return MediaPlayer.Media != null && (MediaPlayer.IsPlaying || MediaPlayer.State == VLCState.Paused);
+            var state = MediaPlayer.State;
+            return state == VLCState.Playing || state == VLCState.Paused;
+
         }
         public void Dispose()
         {

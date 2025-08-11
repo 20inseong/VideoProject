@@ -7,6 +7,7 @@
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
         xmlns:Common="clr-namespace:VideoEditor.Common"
+        xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
         mc:Ignorable="d"
         Title="MainWindow" Height="800" Width="1500"
         WindowStyle="None"
@@ -313,8 +314,13 @@ BorderThickness="1">
                             <!-- 모든 타임라인 요소를 담을 Grid -->
                             <Grid x:Name="TimelineCanvas" Height="300" Background="Transparent"
                                           AllowDrop="True"
-                                          Drop="Timeline_Drop"
                                           DragOver="Timeline_DragOver">
+                                <b:Interaction.Triggers>
+                                    <b:EventTrigger EventName="Drop">
+                                        <b:InvokeCommandAction Command="{Binding VideoEditor.DropOnTimelineCommand}"
+                                   PassEventArgsToCommand="True" />
+                                    </b:EventTrigger>
+                                </b:Interaction.Triggers>
 
                                 <!-- 플레이헤드 (가장 위에 표시되도록 ZIndex 높게 설정) -->
                                 <Canvas x:Name="PlayheadCanvas"
@@ -323,7 +329,7 @@ BorderThickness="1">
                                         Panel.ZIndex="20"/>
 
                                 <!-- ✅ 클립을 표시할 단 하나의 ItemsControl -->
-                                <ItemsControl x:Name="ClipsItemsControl" ItemsSource="{Binding VideoEditor.TimelineClips}" Panel.ZIndex="10">
+                                <ItemsControl x:Name="ClipsItemsControl" ItemsSource="{Binding VideoEditor.TimelineClips}" Panel.ZIndex="10" Margin="0,10,0,-10">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <Canvas />

@@ -12,7 +12,8 @@
     <PackageReference Include="Emgu.CV" Version="4.11.0.5746" />
     <PackageReference Include="Emgu.CV.Bitmap" Version="4.11.0.5746" />
     <PackageReference Include="Emgu.CV.runtime.windows" Version="4.11.0.5746" />
-    <PackageReference Include="LibVLCSharp.WPF" Version="3.9.3" />
+    <PackageReference Include="LibVLCSharp.WPF" Version="3.9.4" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" />
     <PackageReference Include="WPF-UI" Version="4.0.3" />
   </ItemGroup>

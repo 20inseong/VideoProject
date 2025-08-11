@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "7GktZACmGS4=",
+  "dgSpecHash": "gTlTq37h8PY=",
   "success": true,
   "projectFilePath": "C:\\Users\\94320\\source\\repos\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
   "expectedPackageFiles": [
@@ -10,11 +10,12 @@
     "C:\\Users\\94320\\.nuget\\packages\\emgu.runtime.windows.msvc.rt.arm64\\19.44.35207.1\\emgu.runtime.windows.msvc.rt.arm64.19.44.35207.1.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\emgu.runtime.windows.msvc.rt.x64\\19.44.35207.1\\emgu.runtime.windows.msvc.rt.x64.19.44.35207.1.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\emgu.runtime.windows.msvc.rt.x86\\19.44.35207.1\\emgu.runtime.windows.msvc.rt.x86.19.44.35207.1.nupkg.sha512",
-    "C:\\Users\\94320\\.nuget\\packages\\libvlcsharp\\3.9.3\\libvlcsharp.3.9.3.nupkg.sha512",
-    "C:\\Users\\94320\\.nuget\\packages\\libvlcsharp.wpf\\3.9.3\\libvlcsharp.wpf.3.9.3.nupkg.sha512",
+    "C:\\Users\\94320\\.nuget\\packages\\libvlcsharp\\3.9.4\\libvlcsharp.3.9.4.nupkg.sha512",
+    "C:\\Users\\94320\\.nuget\\packages\\libvlcsharp.wpf\\3.9.4\\libvlcsharp.wpf.3.9.4.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\microsoft.netcore.platforms\\1.1.1\\microsoft.netcore.platforms.1.1.1.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\microsoft.netcore.targets\\1.1.3\\microsoft.netcore.targets.1.1.3.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\microsoft.win32.systemevents\\9.0.0\\microsoft.win32.systemevents.9.0.0.nupkg.sha512",
+    "C:\\Users\\94320\\.nuget\\packages\\microsoft.xaml.behaviors.wpf\\1.1.135\\microsoft.xaml.behaviors.wpf.1.1.135.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\runtime.debian.8-x64.runtime.native.system.security.cryptography.openssl\\4.3.2\\runtime.debian.8-x64.runtime.native.system.security.cryptography.openssl.4.3.2.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\runtime.fedora.23-x64.runtime.native.system.security.cryptography.openssl\\4.3.2\\runtime.fedora.23-x64.runtime.native.system.security.cryptography.openssl.4.3.2.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\runtime.fedora.24-x64.runtime.native.system.security.cryptography.openssl\\4.3.2\\runtime.fedora.24-x64.runtime.native.system.security.cryptography.openssl.4.3.2.nupkg.sha512",

@@ -27,6 +27,7 @@ namespace VideoEditor
         {
             InitializeComponent();
 
+            Common.UIDispatcher.Initialize();
             _mainViewModel = new MainViewModel();
             DataContext = _mainViewModel;
 
@@ -75,51 +76,19 @@ namespace VideoEditor
             }
         }
 
-        private async void Timeline_Drop(object sender, DragEventArgs e) 
-        {
-            if (e.Data.GetDataPresent("Myvideo"))
-            {
-                Myvideo droppedVideo = e.Data.GetData("Myvideo") as Myvideo;
-                if (droppedVideo == null || !System.IO.File.Exists(droppedVideo.FullPath)) return;
-
-                try
-                    {
-                    Point dropPosition = e.GetPosition(TimelineCanvas);
-                    double startTimeInSeconds = dropPosition.X / _mainViewModel.VideoEditor.PixelsPerSecond;
-                    
-                    int trackIndex = (int)(dropPosition.Y / 60.0);
-                    trackIndex = Math.Clamp(trackIndex, 0, 4);
-
-                    Console.WriteLine($"[Drop LOG] 계산된 TrackIndex: {trackIndex}");
-
-                    await _mainViewModel.VideoEditor.AddVideoClip(droppedVideo, startTimeInSeconds, trackIndex);
-
-                    StatusTextBlock.Text = $"'{droppedVideo.Title}' 클립이 타임라인에 추가되었습니다.";
-
-                    _mainViewModel.PlayerViewModel.LoadMedia(droppedVideo.FullPath);
-                    _mainViewModel.PlayerViewModel.MediaPlayer.Play();
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"클립 추가 중 오류 발생: {ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
-                    e.Handled = true; // 이벤트 처리 완료
-            }
-        }
-
         private void Timeline_DragOver(object sender, DragEventArgs e) 
         {
-            // 드래그되는 데이터가 Myvideo 타입인지 확인
             if (e.Data.GetDataPresent("Myvideo"))
             {
-                e.Effects = DragDropEffects.Copy; // 복사 효과 표시
+                e.Effects = DragDropEffects.Copy;
             }
             else
             {
-                e.Effects = DragDropEffects.None; // 드롭 불가
+                e.Effects = DragDropEffects.None;
             }
-            e.Handled = true; // 이벤트 처리 완료
+            e.Handled = true;
         }
+
         private void VideoList_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e) 
         {
             _dragStartPoint = e.GetPosition(null); // 마우스 클릭 시작 지점 저장
