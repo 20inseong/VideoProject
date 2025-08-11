@@ -5,6 +5,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using Emgu.CV;
@@ -30,7 +31,15 @@ namespace VideoEditor.ViewModels
         private double _pixelsPerSecond = 10.0;
         private LibVLC _libVLC;
         public event EventHandler<ClipAddedEventArgs>? OnClipAdded;
+        private VideoClip? _draggedClip;
+
+        private Point _dragStartPoint;
+        private double _originalClipStartPosition;
+        private int _originalClipTrackIndex;
+
         public ICommand DropOnTimelineCommand { get; }
+        public ICommand ClipMouseDownCommand { get; }
+        public ICommand ClipMouseMoveCommand { get; }
 
 
         public ObservableCollection<VideoClip> TimelineClips
@@ -52,11 +61,38 @@ namespace VideoEditor.ViewModels
             _libVLC = new LibVLC();
 
             DropOnTimelineCommand = new RelayCommand<DragEventArgs>(ExecuteDropOnTimeline);
+
+            ClipMouseDownCommand = new RelayCommand<MouseButtonEventArgs>(ExecuteClipMouseDown);
+            ClipMouseMoveCommand = new RelayCommand<MouseEventArgs>(ExecuteClipMouseMove);
         }
 
-        private async void ExecuteDropOnTimeline(DragEventArgs e)
+        private async void ExecuteDropOnTimeline(DragEventArgs? e)
         {
-            if (e.Data.GetDataPresent("Myvideo"))
+            if (e == null) return;
+
+            if (e.Data.GetDataPresent("VideoClip"))
+            {
+                if (e.Data.GetData("VideoClip") is VideoClip droppedClip && e.Source is FrameworkElement dropTarget)
+                {
+                    Point finalDropPosition = e.GetPosition(dropTarget);
+
+                    double deltaX = finalDropPosition.X - _dragStartPoint.X;
+                    double deltaY = finalDropPosition.Y - _dragStartPoint.Y;
+
+                    double deltaTime = deltaX / this.PixelsPerSecond;
+
+                    int deltaTrack = (int)Math.Round(deltaY / 60.0);
+
+                    double newStartPosition = _originalClipStartPosition + deltaTime;
+                    int newTrackIndex = _originalClipTrackIndex + deltaTrack;
+
+                    droppedClip.StartPosition = Math.Max(0, newStartPosition);
+                    droppedClip.TrackIndex = Math.Clamp(newTrackIndex, 0, 4);
+
+                    Console.WriteLine($"[Move LOG] '{droppedClip.Name}' 클립이 위치 {droppedClip.StartPosition}초, 트랙 {droppedClip.TrackIndex}로 이동됨");
+                }
+            }
+            else if (e.Data.GetDataPresent("Myvideo"))
             {
                 Myvideo droppedVideo = e.Data.GetData("Myvideo") as Myvideo;
                 if (droppedVideo == null || !System.IO.File.Exists(droppedVideo.FullPath)) return;
@@ -67,14 +103,9 @@ namespace VideoEditor.ViewModels
                     {
                         Point dropPosition = e.GetPosition(dropTarget);
                         double startTimeInSeconds = dropPosition.X / this.PixelsPerSecond;
-
                         int trackIndex = (int)(dropPosition.Y / 60.0);
                         trackIndex = Math.Clamp(trackIndex, 0, 4);
-
-                        Console.WriteLine($"[Drop LOG ViewModel] 계산된 TrackIndex: {trackIndex}");
-
                         await AddVideoClip(droppedVideo, startTimeInSeconds, trackIndex);
-
                     }
                     catch (Exception ex)
                     {
@@ -83,7 +114,6 @@ namespace VideoEditor.ViewModels
                 }
             }
         }
-
         public async Task AddVideoClip(Myvideo video, double dropPosition, int trackIndex)
         {
             double duration = 0;
@@ -155,6 +185,34 @@ namespace VideoEditor.ViewModels
             Console.WriteLine($"클립 추가됨: {newClip.Name}, 시작 위치: {newClip.StartPosition}초, 길이: {newClip.Duration}초");
 
             OnClipAdded?.Invoke(this, new ClipAddedEventArgs(newClip.VideoPath));
+        }
+
+        private void ExecuteClipMouseDown(MouseButtonEventArgs? e)
+        {
+            if (e == null) return;
+
+            if ((e.Source as FrameworkElement)?.DataContext is VideoClip clickedClip)
+            {
+                _draggedClip = clickedClip;
+                _originalClipStartPosition = clickedClip.StartPosition;
+                _originalClipTrackIndex = clickedClip.TrackIndex;
+
+                var itemsControl = (e.Source as FrameworkElement).FindAncestor<ItemsControl>();
+                if (itemsControl != null)
+                {
+                    _dragStartPoint = e.GetPosition(itemsControl);
+                }
+            }
+        }
+
+        private void ExecuteClipMouseMove(MouseEventArgs? e)
+        {
+            if (e == null || _draggedClip == null || e.LeftButton != MouseButtonState.Pressed) return;
+
+            DataObject dragData = new DataObject("VideoClip", _draggedClip);
+            DragDrop.DoDragDrop((DependencyObject)e.Source, dragData, DragDropEffects.Move);
+
+            _draggedClip = null;
         }
 
         public void Dispose()

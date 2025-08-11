@@ -11,6 +11,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using Microsoft.Win32;
+using VideoEditor.Common;
 using VideoEditor.Models;
 using VideoEditor.ViewModels;
 
@@ -78,7 +79,11 @@ namespace VideoEditor
 
         private void Timeline_DragOver(object sender, DragEventArgs e) 
         {
-            if (e.Data.GetDataPresent("Myvideo"))
+            if (e.Data.GetDataPresent("VideoClip"))
+            {
+                e.Effects = DragDropEffects.Move;
+            }
+            else if (e.Data.GetDataPresent("Myvideo"))
             {
                 e.Effects = DragDropEffects.Copy;
             }
@@ -95,24 +100,13 @@ namespace VideoEditor
             if (e.OriginalSource is DependencyObject source)
             {
                 // 찾은 UI 요소에서 가장 가까운 ListBoxItem을 찾습니다.
-                var listBoxItem = FindParent<ListBoxItem>(source);
+                var listBoxItem = source.FindAncestor<ListBoxItem>();
                 if (listBoxItem != null)
                 {
                     // 그 ListBoxItem에 해당하는 Myvideo 객체를 드래그 대상으로 확정합니다.
                     _draggedVideo = listBoxItem.DataContext as Myvideo;
                 }
             }
-        }
-
-        private static T FindParent<T>(DependencyObject child) where T : DependencyObject
-        {
-            DependencyObject parentObject = VisualTreeHelper.GetParent(child);
-            if (parentObject == null) return null;
-            T parent = parentObject as T;
-            if (parent != null)
-                return parent;
-            else
-                return FindParent<T>(parentObject);
         }
 
         private void VideoList_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e) 
