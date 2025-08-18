@@ -81,6 +81,50 @@ namespace VideoEditor.ViewModels
                 }
             }
         }
+
+        // 배속 관련 속성 추가
+        private float _playbackRate = 1.0f;
+        public float PlaybackRate
+        {
+            get => _playbackRate;
+            set
+            {
+                if (SetProperty(ref _playbackRate, value))
+                {
+                    // 배속 값이 변경될 때 LibVLCSharp의 MediaPlayer 배속도 업데이트
+                    if (MediaPlayer != null)
+                    {
+                        try
+                        {
+                            MediaPlayer.SetRate(value);
+                        }
+                        catch (Exception ex)
+                        {
+                            // 일부 배속 값에서 오류가 발생할 수 있음
+                            System.Diagnostics.Debug.WriteLine($"배속 설정 오류: {ex.Message}");
+                        }
+                    }
+                    
+                    // PlaybackRateText 속성도 함께 업데이트
+                    OnPropertyChanged(nameof(PlaybackRateText));
+                }
+            }
+        }
+
+        // 배속 표시용 문자열 속성
+        public string PlaybackRateText => $"{PlaybackRate:F2}x";
+
+        // 배속 프리셋 명령들
+        public ICommand SetSpeed05Command { get; }
+        public ICommand SetSpeed075Command { get; }
+        public ICommand SetSpeed1Command { get; }
+        public ICommand SetSpeed125Command { get; }
+        public ICommand SetSpeed15Command { get; }
+        public ICommand SetSpeed2Command { get; }
+        public ICommand SetSpeed5Command { get; }
+        public ICommand SetSpeed10Command { get; }
+        public ICommand SetSpeed25Command { get; }
+
         public PlayerViewModel()
         {
             Core.Initialize();
@@ -89,6 +133,17 @@ namespace VideoEditor.ViewModels
 
             PlayPauseCommand = new RelayCommand<object>(ExecutePlayPause, CanExecutePlayPause);
             StopCommand = new RelayCommand<object>(ExecuteStop, CanExecuteStop);
+
+            // 배속 프리셋 명령들 초기화
+            SetSpeed05Command = new RelayCommand<object>(_ => SetPlaybackRate(0.5f));
+            SetSpeed075Command = new RelayCommand<object>(_ => SetPlaybackRate(0.75f));
+            SetSpeed1Command = new RelayCommand<object>(_ => SetPlaybackRate(1.0f));
+            SetSpeed125Command = new RelayCommand<object>(_ => SetPlaybackRate(1.25f));
+            SetSpeed15Command = new RelayCommand<object>(_ => SetPlaybackRate(1.5f));
+            SetSpeed2Command = new RelayCommand<object>(_ => SetPlaybackRate(2.0f));
+            SetSpeed5Command = new RelayCommand<object>(_ => SetPlaybackRate(5.0f));
+            SetSpeed10Command = new RelayCommand<object>(_ => SetPlaybackRate(10.0f));
+            SetSpeed25Command = new RelayCommand<object>(_ => SetPlaybackRate(25.0f));
 
             MediaPlayer.Playing += (s, e) =>
             {
@@ -135,6 +190,12 @@ namespace VideoEditor.ViewModels
             MediaPlayer.Volume = _volume;
         }
 
+        // 배속 설정 메서드
+        private void SetPlaybackRate(float rate)
+        {
+            PlaybackRate = rate;
+        }
+
         public void LoadMedia(string filePath)
         {
             if (MediaPlayer.Media != null)
@@ -145,6 +206,9 @@ namespace VideoEditor.ViewModels
             }
             var media = new Media(_libVLC, new Uri(filePath));
             MediaPlayer.Media = media;
+
+            // 미디어 로드 후 기본 배속으로 설정
+            PlaybackRate = 1.0f;
 
             IsControlBarVisible = true;
 
