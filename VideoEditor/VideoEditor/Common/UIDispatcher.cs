@@ -19,5 +19,11 @@ namespace VideoEditor.Common
         {
             _dispatcher?.Invoke(action);
         }
+
+        // UI 스레드로 비동기 포스트 (블로킹 방지)
+        public static void BeginInvoke(Action action)
+        {
+            _dispatcher?.BeginInvoke(action);
+        }
     }
 }

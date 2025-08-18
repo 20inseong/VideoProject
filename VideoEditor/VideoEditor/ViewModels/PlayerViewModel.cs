@@ -147,7 +147,7 @@ namespace VideoEditor.ViewModels
 
             MediaPlayer.Playing += (s, e) =>
             {
-                UIDispatcher.Invoke(() =>
+                UIDispatcher.BeginInvoke(() =>
                 {
                     IsPlaying = true;
                     (PlayPauseCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
@@ -157,7 +157,7 @@ namespace VideoEditor.ViewModels
 
             MediaPlayer.Paused += (s, e) =>
             {
-                UIDispatcher.Invoke(() =>
+                UIDispatcher.BeginInvoke(() =>
                 {
                     IsPlaying = false;
                     (PlayPauseCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
@@ -167,7 +167,7 @@ namespace VideoEditor.ViewModels
 
             MediaPlayer.Stopped += (s, e) =>
             {
-                UIDispatcher.Invoke(() =>
+                UIDispatcher.BeginInvoke(() =>
                 {
                     IsPlaying = false;
                     CurrentTime = 0;

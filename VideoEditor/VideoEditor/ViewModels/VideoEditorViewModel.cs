@@ -123,34 +123,51 @@ namespace VideoEditor.ViewModels
             {
                 using (var media = new Media(_libVLC, new Uri(video.FullPath)))
                 {
-                    await media.Parse(MediaParseOptions.ParseNetwork);
+                    await media.Parse(MediaParseOptions.ParseLocal);
                     duration = media.Duration / 1000.0;
                 }
                 Console.WriteLine($"[Debug] 비디오 길이 분석 완료: {duration}초");
 
-                using (var capture = new VideoCapture(video.FullPath))
+                byte[] thumbnailBytes = await Task.Run(() =>
                 {
-                    int frameCount = (int)capture.Get(Emgu.CV.CvEnum.CapProp.FrameCount);
-                    if (frameCount > 0)
+                    try
                     {
-                        capture.Set(Emgu.CV.CvEnum.CapProp.PosFrames, frameCount / 2);
-                        Mat frame = new Mat();
-                        if (capture.Read(frame))
+                        using (var capture = new VideoCapture(video.FullPath))
                         {
-                            using (var bmp = frame.ToBitmap())
-                            using (var memory = new MemoryStream())
+                            int frameCount = (int)capture.Get(Emgu.CV.CvEnum.CapProp.FrameCount);
+                            if (frameCount > 0)
                             {
-                                bmp.Save(memory, ImageFormat.Png);
-                                memory.Position = 0;
-                                thumbnail = new BitmapImage();
-                                thumbnail.BeginInit();
-                                thumbnail.StreamSource = memory;
-                                thumbnail.CacheOption = BitmapCacheOption.OnLoad;
-                                thumbnail.EndInit();
-                                thumbnail.Freeze();
-                                Console.WriteLine("[Debug] 썸네일 생성 성공!");
+                                capture.Set(Emgu.CV.CvEnum.CapProp.PosFrames, frameCount / 2);
+                                using (var frame = new Mat())
+                                {
+                                    if (capture.Read(frame))
+                                    {
+                                        using (var bmp = frame.ToBitmap())
+                                        using (var memory = new MemoryStream())
+                                        {
+                                            bmp.Save(memory, ImageFormat.Png);
+                                            return memory.ToArray();
+                                        }
+                                    }
+                                }
                             }
                         }
+                    }
+                    catch { }
+                    return Array.Empty<byte>();
+                });
+
+                if (thumbnailBytes.Length > 0)
+                {
+                    using (var memory = new MemoryStream(thumbnailBytes))
+                    {
+                        thumbnail = new BitmapImage();
+                        thumbnail.BeginInit();
+                        thumbnail.StreamSource = memory;
+                        thumbnail.CacheOption = BitmapCacheOption.OnLoad;
+                        thumbnail.EndInit();
+                        thumbnail.Freeze();
+                        Console.WriteLine("[Debug] 썸네일 생성 성공!");
                     }
                 }
             }

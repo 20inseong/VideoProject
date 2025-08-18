@@ -6,7 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
+using System.Windows.Media; 
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
@@ -195,19 +195,19 @@ namespace VideoEditor
 
         private void MediaPlayer_LengthChanged(object sender, LibVLCSharp.Shared.MediaPlayerLengthChangedEventArgs e)
         {
-            Dispatcher.Invoke(() =>
+            Dispatcher.BeginInvoke(new Action(() =>
             {
                 double videoDurationSec = e.Length / 1000.0;
 
                 _currentTimelineDurationSec = Math.Max(300.0, videoDurationSec);
 
                 DrawTimelineRuler();
-            });
+            }));
         }
 
         private void MediaPlayer_TimeChanged(object sender, LibVLCSharp.Shared.MediaPlayerTimeChangedEventArgs e)
         {
-            Dispatcher.Invoke(() =>
+            Dispatcher.BeginInvoke(new Action(() =>
             {
                 if (_playheadLine == null) return;
 
@@ -217,19 +217,19 @@ namespace VideoEditor
 
                 _playheadLine.X1 = newX;
                 _playheadLine.X2 = newX;
-            });
+            }));
         }
 
         private void MediaPlayer_Stopped(object? sender, EventArgs e)
         {
-            Dispatcher.Invoke(() =>
+            Dispatcher.BeginInvoke(new Action(() =>
             {
                 if (_playheadLine != null)
                 {
                     _playheadLine.X1 = 0;
                     _playheadLine.X2 = 0;
                 }
-            });
+            }));
         }
 
         private void ApplySpeedButton_Click(object sender, RoutedEventArgs e)
