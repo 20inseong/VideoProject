@@ -165,7 +165,33 @@
 
                         <!-- (2) 중앙 영역: vlcplayer로 프레임을 표시 -->
                         <Grid Grid.Row="0" Margin="5,5,5,5" Grid.ColumnSpan="2">
-                            <vlc:VideoView x:Name="videoView" />
+                            <Canvas>
+                                <ItemsControl ItemsSource="{Binding PlayerViewModel.Layers}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <Canvas />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <Setter Property="Canvas.Left" Value="{Binding Left}"/>
+                                            <Setter Property="Canvas.Top" Value="{Binding Top}"/>
+                                            <Setter Property="Panel.ZIndex" Value="{Binding ZIndex}"/>
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Width="{Binding Width}" Height="{Binding Height}" Opacity="{Binding Opacity}">
+                                                <vlc:VideoView>
+                                                    <vlc:VideoView.MediaPlayer>
+                                                        <Binding Path="MediaPlayer" />
+                                                    </vlc:VideoView.MediaPlayer>
+                                                </vlc:VideoView>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Canvas>
                         </Grid>
 
                         <StackPanel x:Name="show_VideoBar" 

@@ -32,7 +32,6 @@ namespace VideoEditor
             _mainViewModel = new MainViewModel();
             DataContext = _mainViewModel;
 
-            videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MediaPlayer;
 
             this.Loaded += MainWindow_Loaded;
             _mainViewModel.PlayerViewModel.MediaPlayer.TimeChanged += MediaPlayer_TimeChanged;
