@@ -41,6 +41,12 @@ namespace VideoEditor.ViewModels
         public ICommand ClipMouseDownCommand { get; }
         public ICommand ClipMouseMoveCommand { get; }
 
+        //public VideoClip? CurrentlyPlayingClip
+        //{
+        //    get => _currentlyPlayingClip;
+        //    set => SetProperty(ref _currentlyPlayingClip, value);
+        //}
+
 
         public ObservableCollection<VideoClip> TimelineClips
         {
@@ -52,6 +58,13 @@ namespace VideoEditor.ViewModels
         {
             get => _pixelsPerSecond;
             set => SetProperty(ref _pixelsPerSecond, value);
+        }
+
+        private VideoClip? _currentlyPlayingClip;
+        public VideoClip? CurrentlyPlayingClip
+        {
+            get => _currentlyPlayingClip;
+            set => SetProperty(ref _currentlyPlayingClip, value);
         }
 
         public VideoEditorViewModel()
@@ -128,45 +141,57 @@ namespace VideoEditor.ViewModels
                 }
                 Console.WriteLine($"[Debug] 비디오 길이 분석 완료: {duration}초");
 
-                using (var capture = new VideoCapture(video.FullPath))
+                byte[] thumbnailBytes = await Task.Run(() =>
                 {
-                    int frameCount = (int)capture.Get(Emgu.CV.CvEnum.CapProp.FrameCount);
-                    if (frameCount > 0)
+                    try
                     {
-                        capture.Set(Emgu.CV.CvEnum.CapProp.PosFrames, frameCount / 2);
-                        Mat frame = new Mat();
-                        if (capture.Read(frame))
+                        using (var capture = new VideoCapture(video.FullPath))
                         {
-                            using (var bmp = frame.ToBitmap())
-                            using (var memory = new MemoryStream())
+                            int frameCount = (int)capture.Get(Emgu.CV.CvEnum.CapProp.FrameCount);
+                            if (frameCount > 0)
                             {
-                                bmp.Save(memory, ImageFormat.Png);
-                                memory.Position = 0;
-                                thumbnail = new BitmapImage();
-                                thumbnail.BeginInit();
-                                thumbnail.StreamSource = memory;
-                                thumbnail.CacheOption = BitmapCacheOption.OnLoad;
-                                thumbnail.EndInit();
-                                thumbnail.Freeze();
-                                Console.WriteLine("[Debug] 썸네일 생성 성공!");
+                                capture.Set(Emgu.CV.CvEnum.CapProp.PosFrames, frameCount / 2);
+                                using (var frame = new Mat())
+                                {
+                                    if (capture.Read(frame))
+                                    {
+                                        using (var bmp = frame.ToBitmap())
+                                        using (var memory = new MemoryStream())
+                                        {
+                                            bmp.Save(memory, ImageFormat.Png);
+                                            return memory.ToArray();
+                                        }
+                                    }
+                                }
                             }
                         }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"썸네일 생성 중 오류: {ex.Message}");
+                    }
+                    return Array.Empty<byte>();
+                });
+
+                if (thumbnailBytes.Length > 0)
+                {
+                    using (var memory = new MemoryStream(thumbnailBytes))
+                    {
+                        thumbnail = new BitmapImage();
+                        thumbnail.BeginInit();
+                        thumbnail.StreamSource = memory;
+                        thumbnail.CacheOption = BitmapCacheOption.OnLoad;
+                        thumbnail.EndInit();
+                        thumbnail.Freeze(); // UI 스레드 외에서 생성했으므로 Freeze 필수
+                        Console.WriteLine("[Debug] 썸네일 생성 성공!");
                     }
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"비디오 정보 로드 중 오류 발생: {ex.Message}");
-                duration = 10;
+                duration = 10; // 기본값
                 thumbnail = new BitmapImage();
-            }
-
-            var clipsOnTrack = this.TimelineClips.Where(c => c.TrackIndex == trackIndex);
-            double newStartPosition = 0;
-
-            if (clipsOnTrack.Any())
-            {
-                newStartPosition = clipsOnTrack.Max(c => c.StartPosition + c.Duration);
             }
 
             VideoClip newClip = new VideoClip
@@ -174,8 +199,9 @@ namespace VideoEditor.ViewModels
                 Name = video.Title,
                 VideoPath = video.FullPath,
                 Duration = duration,
-                StartPosition = newStartPosition,
-                Width = duration * this.PixelsPerSecond,
+                // --- 드롭한 위치에 클립을 추가하도록 수정 ---
+                StartPosition = dropPosition,
+                Width = duration * PixelsPerSecond,
                 Thumbnail = thumbnail,
                 Category = video.Category,
                 TrackIndex = trackIndex

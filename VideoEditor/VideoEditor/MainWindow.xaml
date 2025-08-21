@@ -175,12 +175,12 @@
                                     Visibility="{Binding PlayerViewModel.IsControlBarVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
                                     VerticalAlignment="Bottom" 
                                     Grid.ColumnSpan="2">
-                            <Button Content="{Binding PlayerViewModel.PlayPauseButtonContent}"
-                                    Command="{Binding PlayerViewModel.PlayPauseCommand}"
+                            <Button Content="{Binding PlayPauseButtonContent}"
+                                    Command="{Binding PlayPauseTimelineCommand}"
                                     Width="40"/>
 
                             <Button x:Name="btnStop" Content="■" Width="40" Margin="5,0,0,0"
-                                    Command="{Binding PlayerViewModel.StopCommand}"/>
+                                    Command="{Binding StopTimelineCommand}"/>
 
                             <TextBlock Text="{Binding PlayerViewModel.CurrentTime, Converter={StaticResource Converter}}"
                                        VerticalAlignment="Center" Margin="5,0"/>

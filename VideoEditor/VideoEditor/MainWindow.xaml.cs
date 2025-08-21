@@ -96,14 +96,12 @@ namespace VideoEditor
 
         private void VideoList_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e) 
         {
-            _dragStartPoint = e.GetPosition(null); // 마우스 클릭 시작 지점 저장
+            _dragStartPoint = e.GetPosition(null);
             if (e.OriginalSource is DependencyObject source)
             {
-                // 찾은 UI 요소에서 가장 가까운 ListBoxItem을 찾습니다.
                 var listBoxItem = source.FindAncestor<ListBoxItem>();
                 if (listBoxItem != null)
                 {
-                    // 그 ListBoxItem에 해당하는 Myvideo 객체를 드래그 대상으로 확정합니다.
                     _draggedVideo = listBoxItem.DataContext as Myvideo;
                 }
             }
@@ -116,15 +114,13 @@ namespace VideoEditor
                 Point currentPosition = e.GetPosition(null);
                 Vector diff = _dragStartPoint - currentPosition;
 
-                // 마우스가 일정 거리 이상 이동했을 때만 드래그 시작
                 if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
                     Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
                 {
-                    // 드래그 데이터 생성 (Myvideo 객체)
                     DataObject dragData = new DataObject("Myvideo", _draggedVideo);
                     DragDrop.DoDragDrop(mideaListBox, dragData, DragDropEffects.Copy);
 
-                    _draggedVideo = null; // 드래그 시작 후 초기화
+                    _draggedVideo = null;
                 }
             }
         }
@@ -159,7 +155,6 @@ namespace VideoEditor
 
                 TimelineRulerCanvas.Children.Add(line);
 
-                // 5초마다 숫자 표시
                 if (isMajorTick)
                 {
                     var text = new TextBlock
@@ -209,14 +204,20 @@ namespace VideoEditor
         {
             Dispatcher.Invoke(() =>
             {
-                if (_playheadLine == null) return;
+                if (_playheadLine == null || !_mainViewModel.IsTimelinePlaying) return;
 
-                double currentSeconds = e.Time / 1000.0;
+                var currentClip = _mainViewModel.VideoEditor.CurrentlyPlayingClip;
+                if (currentClip != null)
+                {
+                    double clipStartTime = currentClip.StartPosition;
+                    double timeWithinClip = e.Time / 1000.0;
+                    double timelineCurrentTime = clipStartTime + timeWithinClip;
 
-                double newX = currentSeconds * _mainViewModel.VideoEditor.PixelsPerSecond;
+                    double newX = timelineCurrentTime * _mainViewModel.VideoEditor.PixelsPerSecond;
 
-                _playheadLine.X1 = newX;
-                _playheadLine.X2 = newX;
+                    _playheadLine.X1 = newX;
+                    _playheadLine.X2 = newX;
+                }
             });
         }
 
@@ -224,12 +225,26 @@ namespace VideoEditor
         {
             Dispatcher.Invoke(() =>
             {
-                if (_playheadLine != null)
+                if (_mainViewModel.IsTimelinePlaying == false)
                 {
                     _playheadLine.X1 = 0;
                     _playheadLine.X2 = 0;
                 }
             });
         }
+        private void PlayheadCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.Source is Canvas canvas)
+            {
+                Point position = e.GetPosition(canvas);
+                double clickedTimeSec = position.X / _mainViewModel.VideoEditor.PixelsPerSecond;
+
+                _mainViewModel.SeekTimeline(clickedTimeSec);
+
+                _playheadLine.X1 = position.X;
+                _playheadLine.X2 = position.X;
+            }
+        }
+
     }
 }

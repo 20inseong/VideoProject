@@ -904,3 +904,4 @@ C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Vid
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\VideoEditor.genruntimeconfig.cache
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\ref\VideoEditor.dll
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\Microsoft.Xaml.Behaviors.dll
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\CommunityToolkit.Mvvm.dll

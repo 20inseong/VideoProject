@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "gTlTq37h8PY=",
+  "dgSpecHash": "8QR4DR8EKZo=",
   "success": true,
   "projectFilePath": "C:\\Users\\94320\\source\\repos\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\94320\\.nuget\\packages\\communitytoolkit.mvvm\\8.4.0\\communitytoolkit.mvvm.8.4.0.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\emgu.cv\\4.11.0.5746\\emgu.cv.4.11.0.5746.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\emgu.cv.bitmap\\4.11.0.5746\\emgu.cv.bitmap.4.11.0.5746.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\emgu.cv.runtime.windows\\4.11.0.5746\\emgu.cv.runtime.windows.4.11.0.5746.nupkg.sha512",
