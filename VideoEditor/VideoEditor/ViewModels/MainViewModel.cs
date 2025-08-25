@@ -1,14 +1,15 @@
-﻿// MainViewModel.cs
-
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using VideoEditor.Models;
-using VideoEditor.Common;
-// ✅ 1. using 문을 새로운 라이브러리로 변경합니다.
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.Input;
+using VideoEditor.Common;
+using VideoEditor.Models;
+using System.Windows.Threading;
+using LibVLCSharp.Shared;
+using System.Globalization;
 
 namespace VideoEditor.ViewModels
 {
@@ -34,12 +35,44 @@ namespace VideoEditor.ViewModels
 
         public string PlayPauseButtonContent => IsTimelinePlaying ? "❚❚" : "▶";
 
-        // ✅ 2. 비동기 작업을 위한 IAsyncRelayCommand 와 동기 작업을 위한 IRelayCommand를 사용합니다.
-        public IAsyncRelayCommand PlayPauseTimelineCommand { get; }
+        public IRelayCommand PlayPauseTimelineCommand { get; }
         public IRelayCommand StopTimelineCommand { get; }
 
         private double _currentTimelinePosition;
+        public double CurrentTimelinePosition
+        {
+            get => _currentTimelinePosition;
+            set
+            {
+                if (SetProperty(ref _currentTimelinePosition, value))
+                {
+                    OnPropertyChanged(nameof(CurrentTimelineTimeMs));
+                }
+            }
+        }
+
+        public long CurrentTimelineTimeMs
+        {
+            get => (long)(CurrentTimelinePosition * 1000);
+            set
+            {
+                if (Math.Abs(value - (CurrentTimelinePosition * 1000)) < 100) return;
+
+                SeekTimeline(value / 1000.0);
+            }
+        }
+
         private bool _isStopRequested;
+
+        private long _totalTimelineDurationMs;
+        public long TotalTimelineDurationMs
+        {
+            get => _totalTimelineDurationMs;
+            private set => SetProperty(ref _totalTimelineDurationMs, value);
+        }
+        private CancellationTokenSource? _clipUpdateCts;
+
+        private readonly DispatcherTimer _timelineTimer;
 
         public MainViewModel()
         {
@@ -49,11 +82,67 @@ namespace VideoEditor.ViewModels
 
             VideoEditor.OnClipAdded += MainViewModel_OnClipAdded;
 
-            // ✅ 3. 새로운 Command로 초기화합니다. 비동기 메서드는 AsyncRelayCommand를 사용합니다.
-            PlayPauseTimelineCommand = new AsyncRelayCommand(ExecutePlayPauseTimelineAsync);
+            VideoEditor.TimelineClips.CollectionChanged += TimelineClips_CollectionChanged;
+
+            PlayPauseTimelineCommand = new RelayCommand(ExecutePlayPauseTimeline);
             StopTimelineCommand = new RelayCommand(ExecuteStopTimeline);
 
             PlayerViewModel.MediaPlayer.EndReached += OnClipFinished;
+
+            _timelineTimer = new DispatcherTimer(DispatcherPriority.Render)
+            {
+                Interval = TimeSpan.FromMilliseconds(50)
+            };
+            _timelineTimer.Tick += OnTimelineTimerTick;
+
+            UpdateTotalTimelineDuration();
+        }
+
+        private void OnTimelineTimerTick(object? sender, EventArgs e)
+        {
+            if (PlayerViewModel.MediaPlayer.IsPlaying && VideoEditor.CurrentlyPlayingClip != null)
+            {
+                // 현재 재생 위치를 업데이트 (데드락 없이 안전하게)
+                CurrentTimelinePosition = VideoEditor.CurrentlyPlayingClip.StartPosition + (PlayerViewModel.MediaPlayer.Time / 1000.0);
+            }
+        }
+
+        private void TimelineClips_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (e.NewItems != null)
+            {
+                foreach (VideoClip clip in e.NewItems)
+                {
+                    clip.PropertyChanged += Clip_PropertyChanged;
+                }
+            }
+
+            if (e.OldItems != null)
+            {
+                foreach (VideoClip clip in e.OldItems)
+                {
+                    clip.PropertyChanged -= Clip_PropertyChanged;
+                }
+            }
+
+            if (VideoEditor.TimelineClips.Any())
+            {
+                PlayerViewModel.VideoViewBackground = Brushes.Black;
+            }
+            else
+            {
+                PlayerViewModel.VideoViewBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#525252"));
+            }
+
+            UpdateTotalTimelineDuration();
+        }
+
+        private void Clip_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(VideoClip.StartPosition) || e.PropertyName == nameof(VideoClip.Duration))
+            {
+                UpdateTotalTimelineDuration();
+            }
         }
 
         private void MainViewModel_OnClipAdded(object? sender, ClipAddedEventArgs e)
@@ -65,8 +154,7 @@ namespace VideoEditor.ViewModels
             }
         }
 
-        // ✅ 4. Command가 호출할 메서드를 async Task로 변경하여 비동기 작업을 안전하게 처리합니다.
-        private async Task ExecutePlayPauseTimelineAsync()
+        private void ExecutePlayPauseTimeline()
         {
             Debug.WriteLine($"[COMMAND] Play/Pause 버튼 클릭. 현재 재생 상태: {IsTimelinePlaying}");
             if (IsTimelinePlaying)
@@ -74,20 +162,20 @@ namespace VideoEditor.ViewModels
                 PlayerViewModel.Pause();
                 IsTimelinePlaying = false;
                 _isStopRequested = true;
+                _timelineTimer.Stop();
             }
             else
             {
+                _isStopRequested = false;
                 if (PlayerViewModel.MediaPlayer.State == LibVLCSharp.Shared.VLCState.Paused)
                 {
                     PlayerViewModel.Play();
                     IsTimelinePlaying = true;
-                    _isStopRequested = false;
+                    _timelineTimer.Start();
                 }
                 else
                 {
-                    _isStopRequested = false;
-                    // Task.Run 없이 직접 await 합니다. 훨씬 안전하고 깔끔합니다.
-                    await PlayTimelineFrom(_currentTimelinePosition);
+                    _ = PlayTimelineFrom(_currentTimelinePosition);
                 }
             }
         }
@@ -96,103 +184,138 @@ namespace VideoEditor.ViewModels
         {
             Debug.WriteLine("[COMMAND] Stop 버튼 클릭.");
             _isStopRequested = true;
+            _timelineTimer.Stop();
             PlayerViewModel.Stop();
             VideoEditor.CurrentlyPlayingClip = null;
-            _currentTimelinePosition = 0;
+            CurrentTimelinePosition = 0;
             IsTimelinePlaying = false;
         }
 
-        // ✅ 5. SeekTimeline도 async void로 변경하여 비동기 Delay를 안전하게 처리합니다.
-        public async void SeekTimeline(double timeSec)
+        public void SeekTimeline(double timeSec)
         {
             Debug.WriteLine($"[SEEK] 타임라인 {timeSec:F2}초로 이동.");
-            bool wasPlaying = IsTimelinePlaying;
 
-            _isStopRequested = true;
-            PlayerViewModel.Stop();
-            VideoEditor.CurrentlyPlayingClip = null;
-            IsTimelinePlaying = false;
-
-            _currentTimelinePosition = timeSec;
-
-            if (wasPlaying)
+            if (IsTimelinePlaying)
             {
-                _isStopRequested = false;
-                await Task.Delay(50); // Task.Run 없이 직접 await
-                if (!_isStopRequested) // Delay 이후에도 여전히 재생 상태여야 한다면
-                {
-                    await PlayTimelineFrom(_currentTimelinePosition);
-                }
+                _isStopRequested = true;
+                _timelineTimer.Stop();
+                PlayerViewModel.Stop();
+                IsTimelinePlaying = false;
             }
+
+            VideoEditor.CurrentlyPlayingClip = null;
+            CurrentTimelinePosition = timeSec;
         }
 
         private async Task PlayTimelineFrom(double startTimeSec)
         {
             Debug.WriteLine($"▶️ PlayTimelineFrom 시작: {startTimeSec:F2}초 부터");
-            UIDispatcher.Invoke(() => IsTimelinePlaying = true);
-            _currentTimelinePosition = startTimeSec;
+            IsTimelinePlaying = true;
+            CurrentTimelinePosition = startTimeSec;
 
-            if (_isStopRequested)
+            while (IsTimelinePlaying && !_isStopRequested)
             {
-                Debug.WriteLine("재생 중지 요청으로 PlayTimelineFrom 중단.");
-                return;
-            }
+                var nextClip = VideoEditor.TimelineClips
+                    .Where(c => c.StartPosition + c.Duration > CurrentTimelinePosition)
+                    .OrderBy(c => c.StartPosition)
+                    .FirstOrDefault();
 
-            var nextClip = VideoEditor.TimelineClips
-                .Where(c => c.StartPosition + c.Duration > _currentTimelinePosition)
-                .OrderBy(c => c.StartPosition)
-                .FirstOrDefault();
-
-            if (nextClip == null)
-            {
-                Debug.WriteLine("재생할 다음 클립이 없어 타임라인 재생을 종료합니다.");
-                UIDispatcher.Invoke(ExecuteStopTimeline);
-                return;
-            }
-
-            double gapDuration = nextClip.StartPosition - _currentTimelinePosition;
-
-            if (gapDuration > 0.01)
-            {
-                Debug.WriteLine($"빈 공간 발견. 클립 시작까지 {gapDuration:F2}초 대기합니다.");
-                VideoEditor.CurrentlyPlayingClip = null;
-                await Task.Delay(TimeSpan.FromSeconds(gapDuration));
-
-                if (_isStopRequested)
+                if (nextClip == null)
                 {
-                    Debug.WriteLine("딜레이 후 중지 요청이 감지되어 재생을 시작하지 않습니다.");
+                    Debug.WriteLine("재생할 다음 클립이 없어 타임라인 재생을 종료합니다.");
+                    UIDispatcher.Invoke(ExecuteStopTimeline);
                     return;
                 }
-                _currentTimelinePosition = nextClip.StartPosition;
+                double gapStartTime = CurrentTimelinePosition;
+                double gapEndTime = nextClip.StartPosition;
+                if (gapEndTime > gapStartTime)
+                {
+                    Debug.WriteLine($"빈 공간 발견. {gapStartTime:F2}초 부터 {gapEndTime:F2}초 까지 진행합니다.");
+                    VideoEditor.CurrentlyPlayingClip = null;
+                    UIDispatcher.Invoke(() => PlayerViewModel.Stop());
+
+                    while (CurrentTimelinePosition < gapEndTime && !_isStopRequested)
+                    {
+                        await Task.Delay(100);
+                        CurrentTimelinePosition = Math.Min(gapEndTime, CurrentTimelinePosition + 0.1);
+                    }
+                    if (_isStopRequested) break;
+                }
+
+                double timeWithinClip = CurrentTimelinePosition - nextClip.StartPosition;
+                if (timeWithinClip < 0) timeWithinClip = 0;
+
+                //CurrentTimelinePosition = nextClip.StartPosition; // 정확한 위치 보정
+                //double timeWithinClip = CurrentTimelinePosition - nextClip.StartPosition;
+                //if (timeWithinClip < 0) timeWithinClip = 0; // 혹시 모를 오차 방지
+
+                Debug.WriteLine($"클립 '{nextClip.Name}' 재생 시작 (오프셋: {timeWithinClip:F2}초).");
+                VideoEditor.CurrentlyPlayingClip = nextClip;
+
+                var clipPlaybackTcs = new TaskCompletionSource<bool>();
+                EventHandler<EventArgs>? onEndReachedHandler = null;
+                onEndReachedHandler = (s, e) => {
+                    PlayerViewModel.MediaPlayer.EndReached -= onEndReachedHandler;
+                    clipPlaybackTcs.TrySetResult(true);
+                };
+                PlayerViewModel.MediaPlayer.EndReached += onEndReachedHandler;
+
+
+                UIDispatcher.Invoke(() => {
+                    // 기존 미디어가 있다면 해제합니다.
+                    PlayerViewModel.MediaPlayer.Media?.Dispose();
+
+                    // :start-time 옵션을 사용하여 새 미디어를 생성합니다.
+                    var media = new Media(
+                        PlayerViewModel._libVLC, // internal로 바꾼 _libVLC 사용
+                        new Uri(nextClip.VideoPath),
+                        $":start-time={timeWithinClip.ToString(CultureInfo.InvariantCulture)}"
+                    );
+
+                    // 새로 만든 미디어를 플레이어에 할당하고 재생합니다.
+                    PlayerViewModel.MediaPlayer.Media = media;
+                    PlayerViewModel.Play();
+                });
+
+                _timelineTimer.Start();
+                await clipPlaybackTcs.Task;
+                _timelineTimer.Stop();
+
+                if (_isStopRequested) break;
+
+                CurrentTimelinePosition = nextClip.StartPosition + nextClip.Duration;
+
             }
 
-            double timeWithinClip = _currentTimelinePosition - nextClip.StartPosition;
-            if (timeWithinClip < 0) timeWithinClip = 0;
-
-            Debug.WriteLine($"클립 '{nextClip.Name}' 재생 시작 (오프셋: {timeWithinClip:F2}초).");
-            VideoEditor.CurrentlyPlayingClip = nextClip;
-
-            UIDispatcher.Invoke(() => {
-                PlayerViewModel.LoadMedia(nextClip.VideoPath);
-                PlayerViewModel.MediaPlayer.Time = (long)(timeWithinClip * 1000);
-                PlayerViewModel.Play();
-            });
+            if (!_isStopRequested)
+            {
+                UIDispatcher.Invoke(ExecuteStopTimeline);
+            }
         }
 
-        // ✅ 6. 이벤트 핸들러는 async void가 가장 적합한 패턴입니다.
         private async void OnClipFinished(object? sender, EventArgs e)
         {
-            if (!IsTimelinePlaying || _isStopRequested || VideoEditor.CurrentlyPlayingClip == null)
+            Debug.WriteLine($"'{VideoEditor.CurrentlyPlayingClip?.Name}' 클립 재생 완료. 마스터 루프가 계속 진행합니다.");
+        }
+
+        private void UpdateTotalTimelineDuration()
+        {
+            long newTotalDurationMs;
+
+            if (VideoEditor.TimelineClips.Any())
             {
-                Debug.WriteLine($"OnClipFinished: 재생이 중지되었거나 다음 클립을 재생할 수 없어 로직을 중단합니다.");
-                return;
+                double maxEndTimeSec = VideoEditor.TimelineClips.Max(c => c.StartPosition + c.Duration);
+                newTotalDurationMs = (long)(maxEndTimeSec * 1000);
             }
-            Debug.WriteLine($"클립 '{VideoEditor.CurrentlyPlayingClip.Name}' 재생 완료.");
+            else
+            {
+                newTotalDurationMs = 300 * 1000;
+            }
 
-            _currentTimelinePosition = VideoEditor.CurrentlyPlayingClip.StartPosition + VideoEditor.CurrentlyPlayingClip.Duration;
+            TotalTimelineDurationMs = newTotalDurationMs;
+            PlayerViewModel.TotalDuration = newTotalDurationMs;
 
-            // 직접 await 하여 다음 클립 재생
-            await PlayTimelineFrom(_currentTimelinePosition);
+            Debug.WriteLine($"[Timeline Duration] 총 타임라인 길이 업데이트: {TotalTimelineDurationMs / 1000.0:F2}초");
         }
     }
 }

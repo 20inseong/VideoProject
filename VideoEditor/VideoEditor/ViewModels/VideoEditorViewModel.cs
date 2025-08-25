@@ -41,13 +41,6 @@ namespace VideoEditor.ViewModels
         public ICommand ClipMouseDownCommand { get; }
         public ICommand ClipMouseMoveCommand { get; }
 
-        //public VideoClip? CurrentlyPlayingClip
-        //{
-        //    get => _currentlyPlayingClip;
-        //    set => SetProperty(ref _currentlyPlayingClip, value);
-        //}
-
-
         public ObservableCollection<VideoClip> TimelineClips
         {
             get => _timelineClips;
@@ -199,7 +192,6 @@ namespace VideoEditor.ViewModels
                 Name = video.Title,
                 VideoPath = video.FullPath,
                 Duration = duration,
-                // --- 드롭한 위치에 클립을 추가하도록 수정 ---
                 StartPosition = dropPosition,
                 Width = duration * PixelsPerSecond,
                 Thumbnail = thumbnail,

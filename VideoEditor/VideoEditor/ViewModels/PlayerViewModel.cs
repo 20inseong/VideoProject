@@ -6,18 +6,25 @@ using System.Threading.Tasks;
 using LibVLCSharp.Shared;
 using System.Windows.Input;
 using VideoEditor.Common;
-using System.ComponentModel;
 using Wpf.Ui.Input;
+using WpfMedia = System.Windows.Media;
 
 namespace VideoEditor.ViewModels
 {
     public class PlayerViewModel : ViewModelBase, IDisposable
     {
-        private readonly LibVLC _libVLC;
+        internal readonly LibVLC _libVLC;
         public MediaPlayer MediaPlayer { get; }
         private bool _isPlaying;
         public ICommand PlayPauseCommand { get; }
         public ICommand StopCommand { get; }
+
+        private WpfMedia.Brush _videoViewBackground;
+        public WpfMedia.Brush VideoViewBackground
+        {
+            get => _videoViewBackground;
+            set => SetProperty(ref _videoViewBackground, value);
+        }
 
         private bool _isControlBarVisible;
         public bool IsControlBarVisible
@@ -84,6 +91,8 @@ namespace VideoEditor.ViewModels
             _libVLC = new LibVLC();
             MediaPlayer = new MediaPlayer(_libVLC);
 
+            VideoViewBackground = new WpfMedia.SolidColorBrush((WpfMedia.Color)WpfMedia.ColorConverter.ConvertFromString("#525252"));
+
             PlayPauseCommand = new RelayCommand<object>(ExecutePlayPause, CanExecutePlayPause);
             StopCommand = new RelayCommand<object>(ExecuteStop, CanExecuteStop);
 
@@ -101,7 +110,7 @@ namespace VideoEditor.ViewModels
                     CurrentTime = e.Time;
                 }
             };
-            MediaPlayer.LengthChanged += (s, e) => TotalDuration = e.Length;
+            //MediaPlayer.LengthChanged += (s, e) => TotalDuration = e.Length;
             MediaPlayer.Volume = _volume;
         }
 

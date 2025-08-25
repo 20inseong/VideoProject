@@ -35,7 +35,9 @@ namespace VideoEditor
             videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MediaPlayer;
 
             this.Loaded += MainWindow_Loaded;
-            _mainViewModel.PlayerViewModel.MediaPlayer.TimeChanged += MediaPlayer_TimeChanged;
+            _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
+
+            //_mainViewModel.PlayerViewModel.MediaPlayer.TimeChanged += MediaPlayer_TimeChanged;
             _mainViewModel.PlayerViewModel.MediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
             _mainViewModel.PlayerViewModel.MediaPlayer.Stopped += MediaPlayer_Stopped;
 
@@ -200,26 +202,70 @@ namespace VideoEditor
             });
         }
 
-        private void MediaPlayer_TimeChanged(object sender, LibVLCSharp.Shared.MediaPlayerTimeChangedEventArgs e)
+        // MainWindow.xaml.cs
+
+        // using System.ComponentModel; // 파일 상단에 이 using 문이 있는지 확인하세요.
+
+        // ... (기존 클래스 선언은 그대로 둡니다)
+
+        // ✅ MainViewModel의 속성 변경을 감지하여 UI를 업데이트하는 중앙 허브 역할의 메서드
+        private void MainViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            Dispatcher.Invoke(() =>
+            // --- 1. 타임라인의 총 길이가 변경되었을 때의 처리 ---
+            if (e.PropertyName == nameof(MainViewModel.TotalTimelineDurationMs))
             {
-                if (_playheadLine == null || !_mainViewModel.IsTimelinePlaying) return;
-
-                var currentClip = _mainViewModel.VideoEditor.CurrentlyPlayingClip;
-                if (currentClip != null)
+                // UI 스레드에서 실행되도록 보장합니다 (필수).
+                Dispatcher.Invoke(() =>
                 {
-                    double clipStartTime = currentClip.StartPosition;
-                    double timeWithinClip = e.Time / 1000.0;
-                    double timelineCurrentTime = clipStartTime + timeWithinClip;
+                    // ViewModel의 최신 값을 가져와 로컬 변수를 업데이트합니다.
+                    _currentTimelineDurationSec = _mainViewModel.TotalTimelineDurationMs / 1000.0;
+                    // 업데이트된 길이로 눈금자를 다시 그립니다.
+                    DrawTimelineRuler();
 
-                    double newX = timelineCurrentTime * _mainViewModel.VideoEditor.PixelsPerSecond;
+                    // 디버깅 로그 추가
+                    System.Diagnostics.Debug.WriteLine($"[UI Event] Ruler updated to: {_currentTimelineDurationSec:F2} seconds.");
+                });
+            }
 
-                    _playheadLine.X1 = newX;
-                    _playheadLine.X2 = newX;
-                }
-            });
+            // --- 2. 타임라인의 현재 위치(시간)가 변경되었을 때의 처리 ---
+            if (e.PropertyName == nameof(MainViewModel.CurrentTimelinePosition))
+            {
+                // UI 스레드에서 실행되도록 보장합니다 (필수).
+                Dispatcher.Invoke(() =>
+                {
+                    if (_playheadLine != null)
+                    {
+                        // ViewModel의 현재 시간(초)을 가져와 픽셀 위치로 변환합니다.
+                        double newX = _mainViewModel.CurrentTimelinePosition * _mainViewModel.VideoEditor.PixelsPerSecond;
+
+                        // 플레이헤드 라인의 X 좌표를 업데이트하여 시각적으로 움직입니다.
+                        _playheadLine.X1 = newX;
+                        _playheadLine.X2 = newX;
+                    }
+                });
+            }
         }
+
+        //private void MediaPlayer_TimeChanged(object sender, LibVLCSharp.Shared.MediaPlayerTimeChangedEventArgs e)
+        //{
+        //    Dispatcher.Invoke(() =>
+        //    {
+        //        if (_playheadLine == null || !_mainViewModel.IsTimelinePlaying) return;
+
+        //        var currentClip = _mainViewModel.VideoEditor.CurrentlyPlayingClip;
+        //        if (currentClip != null)
+        //        {
+        //            double clipStartTime = currentClip.StartPosition;
+        //            double timeWithinClip = e.Time / 1000.0;
+        //            double timelineCurrentTime = clipStartTime + timeWithinClip;
+
+        //            double newX = timelineCurrentTime * _mainViewModel.VideoEditor.PixelsPerSecond;
+
+        //            _playheadLine.X1 = newX;
+        //            _playheadLine.X2 = newX;
+        //        }
+        //    });
+        //}
 
         private void MediaPlayer_Stopped(object? sender, EventArgs e)
         {
