@@ -245,28 +245,6 @@ namespace VideoEditor
                 });
             }
         }
-
-        //private void MediaPlayer_TimeChanged(object sender, LibVLCSharp.Shared.MediaPlayerTimeChangedEventArgs e)
-        //{
-        //    Dispatcher.Invoke(() =>
-        //    {
-        //        if (_playheadLine == null || !_mainViewModel.IsTimelinePlaying) return;
-
-        //        var currentClip = _mainViewModel.VideoEditor.CurrentlyPlayingClip;
-        //        if (currentClip != null)
-        //        {
-        //            double clipStartTime = currentClip.StartPosition;
-        //            double timeWithinClip = e.Time / 1000.0;
-        //            double timelineCurrentTime = clipStartTime + timeWithinClip;
-
-        //            double newX = timelineCurrentTime * _mainViewModel.VideoEditor.PixelsPerSecond;
-
-        //            _playheadLine.X1 = newX;
-        //            _playheadLine.X2 = newX;
-        //        }
-        //    });
-        //}
-
         private void MediaPlayer_Stopped(object? sender, EventArgs e)
         {
             Dispatcher.Invoke(() =>
@@ -289,6 +267,39 @@ namespace VideoEditor
 
                 _playheadLine.X1 = position.X;
                 _playheadLine.X2 = position.X;
+            }
+        }
+
+        private void ApplySpeedButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (float.TryParse(SpeedTextBox.Text, out float speed))
+            {
+                // 배속 범위 제한 (0.1 ~ 25.0)
+                speed = Math.Max(0.1f, Math.Min(25.0f, speed));
+                _mainViewModel.PlayerViewModel.PlaybackRate = speed;
+                SpeedTextBox.Text = speed.ToString("F2");
+            }
+            else
+            {
+                MessageBox.Show("올바른 배속 값을 입력해주세요. (0.1 ~ 25.0)", "배속 설정 오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+                SpeedTextBox.Text = _mainViewModel.PlayerViewModel.PlaybackRate.ToString("F2");
+            }
+        }
+
+        private void SpeedMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            // 배속 컨트롤 패널과 비디오 정보 패널을 토글
+            if (SpeedControlPanel.Visibility == Visibility.Visible)
+            {
+                SpeedControlPanel.Visibility = Visibility.Collapsed;
+                VideoInfoPanel.Visibility = Visibility.Visible;
+                VideoInfoPanel.Margin = new Thickness(10, 40, 10, 10);
+            }
+            else
+            {
+                SpeedControlPanel.Visibility = Visibility.Visible;
+                VideoInfoPanel.Visibility = Visibility.Collapsed;
+                SpeedControlPanel.Margin = new Thickness(10, 40, 10, 10);
             }
         }
 
