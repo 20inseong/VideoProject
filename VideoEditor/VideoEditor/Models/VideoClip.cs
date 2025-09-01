@@ -19,6 +19,7 @@ namespace VideoEditor.Models
         private string _videoPath;
         private BitmapImage _thumbnail;
         private int _trackIndex;
+        private bool _isSelected;
 
         public string Name
         {
@@ -33,6 +34,12 @@ namespace VideoEditor.Models
         }
 
         public double StartTime
+        {
+            get => _startTime;
+            set => SetProperty(ref _startTime, value);
+        }
+
+        public double SourceStartTime // 원본 비디오 파일 내에서의 시작 시간 (초)
         {
             get => _startTime;
             set => SetProperty(ref _startTime, value);
@@ -68,6 +75,12 @@ namespace VideoEditor.Models
             set => SetProperty(ref _trackIndex, value);
         }
 
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set => SetProperty(ref _isSelected, value);
+        }
+
         public string Category { get; set; } = "미분류";
 
         public Guid Id { get; } = Guid.NewGuid();
@@ -75,6 +88,22 @@ namespace VideoEditor.Models
         public void UpdateWidth(double pixelsPerSecond)
         {
             this.Width = this.Duration * pixelsPerSecond;
+        }
+
+        public VideoClip() { }
+
+        public VideoClip(VideoClip original)
+        {
+            Name = original.Name;
+            StartPosition = original.StartPosition;
+            StartTime = original.StartTime;
+            SourceStartTime = original.SourceStartTime;
+            Duration = original.Duration;
+            Width = original.Width;
+            VideoPath = original.VideoPath;
+            Thumbnail = original.Thumbnail;
+            Category = original.Category;
+            TrackIndex = original.TrackIndex;
         }
 
         // 클립 복사 메소드
@@ -85,9 +114,10 @@ namespace VideoEditor.Models
                 Name = this.Name + " (복사본)",
                 StartPosition = this.StartPosition,
                 StartTime = this.StartTime,
+                SourceStartTime = this.SourceStartTime,
                 Duration = this.Duration,
                 Width = this.Width,
-                VideoPath = this.VideoPath,
+                VideoPath = this.VideoPath, 
                 Thumbnail = this.Thumbnail,
                 Category = this.Category,
                 TrackIndex = this.TrackIndex

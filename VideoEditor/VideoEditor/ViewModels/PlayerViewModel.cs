@@ -19,6 +19,9 @@ namespace VideoEditor.ViewModels
         public ICommand PlayPauseCommand { get; }
         public ICommand StopCommand { get; }
 
+        private static readonly WpfMedia.Brush EmptySpaceBackgroundBrush = new WpfMedia.SolidColorBrush(WpfMedia.Colors.Black); // 검은색으로 설정
+        private static readonly WpfMedia.Brush DefaultPlayerBackgroundBrush = new WpfMedia.SolidColorBrush((WpfMedia.Color)WpfMedia.ColorConverter.ConvertFromString("#525252"));
+
         private WpfMedia.Brush _videoViewBackground;
         public WpfMedia.Brush VideoViewBackground
         {
@@ -141,7 +144,9 @@ namespace VideoEditor.ViewModels
             SetSpeed10Command = new RelayCommand<object>(_ => SetPlaybackRate(10.0f));
             SetSpeed25Command = new RelayCommand<object>(_ => SetPlaybackRate(25.0f));
 
-            VideoViewBackground = new WpfMedia.SolidColorBrush((WpfMedia.Color)WpfMedia.ColorConverter.ConvertFromString("#525252"));
+            //VideoViewBackground = new WpfMedia.SolidColorBrush((WpfMedia.Color)WpfMedia.ColorConverter.ConvertFromString("#525252"));
+
+            VideoViewBackground = DefaultPlayerBackgroundBrush;
 
             PlayPauseCommand = new RelayCommand<object>(ExecutePlayPause, CanExecutePlayPause);
             StopCommand = new RelayCommand<object>(ExecuteStop, CanExecuteStop);
@@ -173,12 +178,16 @@ namespace VideoEditor.ViewModels
             MediaPlayer.Media = media;
             IsControlBarVisible = true;
             PlaybackRate = 1.0f;
+            VideoViewBackground = EmptySpaceBackgroundBrush;
         }
 
         public void Play()
         {
             if (MediaPlayer.Media != null)
+            {
                 MediaPlayer.Play();
+                VideoViewBackground = DefaultPlayerBackgroundBrush;
+            }
         }
 
         public void Pause()
@@ -221,6 +230,21 @@ namespace VideoEditor.ViewModels
         private void SetPlaybackRate(float rate)
         {
             PlaybackRate = rate;
+        }
+
+        public void PlayMediaFrom(string filePath, long startTimeMs)
+        {
+            if (MediaPlayer.Media?.Mrl == new Uri(filePath).AbsoluteUri && MediaPlayer.IsPlaying)
+            {
+                return;
+            }
+
+            MediaPlayer.Stop(); // 일단 정지
+
+            var media = new Media(_libVLC, new Uri(filePath));
+            MediaPlayer.Media = media;
+            MediaPlayer.Play();
+            MediaPlayer.Time = startTimeMs;
         }
 
         public void Dispose()

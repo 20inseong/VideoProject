@@ -16,6 +16,10 @@
         ResizeMode="CanResizeWithGrip"
         WindowState="Normal">
 
+    <Window.InputBindings>
+        <KeyBinding Key="Delete" Command="{Binding VideoEditor.DeleteSelectedClipCommand}" />
+    </Window.InputBindings>
+
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <Common:TimeConverter x:Key="Converter" />
@@ -291,10 +295,10 @@ BorderThickness="1">
                             <Button x:Name="btnZoomOut" Content="축소(-)" Margin="2"/>
                             <TextBlock Text="확대/축소: " Foreground="White" VerticalAlignment="Center" Margin="10,0,5,0"/>
                             <TextBlock x:Name="txtZoomValue" Text="100%" Foreground="White" VerticalAlignment="Center" Width="50"/>
-                            <Button x:Name="btnSplitClip" Content="클립 분할" Margin="10,2,2,2"/>
+                            <Button x:Name="btnSplitClip" Content="클립 분할" Margin="10,2,2,2" Command="{Binding VideoEditor.SplitClipCommand}" CommandParameter="{Binding CurrentTimelinePosition}"/>
                             <Button x:Name="btnCopyClip" Content="복사" Margin="2"/>
                             <Button x:Name="btnPasteClip" Content="붙여넣기" Margin="2"/>
-                            <Button x:Name="btnDeleteClip" Content="삭제" Margin="2"/>
+                            <Button x:Name="btnDeleteClip" Content="삭제" Margin="2" Command="{Binding VideoEditor.DeleteSelectedClipCommand}"/>
                             <Button x:Name="btnExportVideo" Content="내보내기" Margin="15,2,2,2" Background="#5F9E30" Foreground="White"/>
                         </StackPanel>
 
@@ -355,6 +359,21 @@ BorderThickness="1">
                                                     BorderBrush="Black" BorderThickness="1"
                                                     CornerRadius="3" ClipToBounds="True"
                                                     Cursor="Hand">
+                                                
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="BorderBrush" Value="Black"/>
+                                                        <Setter Property="BorderThickness" Value="1"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                <Setter Property="BorderBrush" Value="#FFD700"/>
+                                                                <!-- Gold/Yellow -->
+                                                                <Setter Property="BorderThickness" Value="2.5"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                
                                                 <b:Interaction.Triggers>
                                                     <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
                                                         <b:InvokeCommandAction 
