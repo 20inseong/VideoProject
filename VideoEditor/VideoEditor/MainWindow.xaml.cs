@@ -20,6 +20,7 @@ namespace VideoEditor
     public partial class MainWindow : Window
     {
         private MainViewModel _mainViewModel;
+        private ExportProgressWindow? _progressWindow;
         private Myvideo _draggedVideo = null;
         private Point _dragStartPoint;
         private Line _playheadLine;
@@ -29,8 +30,11 @@ namespace VideoEditor
             InitializeComponent();
 
             Common.UIDispatcher.Initialize();
-            _mainViewModel = new MainViewModel();
+            _mainViewModel = new MainViewModel(this);
             DataContext = _mainViewModel;
+
+            _mainViewModel.ExportStarted += MainViewModel_ExportStarted;
+            _mainViewModel.ExportFinished += MainViewModel_ExportFinished;
 
             videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MediaPlayer;
 
@@ -47,6 +51,38 @@ namespace VideoEditor
             };
 
             DrawTimelineRuler();
+        }
+
+        private void MainViewModel_ExportStarted(object? sender, ExportStartedEventArgs e)
+        {
+            // 새 진행률 창 생성
+            _progressWindow = new ExportProgressWindow
+            {
+                // DataContext를 이벤트로 전달받은 ViewModel로 설정
+                DataContext = e.ProgressViewModel,
+                // 이 창을 주인으로 설정하여 중앙에 표시
+                Owner = this
+            };
+
+            // 메인 창 비활성화 (렌더링 중 다른 작업 방지)
+            this.IsEnabled = false;
+            // 모달리스(Modeless)로 창을 띄워 UI 스레드를 막지 않도록 함
+            _progressWindow.Show();
+        }
+
+        private void MainViewModel_ExportFinished(object? sender, EventArgs e)
+        {
+            // UI 스레드에서 창을 닫도록 보장
+            Dispatcher.Invoke(() =>
+            {
+                _progressWindow?.Close();
+                _progressWindow = null;
+
+                // 메인 창 다시 활성화
+                this.IsEnabled = true;
+                // 메인 창을 다시 맨 앞으로 가져옴
+                this.Activate();
+            });
         }
 
         private void btnSelectMedia_Click(object sender, RoutedEventArgs e)

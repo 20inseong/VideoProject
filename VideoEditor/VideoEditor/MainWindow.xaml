@@ -299,7 +299,8 @@ BorderThickness="1">
                             <Button x:Name="btnCopyClip" Content="복사" Margin="2"/>
                             <Button x:Name="btnPasteClip" Content="붙여넣기" Margin="2"/>
                             <Button x:Name="btnDeleteClip" Content="삭제" Margin="2" Command="{Binding VideoEditor.DeleteSelectedClipCommand}"/>
-                            <Button x:Name="btnExportVideo" Content="내보내기" Margin="15,2,2,2" Background="#5F9E30" Foreground="White"/>
+                            <Button x:Name="btnExportVideo" Content="내보내기" Margin="15,2,2,2" Background="#5F9E30" Foreground="White" 
+                                    Command="{Binding DataContext.ExportVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
                         </StackPanel>
 
                         <!-- ✅ (2) 시간 눈금자 -->

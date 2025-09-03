@@ -905,3 +905,17 @@ C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Vid
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\ref\VideoEditor.dll
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\Microsoft.Xaml.Behaviors.dll
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\CommunityToolkit.Mvvm.dll
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\ExportProgressWindow.g.cs
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\ExportProgressWindow.baml
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg.exe
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\bin\avcodec-61.dll
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\bin\avdevice-61.dll
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\bin\avfilter-10.dll
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\bin\avformat-61.dll
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\bin\avutil-59.dll
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\bin\ffmpeg.exe
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\bin\ffplay.exe
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\bin\ffprobe.exe
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\bin\postproc-58.dll
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\bin\swresample-5.dll
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\bin\swscale-8.dll

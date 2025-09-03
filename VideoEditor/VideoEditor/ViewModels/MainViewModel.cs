@@ -1,24 +1,56 @@
-﻿using System;
+﻿using System.Windows;
 using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Windows.Input;
-using System.Windows.Media;
+using Microsoft.Win32;
+using System.Text;
 using CommunityToolkit.Mvvm.Input;
 using VideoEditor.Common;
 using VideoEditor.Models;
 using System.Windows.Threading;
-using LibVLCSharp.Shared;
 using System.Globalization;
+using System.IO;
 
 namespace VideoEditor.ViewModels
 {
-    public class MainViewModel : ViewModelBase
+
+    public class ExportStartedEventArgs : EventArgs
+    {
+        public ExportProgressViewModel ProgressViewModel { get; }
+        public ExportStartedEventArgs(ExportProgressViewModel viewModel)
+        {
+            ProgressViewModel = viewModel;
+        }
+    }
+
+    public class MainViewModel : ViewModelBase 
     {
         public PlayerViewModel PlayerViewModel { get; }
         public VideoListViewModel VideoList { get; }
         public VideoEditorViewModel VideoEditor { get; }
-        public string StatusMessage { get; set; }
+        public string StatusMessage { get; set; } = "준비 완료";
+        public IAsyncRelayCommand ExportVideoCommand { get; }
+
+        public event EventHandler<ExportStartedEventArgs>? ExportStarted;
+        public event EventHandler? ExportFinished;
+        private Window? _mainWindow;
+
+        public MainViewModel(Window mainWindow) : this()
+        {
+            _mainWindow = mainWindow;
+        }
+
+        private bool _isExporting;
+        public bool IsExporting
+        {
+            get => _isExporting;
+            set => SetProperty(ref _isExporting, value);
+        }
+
+        private double _exportProgress;
+        public double ExportProgress
+        {
+            get => _exportProgress;
+            set => SetProperty(ref _exportProgress, value);
+        }
 
         private bool _isTimelinePlaying;
         public bool IsTimelinePlaying
@@ -74,6 +106,7 @@ namespace VideoEditor.ViewModels
 
         private readonly DispatcherTimer _timelineTimer;
 
+
         public MainViewModel()
         {
             PlayerViewModel = new PlayerViewModel();
@@ -86,7 +119,6 @@ namespace VideoEditor.ViewModels
             {
                 UIDispatcher.Invoke(() =>
                 {
-                    // 새로 추가된 클립의 PropertyChanged 이벤트 구독
                     if (e.NewItems != null)
                     {
                         foreach (VideoClip newClip in e.NewItems)
@@ -94,7 +126,6 @@ namespace VideoEditor.ViewModels
                             newClip.PropertyChanged += Clip_PropertyChanged;
                         }
                     }
-                    // 제거된 클립의 PropertyChanged 이벤트 구독 해지
                     if (e.OldItems != null)
                     {
                         foreach (VideoClip oldClip in e.OldItems)
@@ -108,6 +139,7 @@ namespace VideoEditor.ViewModels
 
             PlayPauseTimelineCommand = new RelayCommand(ExecutePlayPauseTimeline);
             StopTimelineCommand = new RelayCommand(ExecuteStopTimeline);
+            ExportVideoCommand = new AsyncRelayCommand(StartExportProcessAsync);
 
             PlayerViewModel.MediaPlayer.EndReached += OnClipFinished;
 
@@ -120,6 +152,232 @@ namespace VideoEditor.ViewModels
             UpdateTotalTimelineDuration();
         }
 
+        private async Task StartExportProcessAsync()
+        {
+            // --- 1. 메서드 시작 로그 ---
+            Debug.WriteLine("[DEBUG] StartExportProcessAsync method has started.");
+
+            // --- 2. _mainWindow 상태 확인 로그 ---
+            if (_mainWindow == null)
+            {
+                Debug.WriteLine("[DEBUG] CRITICAL: _mainWindow is NULL. The dialog cannot be shown correctly.");
+                return;
+            }
+            else
+            {
+                Debug.WriteLine($"[DEBUG] _mainWindow is valid. Title: {_mainWindow.Title}");
+            }
+
+            var saveFileDialog = new SaveFileDialog
+            {
+                Filter = "MP4 Video (*.mp4)|*.mp4",
+                Title = "편집된 영상 저장하기",
+                FileName = "output.mp4"
+            };
+
+            // --- 3. 대화상자 결과 확인 로그 ---
+            Debug.WriteLine("[DEBUG] Showing SaveFileDialog now...");
+            bool? dialogResult = saveFileDialog.ShowDialog(_mainWindow);
+            Debug.WriteLine($"[DEBUG] SaveFileDialog returned with result: {dialogResult?.ToString() ?? "null"}");
+
+            if (dialogResult != true)
+            {
+                Debug.WriteLine("[DEBUG] Dialog result was not 'true'. Aborting export process.");
+                return;
+            }
+
+            string outputPath = saveFileDialog.FileName;
+
+            // --- 4. 실제 로직 호출 직전/직후 로그 ---
+            Debug.WriteLine($"[DEBUG] Path selected. Preparing to call RunExportLogicAsync with path: {outputPath}");
+            await RunExportLogicAsync(outputPath);
+            Debug.WriteLine("[DEBUG] RunExportLogicAsync has completed.");
+        }
+
+        private async Task RunExportLogicAsync(string outputPath)
+        {
+            if (!VideoEditor.TimelineClips.Any())
+            {
+                Debug.WriteLine("[EXPORT] Error: No clips on the timeline.");
+                StatusMessage = "내보낼 클립이 타임라인에 없습니다.";
+                OnPropertyChanged(nameof(StatusMessage));
+                return;
+            }
+
+            Debug.WriteLine($"[EXPORT] User's desired output path: {outputPath}");
+            var progressViewModel = new ExportProgressViewModel();
+            ExportStarted?.Invoke(this, new ExportStartedEventArgs(progressViewModel));
+
+            string tempWorkingDirectory = Path.Combine(Path.GetTempPath(), "VideoEditorExport", Guid.NewGuid().ToString());
+            Directory.CreateDirectory(tempWorkingDirectory);
+            Debug.WriteLine($"[EXPORT] Created temporary working directory: {tempWorkingDirectory}");
+
+            string? tempScriptPath = null;
+            bool exportSucceeded = false;
+
+            try
+            {
+                var argumentsBuilder = new StringBuilder();
+                var safePathMappings = new Dictionary<string, string>();
+                var safeInputFiles = new List<string>();
+
+                var uniqueSourceFiles = VideoEditor.TimelineClips.Select(c => c.VideoPath).Distinct().ToList();
+
+                for (int i = 0; i < uniqueSourceFiles.Count; i++)
+                {
+                    string originalPath = uniqueSourceFiles[i];
+                    string safeExtension = Path.GetExtension(originalPath);
+                    string safeFileName = $"input_{i}{safeExtension}";
+                    string safeTempPath = Path.Combine(tempWorkingDirectory, safeFileName);
+
+                    Debug.WriteLine($"[EXPORT] Copying '{originalPath}' to '{safeTempPath}'");
+                    await Task.Run(() => File.Copy(originalPath, safeTempPath, true));
+
+                    safePathMappings.Add(originalPath, safeTempPath);
+                    safeInputFiles.Add(safeTempPath);
+                    argumentsBuilder.Append($"-i \"{safeTempPath}\" ");
+                }
+
+                var filterComplexBuilder = new StringBuilder();
+                double totalDurationSec = TotalTimelineDurationMs / 1000.0;
+                string outputResolution = "1920x1080";
+                string outputFrameRate = "30";
+                string audioSampleRate = "44100";
+                var orderedClips = VideoEditor.TimelineClips.OrderBy(c => c.StartPosition).ToList();
+
+                filterComplexBuilder.Append($"color=c=black:s={outputResolution}:r={outputFrameRate}:d={totalDurationSec.ToString("F6", CultureInfo.InvariantCulture)}[base_v];");
+                filterComplexBuilder.Append($"anullsrc=r={audioSampleRate}:cl=stereo:d={totalDurationSec.ToString("F6", CultureInfo.InvariantCulture)}[base_a];");
+
+                string lastVideoOutput = "[base_v]";
+                var audioStreamNames = new List<string> { "[base_a]" };
+
+                for (int i = 0; i < orderedClips.Count; i++)
+                {
+                    var clip = orderedClips[i];
+                    string safeClipPath = safePathMappings[clip.VideoPath];
+                    int fileIndex = safeInputFiles.IndexOf(safeClipPath);
+
+                    string sourceStartTime = clip.SourceStartTime.ToString("F6", CultureInfo.InvariantCulture);
+                    string duration = clip.Duration.ToString("F6", CultureInfo.InvariantCulture);
+
+                    var startPositionMs = (long)(clip.StartPosition * 1000);
+
+                    filterComplexBuilder.Append($"[{fileIndex}:v]trim=start={sourceStartTime}:duration={duration},setpts=PTS-STARTPTS,scale={outputResolution},setsar=1[v{i}];");
+                    filterComplexBuilder.Append($"[{fileIndex}:a]atrim=start={sourceStartTime}:duration={duration},asetpts=PTS-STARTPTS[a_trimmed{i}];");
+                    filterComplexBuilder.Append($"[a_trimmed{i}]adelay={startPositionMs}|{startPositionMs}[a{i}];");
+
+                    audioStreamNames.Add($"[a{i}]");
+                }
+
+                for (int i = 0; i < orderedClips.Count; i++)
+                {
+                    var clip = orderedClips[i];
+                    string clipStart = clip.StartPosition.ToString("F6", CultureInfo.InvariantCulture);
+                    string clipEnd = (clip.StartPosition + clip.Duration).ToString("F6", CultureInfo.InvariantCulture);
+                    string newVideoOutput = (i == orderedClips.Count - 1) ? "[out_v]" : $"[v_out{i}]";
+
+                    filterComplexBuilder.Append($"{lastVideoOutput}[v{i}]overlay=x=0:y=0:enable='between(t,{clipStart},{clipEnd})'{newVideoOutput}");
+
+                    if (i < orderedClips.Count - 1)
+                    {
+                        filterComplexBuilder.Append(";");
+                        lastVideoOutput = newVideoOutput;
+                    }
+                }
+
+                string amixInputs = string.Join("", audioStreamNames);
+                filterComplexBuilder.Append($";{amixInputs}amix=inputs={audioStreamNames.Count}[out_a]");
+
+                tempScriptPath = Path.Combine(tempWorkingDirectory, "script.txt");
+                await File.WriteAllTextAsync(tempScriptPath, filterComplexBuilder.ToString());
+
+                string safeOutputPath = Path.Combine(tempWorkingDirectory, "output.mp4");
+
+                argumentsBuilder.Append($"-filter_complex_script \"{tempScriptPath}\" ");
+                argumentsBuilder.Append($"-map \"[out_v]\" -map \"[out_a]\" ");
+                argumentsBuilder.Append($"-c:v libx264 -preset medium -crf 23 -c:a aac -b:a 192k -y \"{safeOutputPath}\"");
+                string arguments = argumentsBuilder.ToString();
+
+                Debug.WriteLine("---- DEBUG START ----");
+                Debug.WriteLine("Generated Temp Script Path:");
+                Debug.WriteLine(tempScriptPath);
+                Debug.WriteLine("\nTemp Script Content:");
+                Debug.WriteLine(await File.ReadAllTextAsync(tempScriptPath));
+                Debug.WriteLine("\nFinal FFmpeg Command:");
+                Debug.WriteLine($"ffmpeg.exe {arguments}");
+                Debug.WriteLine("---- DEBUG END ----");
+
+                var processStartInfo = new ProcessStartInfo
+                {
+                    FileName = @"ffmpeg\bin\ffmpeg.exe",
+                    Arguments = arguments,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    StandardErrorEncoding = Encoding.UTF8
+                };
+
+                using (var process = new Process { StartInfo = processStartInfo })
+                {
+                    process.ErrorDataReceived += (sender, args) =>
+                    {
+                        if (string.IsNullOrWhiteSpace(args.Data)) return;
+                        Debug.WriteLine($"[FFMPEG LOG]: {args.Data}");
+                    };
+
+                    Debug.WriteLine("[EXPORT] Starting FFmpeg process...");
+                    process.Start();
+                    process.BeginErrorReadLine();
+
+                    await process.WaitForExitAsync();
+
+                    if (process.ExitCode == 0)
+                    {
+                        Debug.WriteLine("[EXPORT] FFmpeg processing successful. Moving file to final destination.");
+                        File.Move(safeOutputPath, outputPath, true);
+                        StatusMessage = $"성공! 영상이 '{outputPath}'에 저장되었습니다.";
+                        OnPropertyChanged(nameof(StatusMessage));
+                        exportSucceeded = true;
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[EXPORT] FFmpeg process failed with exit code: {process.ExitCode}.");
+                        StatusMessage = $"오류: 렌더링에 실패했습니다. (종료 코드: {process.ExitCode})";
+                        OnPropertyChanged(nameof(StatusMessage));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"치명적인 오류 발생: {ex.Message}";
+                OnPropertyChanged(nameof(StatusMessage));
+                Debug.WriteLine($"[EXPORT] A critical error occurred: {ex.ToString()}");
+            }
+            finally
+            {
+                if (exportSucceeded && Directory.Exists(tempWorkingDirectory))
+                {
+                    try
+                    {
+                        Directory.Delete(tempWorkingDirectory, true);
+                        Debug.WriteLine("[EXPORT] Temporary working directory cleaned up.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[EXPORT] Failed to clean up temp directory: {ex.Message}");
+                    }
+                }
+                else if (!exportSucceeded)
+                {
+                    Debug.WriteLine($"[EXPORT] Export failed. Temporary files are preserved for inspection at: {tempWorkingDirectory}");
+                }
+
+                ExportFinished?.Invoke(this, EventArgs.Empty);
+                Debug.WriteLine("[EXPORT] Export process finished.");
+            }
+        }
+
+
         private void OnTimelineTimerTick(object? sender, EventArgs e)
         {
             if (!IsTimelinePlaying)
@@ -128,36 +386,27 @@ namespace VideoEditor.ViewModels
                 return;
             }
 
-            // 1. 다음 프레임 위치 계산
-            // (재생 속도 등을 고려하려면 더 복잡해지지만, 지금은 기본 속도로 가정)
             CurrentTimelinePosition += _timelineTimer.Interval.TotalSeconds;
 
-            // 2. 현재 시간에 재생해야 할 클립을 찾습니다 (사용자님이 제안한 "하나의 함수")
             var clipToPlay = VideoEditor.TimelineClips
                 .FirstOrDefault(c => c.StartPosition <= CurrentTimelinePosition && (c.StartPosition + c.Duration) > CurrentTimelinePosition);
 
-            // 3. 상태 변화를 감지하고 Player에 명령을 내립니다.
-
-            // CASE 1: 재생해야 할 클립이 있는데, 현재 아무것도 재생 중이 아니거나 다른 클립을 재생 중일 때
             if (clipToPlay != null && VideoEditor.CurrentlyPlayingClip != clipToPlay)
             {
                 Debug.WriteLine($"[Timeline Tick] '{clipToPlay.Name}' 재생 시작.");
                 VideoEditor.CurrentlyPlayingClip = clipToPlay;
 
-                // 원본 영상의 어느 지점부터 재생할지 계산
                 double timeWithinClip = CurrentTimelinePosition - clipToPlay.StartPosition;
                 double seekTimeInSource = clipToPlay.SourceStartTime + timeWithinClip;
 
                 PlayerViewModel.PlayMediaFrom(clipToPlay.VideoPath, (long)(seekTimeInSource * 1000));
             }
-            // CASE 2: 빈 공간(Gap)에 도달했을 때 (재생할 클립이 없고, 현재 무언가 재생 중일 때)
             else if (clipToPlay == null && VideoEditor.CurrentlyPlayingClip != null)
             {
                 Debug.WriteLine("[Timeline Tick] 빈 공간(Gap) 진입. 재생을 멈춥니다.");
                 PlayerViewModel.Stop();
                 VideoEditor.CurrentlyPlayingClip = null;
             }
-            // CASE 3: 타임라인이 끝났을 때
             else if (CurrentTimelinePosition * 1000 >= TotalTimelineDurationMs)
             {
                 Debug.WriteLine("[Timeline Tick] 타임라인 끝에 도달. 재생을 종료합니다.");
@@ -177,14 +426,14 @@ namespace VideoEditor.ViewModels
         {
             if (VideoEditor.TimelineClips.Count == 1)
             {
-                Debug.WriteLine($"[EVENT] 첫 클립 추가됨: {e.VideoPath}. 미리보기를 위해 로드합니다.");
+                //Debug.WriteLine($"[EVENT] 첫 클립 추가됨: {e.VideoPath}. 미리보기를 위해 로드합니다.");
                 PlayerViewModel.LoadMedia(e.VideoPath);
             }
         }
 
         private void ExecutePlayPauseTimeline()
         {
-            Debug.WriteLine($"[COMMAND] Play/Pause 버튼 클릭. 현재 재생 상태: {IsTimelinePlaying}");
+            //Debug.WriteLine($"[COMMAND] Play/Pause 버튼 클릭. 현재 재생 상태: {IsTimelinePlaying}");
             if (IsTimelinePlaying)
             {
                 PlayerViewModel.Pause();
@@ -210,7 +459,7 @@ namespace VideoEditor.ViewModels
 
         public void SeekTimeline(double timeSec)
         {
-            Debug.WriteLine($"[SEEK] 타임라인 {timeSec:F2}초로 이동.");
+            //Debug.WriteLine($"[SEEK] 타임라인 {timeSec:F2}초로 이동.");
 
             if (IsTimelinePlaying)
             {
@@ -245,7 +494,7 @@ namespace VideoEditor.ViewModels
             TotalTimelineDurationMs = newTotalDurationMs;
             PlayerViewModel.TotalDuration = newTotalDurationMs;
 
-            Debug.WriteLine($"[Timeline Duration] 총 타임라인 길이 업데이트: {TotalTimelineDurationMs / 1000.0:F2}초");
+            //Debug.WriteLine($"[Timeline Duration] 총 타임라인 길이 업데이트: {TotalTimelineDurationMs / 1000.0:F2}초");
         }
     }
 }

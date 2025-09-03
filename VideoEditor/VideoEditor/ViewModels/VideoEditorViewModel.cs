@@ -97,7 +97,7 @@ namespace VideoEditor.ViewModels
             {
                 TimelineClips.Remove(SelectedClip);
                 SelectedClip = null;
-                Console.WriteLine("[Delete LOG] 클립이 삭제되었습니다.");
+                //Console.WriteLine("[Delete LOG] 클립이 삭제되었습니다.");
             }
         }
 
@@ -140,7 +140,7 @@ namespace VideoEditor.ViewModels
                 TimelineClips.Add(newClip);
             }
 
-            Console.WriteLine($"[Split LOG] 자르기 완료. '{newClip.Name}'는 원본 영상의 {newClip.SourceStartTime:F2}초부터 재생됩니다.");
+            //Console.WriteLine($"[Split LOG] 자르기 완료. '{newClip.Name}'는 원본 영상의 {newClip.SourceStartTime:F2}초부터 재생됩니다.");
         }
 
         private async void ExecuteDropOnTimeline(DragEventArgs? e)
@@ -167,7 +167,7 @@ namespace VideoEditor.ViewModels
                     droppedClip.StartPosition = adjustedStartPosition;
                     droppedClip.TrackIndex = newTrackIndex;
 
-                    Console.WriteLine($"[Move LOG] '{droppedClip.Name}' 클립이 위치 {droppedClip.StartPosition:F2}초, 트랙 {droppedClip.TrackIndex}로 이동됨");
+                    //Console.WriteLine($"[Move LOG] '{droppedClip.Name}' 클립이 위치 {droppedClip.StartPosition:F2}초, 트랙 {droppedClip.TrackIndex}로 이동됨");
                 }
             }
             else if (e.Data.GetDataPresent("Myvideo"))
@@ -187,7 +187,7 @@ namespace VideoEditor.ViewModels
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"클립 추가 중 오류 발생: {ex.Message}");
+                        //Console.WriteLine($"클립 추가 중 오류 발생: {ex.Message}");
                     }
                 }
             }
@@ -204,7 +204,7 @@ namespace VideoEditor.ViewModels
                     await media.Parse(MediaParseOptions.ParseNetwork);
                     duration = media.Duration / 1000.0;
                 }
-                Console.WriteLine($"[Debug] 비디오 길이 분석 완료: {duration}초");
+                //Console.WriteLine($"[Debug] 비디오 길이 분석 완료: {duration}초");
 
                 byte[] thumbnailBytes = await Task.Run(() =>
                 {
@@ -233,7 +233,7 @@ namespace VideoEditor.ViewModels
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"썸네일 생성 중 오류: {ex.Message}");
+                        //Console.WriteLine($"썸네일 생성 중 오류: {ex.Message}");
                     }
                     return Array.Empty<byte>();
                 });
@@ -248,13 +248,13 @@ namespace VideoEditor.ViewModels
                         thumbnail.CacheOption = BitmapCacheOption.OnLoad;
                         thumbnail.EndInit();
                         thumbnail.Freeze(); // UI 스레드 외에서 생성했으므로 Freeze 필수
-                        Console.WriteLine("[Debug] 썸네일 생성 성공!");
+                        //Console.WriteLine("[Debug] 썸네일 생성 성공!");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"비디오 정보 로드 중 오류 발생: {ex.Message}");
+                //Console.WriteLine($"비디오 정보 로드 중 오류 발생: {ex.Message}");
                 duration = 10; // 기본값
                 thumbnail = new BitmapImage();
             }
@@ -272,7 +272,7 @@ namespace VideoEditor.ViewModels
             };
 
             TimelineClips.Add(newClip);
-            Console.WriteLine($"클립 추가됨: {newClip.Name}, 시작 위치: {newClip.StartPosition}초, 길이: {newClip.Duration}초");
+            //Console.WriteLine($"클립 추가됨: {newClip.Name}, 시작 위치: {newClip.StartPosition}초, 길이: {newClip.Duration}초");
 
             OnClipAdded?.Invoke(this, new ClipAddedEventArgs(newClip.VideoPath));
         }
