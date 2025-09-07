@@ -9,53 +9,56 @@ using VideoEditor.Common;
 using System.ComponentModel;
 using Wpf.Ui.Input;
 using System.Collections.ObjectModel;
+using System.Windows.Threading;
 
 namespace VideoEditor.ViewModels
 {
-    public class PlayerViewModel : ViewModelBase, IDisposable
-    {
-        private readonly LibVLC _libVLC;
-        public MediaPlayer MediaPlayer { get; }
-        private bool _isPlaying;
-        public ICommand PlayPauseCommand { get; }
-        public ICommand StopCommand { get; }
+	public class PlayerViewModel : ViewModelBase, IDisposable
+	{
+		private readonly LibVLC _libVLC;
+		public MediaPlayer MediaPlayer { get; }
+		private MediaPlayer? _clockPlayer;
+		public MediaPlayer? ClockPlayer => _clockPlayer;
+		private readonly DispatcherTimer _clockTimer = new DispatcherTimer(DispatcherPriority.Render);
+		private DateTime _lastTickUtc;
+		public event EventHandler? ClockTimeChanged;
+		public event EventHandler? ClockLengthChanged;
+		public event EventHandler? Stopped;
+		private bool _isPlaying;
+		public ICommand PlayPauseCommand { get; }
+		public ICommand StopCommand { get; }
 
-        private bool _isControlBarVisible;
-        public bool IsControlBarVisible
-        {
-            get => _isControlBarVisible;
-            set => SetProperty(ref _isControlBarVisible, value);
-        }
+		private bool _isControlBarVisible;
+		public bool IsControlBarVisible
+		{
+			get => _isControlBarVisible;
+			set => SetProperty(ref _isControlBarVisible, value);
+		}
 
-        public bool IsPlaying
-        {
-            get => _isPlaying;
-            set
-            {
-                if (SetProperty(ref _isPlaying, value))
-                {
-                    OnPropertyChanged(nameof(PlayPauseButtonContent));
-                    //IsControlBarVisible = value;
-                }
-            }
-        }
+		public bool IsPlaying
+		{
+			get => _isPlaying;
+			set
+			{
+				if (SetProperty(ref _isPlaying, value))
+				{
+					OnPropertyChanged(nameof(PlayPauseButtonContent));
+					//IsControlBarVisible = value;
+				}
+			}
+		}
 
-        public string PlayPauseButtonContent => IsPlaying ? "❚❚" : "▶";
+		public string PlayPauseButtonContent => IsPlaying ? "❚❚" : "▶";
 
-        private long _currentTime;
-        public long CurrentTime
-        {
-            get => _currentTime;
-            set
-            {
-                if (SetProperty(ref _currentTime, value))
-                {
-                    // MediaPlayer.Time과 현재 CurrentTime 값이 다를 때만 MediaPlayer의 시간을 업데이트하여 무한 루프 방지
-                    if (MediaPlayer != null && Math.Abs(MediaPlayer.Time - value) > 50) // 50ms 오차 허용
-                    {
-                        MediaPlayer.Time = value;
-                    }
-					// 보조 레이어들도 시간 보정
+		private long _currentTime;
+		public long CurrentTime
+		{
+			get => _currentTime;
+			set
+			{
+				if (SetProperty(ref _currentTime, value))
+				{
+					// 레이어들의 시간 보정
 					foreach (var layer in Layers)
 					{
 						if (layer?.MediaPlayer == null) continue;
@@ -64,60 +67,61 @@ namespace VideoEditor.ViewModels
 							layer.MediaPlayer.Time = value;
 						}
 					}
-                }
-            }
-        }
-
-        private long _totalDuration;
-        public long TotalDuration
-        {
-            get => _totalDuration;
-            set => SetProperty(ref _totalDuration, value);
-        }
-
-        private int _volume = 70;
-        public int Volume
-        {
-            get => _volume;
-            set
-            {
-                if (SetProperty(ref _volume, value))
-                {
-					if (MediaPlayer != null) MediaPlayer.Volume = _volume;
-					foreach (var layer in Layers)
-                    {
-						layer.MediaPlayer.Volume = _volume;
-                    }
-                }
-            }
-        }
-
-        private float _playbackRate = 1.0f;
-        public float PlaybackRate
-        {
-            get => _playbackRate;
-            set
-            {
-                if (SetProperty(ref _playbackRate, value))
-                {
-					if (MediaPlayer != null) MediaPlayer.SetRate(_playbackRate);
-					foreach (var layer in Layers)
-                        {
-						layer.MediaPlayer.SetRate(_playbackRate);
-                }
-            }
-        }
+					ClockTimeChanged?.Invoke(this, EventArgs.Empty);
+				}
+			}
 		}
 
-        public ICommand SetSpeed05Command { get; }
-        public ICommand SetSpeed075Command { get; }
-        public ICommand SetSpeed1Command { get; }
-        public ICommand SetSpeed125Command { get; }
-        public ICommand SetSpeed15Command { get; }
-        public ICommand SetSpeed2Command { get; }
-        public ICommand SetSpeed5Command { get; }
-        public ICommand SetSpeed10Command { get; }
-        public ICommand SetSpeed25Command { get; }
+		private long _totalDuration;
+		public long TotalDuration
+		{
+			get => _totalDuration;
+			set => SetProperty(ref _totalDuration, value);
+		}
+
+		private int _volume = 70;
+		public int Volume
+		{
+			get => _volume;
+			set
+			{
+				if (SetProperty(ref _volume, value))
+				{
+					if (MediaPlayer != null) MediaPlayer.Volume = _volume;
+					foreach (var layer in Layers)
+					{
+						layer.MediaPlayer.Volume = _volume;
+					}
+				}
+			}
+		}
+
+		private float _playbackRate = 1.0f;
+		public float PlaybackRate
+		{
+			get => _playbackRate;
+			set
+			{
+				if (SetProperty(ref _playbackRate, value))
+				{
+					if (MediaPlayer != null) MediaPlayer.SetRate(_playbackRate);
+					foreach (var layer in Layers)
+					{
+						layer.MediaPlayer.SetRate(_playbackRate);
+					}
+				}
+			}
+		}
+
+		public ICommand SetSpeed05Command { get; }
+		public ICommand SetSpeed075Command { get; }
+		public ICommand SetSpeed1Command { get; }
+		public ICommand SetSpeed125Command { get; }
+		public ICommand SetSpeed15Command { get; }
+		public ICommand SetSpeed2Command { get; }
+		public ICommand SetSpeed5Command { get; }
+		public ICommand SetSpeed10Command { get; }
+		public ICommand SetSpeed25Command { get; }
 
 		public ObservableCollection<VideoLayerViewModel> Layers { get; } = new ObservableCollection<VideoLayerViewModel>();
 
@@ -132,169 +136,139 @@ namespace VideoEditor.ViewModels
 				Opacity = opacity,
 				ZIndex = zIndex
 			};
-			// 마스터와 동기화
+			// 동기화
 			layer.MediaPlayer.Volume = Volume;
 			layer.MediaPlayer.SetRate(PlaybackRate);
-			if (MediaPlayer.Media != null)
+			layer.MediaPlayer.Time = CurrentTime;
+			layer.MediaPlayer.LengthChanged += (s, e) =>
 			{
-				layer.MediaPlayer.Time = MediaPlayer.Time;
-			}
+				TotalDuration = Math.Max(TotalDuration, e.Length);
+				ClockLengthChanged?.Invoke(this, EventArgs.Empty);
+			};
 			Layers.Add(layer);
-			// 마스터가 재생 중이면 즉시 재생 시작
-			if (MediaPlayer.IsPlaying)
+			// 첫 레이어를 시계로 사용
+			if (_clockPlayer == null) _clockPlayer = layer.MediaPlayer;
+			// 현재 재생 상태면 즉시 재생
+			if (IsPlaying)
 			{
 				layer.MediaPlayer.Play();
 			}
 			return layer;
 		}
 
-        public PlayerViewModel()
-        {
-            Core.Initialize();
-            _libVLC = new LibVLC();
-            MediaPlayer = new MediaPlayer(_libVLC);
+		public PlayerViewModel()
+		{
+			Core.Initialize();
+			_libVLC = new LibVLC();
+			MediaPlayer = new MediaPlayer(_libVLC);
 
-            PlayPauseCommand = new RelayCommand<object>(ExecutePlayPause, CanExecutePlayPause);
-            StopCommand = new RelayCommand<object>(ExecuteStop, CanExecuteStop);
+			PlayPauseCommand = new RelayCommand<object>(ExecutePlayPause, CanExecutePlayPause);
+			StopCommand = new RelayCommand<object>(ExecuteStop, CanExecuteStop);
 
-            // 배속 프리셋 명령들 초기화
-            SetSpeed05Command = new RelayCommand<object>(_ => SetPlaybackRate(0.5f));
-            SetSpeed075Command = new RelayCommand<object>(_ => SetPlaybackRate(0.75f));
-            SetSpeed1Command = new RelayCommand<object>(_ => SetPlaybackRate(1.0f));
-            SetSpeed125Command = new RelayCommand<object>(_ => SetPlaybackRate(1.25f));
-            SetSpeed15Command = new RelayCommand<object>(_ => SetPlaybackRate(1.5f));
-            SetSpeed2Command = new RelayCommand<object>(_ => SetPlaybackRate(2.0f));
-            SetSpeed5Command = new RelayCommand<object>(_ => SetPlaybackRate(5.0f));
-            SetSpeed10Command = new RelayCommand<object>(_ => SetPlaybackRate(10.0f));
-            SetSpeed25Command = new RelayCommand<object>(_ => SetPlaybackRate(25.0f));
+			// 배속 프리셋 명령들 초기화
+			SetSpeed05Command = new RelayCommand<object>(_ => SetPlaybackRate(0.5f));
+			SetSpeed075Command = new RelayCommand<object>(_ => SetPlaybackRate(0.75f));
+			SetSpeed1Command = new RelayCommand<object>(_ => SetPlaybackRate(1.0f));
+			SetSpeed125Command = new RelayCommand<object>(_ => SetPlaybackRate(1.25f));
+			SetSpeed15Command = new RelayCommand<object>(_ => SetPlaybackRate(1.5f));
+			SetSpeed2Command = new RelayCommand<object>(_ => SetPlaybackRate(2.0f));
+			SetSpeed5Command = new RelayCommand<object>(_ => SetPlaybackRate(5.0f));
+			SetSpeed10Command = new RelayCommand<object>(_ => SetPlaybackRate(10.0f));
+			SetSpeed25Command = new RelayCommand<object>(_ => SetPlaybackRate(25.0f));
 
-            MediaPlayer.Playing += (s, e) =>
-            {
-				UIDispatcher.BeginInvoke(() =>
-                {
-                    IsPlaying = true;
-                    (PlayPauseCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
-                    (StopCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
-                });
-            };
+			MediaPlayer.Volume = _volume;
 
-            MediaPlayer.Paused += (s, e) =>
-            {
-				UIDispatcher.BeginInvoke(() =>
-                {
-                    IsPlaying = false;
-                    (PlayPauseCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
-                    (StopCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
-                });
-            };
+			_clockTimer.Interval = TimeSpan.FromMilliseconds(16);
+			_clockTimer.Tick += (s, e) =>
+			{
+				var now = DateTime.UtcNow;
+				if (_lastTickUtc == default)
+				{
+					_lastTickUtc = now;
+					return;
+				}
+				var deltaMs = (now - _lastTickUtc).TotalMilliseconds * PlaybackRate;
+				_lastTickUtc = now;
 
-            MediaPlayer.Stopped += (s, e) =>
-            {
-				UIDispatcher.BeginInvoke(() =>
-                {
-                    IsPlaying = false;
-                    CurrentTime = 0;
-                    (PlayPauseCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
-                    (StopCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
-                });
-            };
-            MediaPlayer.EndReached += (s, e) =>
-            {
-                IsPlaying = false;
-                MediaPlayer.Stop();
-            };
-            MediaPlayer.TimeChanged += (s, e) => {
-                if (Math.Abs(_currentTime - e.Time) > 50)
-                {
-                    CurrentTime = e.Time;
-                }
-            };
-            MediaPlayer.LengthChanged += (s, e) => TotalDuration = e.Length;
-            MediaPlayer.Volume = _volume;
-        }
+				var next = _currentTime + (long)deltaMs;
+				if (next > TotalDuration && TotalDuration > 0)
+				{
+					_clockTimer.Stop();
+					IsPlaying = false;
+					CurrentTime = TotalDuration;
+					Stopped?.Invoke(this, EventArgs.Empty);
+					return;
+				}
+				CurrentTime = next;
+			};
+		}
 
-        // 배속 설정 메서드
-        private void SetPlaybackRate(float rate)
-        {
-            PlaybackRate = rate;
-        }
+		// 배속 설정 메서드
+		private void SetPlaybackRate(float rate)
+		{
+			PlaybackRate = rate;
+		}
 
-        public void LoadMedia(string filePath, bool disableVideoOutput = false)
-        {
-            if (MediaPlayer.Media != null)
-            {
-                MediaPlayer.Stop();
-                MediaPlayer.Media.Dispose();
-                MediaPlayer.Media = null;
-            }
-            var media = new Media(_libVLC, new Uri(filePath));
-            if (disableVideoOutput)
-            {
-                // 외부 VLC(D3D11) 창 방지: 마스터(클록) 플레이어는 비디오 출력 비활성화
-                media.AddOption(":no-video");
-            }
-            MediaPlayer.Media = media;
-			// 시작 시간을 명확히 0으로 세팅해 초기 재생 문제 방지
-			CurrentTime = 0;
+		public void LoadMedia(string filePath, bool disableVideoOutput = false)
+		{
+			// 소프트 클록 방식: 마스터 미디어 로드는 수행하지 않음. 컨트롤바만 활성화.
+			IsControlBarVisible = true;
+			(PlayPauseCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
+			(StopCommand as RelayCommand<object>).NotifyCanExecuteChanged();
+		}
 
-            // 미디어 로드 후 기본 배속으로 설정
-            PlaybackRate = 1.0f;
-
-            IsControlBarVisible = true;
-
-            (PlayPauseCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
-            (StopCommand as RelayCommand<object>).NotifyCanExecuteChanged();
-        }
-
-        private void ExecutePlayPause(object? _)
-        {
-            if (MediaPlayer.IsPlaying)
-            {
-                MediaPlayer.Pause();
+		private void ExecutePlayPause(object? _)
+		{
+			if (IsPlaying)
+			{
 				foreach (var layer in Layers)
 				{
 					layer.MediaPlayer.Pause();
 				}
-            }
-            else
-            {
-                MediaPlayer.Play();
+				_clockTimer.Stop();
+				IsPlaying = false;
+			}
+			else
+			{
 				foreach (var layer in Layers)
 				{
 					layer.MediaPlayer.Play();
 				}
-            }
-        }
+				_lastTickUtc = default;
+				_clockTimer.Start();
+				IsPlaying = true;
+			}
+		}
 
-        public bool CanExecutePlayPause(object? _)
-        {
-            return MediaPlayer.Media != null;
-        }
+		public bool CanExecutePlayPause(object? _)
+		{
+			return Layers.Count > 0;
+		}
 
-        private void ExecuteStop(object? _)
-        {
-            MediaPlayer.Stop();
-            CurrentTime = 0;
+		private void ExecuteStop(object? _)
+		{
+			CurrentTime = 0;
 			foreach (var layer in Layers)
 			{
 				layer.MediaPlayer.Stop();
 			}
-        }
+			_clockTimer.Stop();
+			IsPlaying = false;
+			Stopped?.Invoke(this, EventArgs.Empty);
+		}
 
-        public bool CanExecuteStop(object? _)
-        {
-            //return MediaPlayer.Media != null && (MediaPlayer.IsPlaying || MediaPlayer.State == VLCState.Paused);
-            var state = MediaPlayer.State;
-            return state == VLCState.Playing || state == VLCState.Paused;
+		public bool CanExecuteStop(object? _)
+		{
+			return Layers.Any(l => l.MediaPlayer.State == VLCState.Playing || l.MediaPlayer.State == VLCState.Paused);
 
-        }
-        public void Dispose()
-        {
-            if (MediaPlayer != null)
-            {
-                MediaPlayer.Stop();
-                MediaPlayer.Dispose();
-            }
+		}
+		public void Dispose()
+		{
+			if (MediaPlayer != null)
+			{
+				try { MediaPlayer.Stop(); } catch { }
+				MediaPlayer.Dispose();
+			}
 
 			foreach (var layer in Layers)
 			{
@@ -306,12 +280,12 @@ namespace VideoEditor.ViewModels
 				catch { }
 			}
 
-            if (_libVLC != null)
-            {
-                _libVLC.Dispose();
-            }
+			if (_libVLC != null)
+			{
+				_libVLC.Dispose();
+			}
 
-            GC.SuppressFinalize(this);
-        }
-    }
+			GC.SuppressFinalize(this);
+		}
+	}
 }

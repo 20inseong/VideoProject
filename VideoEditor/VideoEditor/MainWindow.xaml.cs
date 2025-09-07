@@ -34,9 +34,38 @@ namespace VideoEditor
 
 
             this.Loaded += MainWindow_Loaded;
-            _mainViewModel.PlayerViewModel.MediaPlayer.TimeChanged += MediaPlayer_TimeChanged;
-            _mainViewModel.PlayerViewModel.MediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
-            _mainViewModel.PlayerViewModel.MediaPlayer.Stopped += MediaPlayer_Stopped;
+            // 소프트 클록 이벤트로 플레이헤드/길이 업데이트
+            _mainViewModel.PlayerViewModel.ClockTimeChanged += (_, __) =>
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (_playheadLine == null) return;
+                    double currentSeconds = _mainViewModel.PlayerViewModel.CurrentTime / 1000.0;
+                    double newX = currentSeconds * _mainViewModel.VideoEditor.PixelsPerSecond;
+                    _playheadLine.X1 = newX;
+                    _playheadLine.X2 = newX;
+                }));
+            };
+            _mainViewModel.PlayerViewModel.ClockLengthChanged += (_, __) =>
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    double videoDurationSec = _mainViewModel.PlayerViewModel.TotalDuration / 1000.0;
+                    _currentTimelineDurationSec = Math.Max(300.0, videoDurationSec);
+                    DrawTimelineRuler();
+                }));
+            };
+            _mainViewModel.PlayerViewModel.Stopped += (_, __) =>
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (_playheadLine != null)
+                    {
+                        _playheadLine.X1 = 0;
+                        _playheadLine.X2 = 0;
+                    }
+                }));
+            };
 
             TimelineScrollViewer.ScrollChanged += (s, e) =>
             {
@@ -190,45 +219,6 @@ namespace VideoEditor
                 Y2 = PlayheadCanvas.ActualHeight > 0 ? PlayheadCanvas.ActualHeight : 300
             };
             PlayheadCanvas.Children.Add(_playheadLine);
-        }
-
-        private void MediaPlayer_LengthChanged(object sender, LibVLCSharp.Shared.MediaPlayerLengthChangedEventArgs e)
-        {
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                double videoDurationSec = e.Length / 1000.0;
-
-                _currentTimelineDurationSec = Math.Max(300.0, videoDurationSec);
-
-                DrawTimelineRuler();
-            }));
-        }
-
-        private void MediaPlayer_TimeChanged(object sender, LibVLCSharp.Shared.MediaPlayerTimeChangedEventArgs e)
-        {
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                if (_playheadLine == null) return;
-
-                double currentSeconds = e.Time / 1000.0;
-
-                double newX = currentSeconds * _mainViewModel.VideoEditor.PixelsPerSecond;
-
-                _playheadLine.X1 = newX;
-                _playheadLine.X2 = newX;
-            }));
-        }
-
-        private void MediaPlayer_Stopped(object? sender, EventArgs e)
-        {
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                if (_playheadLine != null)
-                {
-                    _playheadLine.X1 = 0;
-                    _playheadLine.X2 = 0;
-                }
-            }));
         }
 
         private void ApplySpeedButton_Click(object sender, RoutedEventArgs e)
