@@ -41,7 +41,8 @@ namespace VideoEditor
             this.Loaded += MainWindow_Loaded;
             _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
 
-            //_mainViewModel.PlayerViewModel.MediaPlayer.TimeChanged += MediaPlayer_TimeChanged;
+            _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
+
             _mainViewModel.PlayerViewModel.MediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
             _mainViewModel.PlayerViewModel.MediaPlayer.Stopped += MediaPlayer_Stopped;
 
@@ -53,34 +54,34 @@ namespace VideoEditor
             DrawTimelineRuler();
         }
 
+        private void VideoEditor_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(VideoEditorViewModel.PixelsPerSecond))
+            {
+                Dispatcher.Invoke(() => DrawTimelineRuler());
+            }
+        }
+
         private void MainViewModel_ExportStarted(object? sender, ExportStartedEventArgs e)
         {
-            // 새 진행률 창 생성
             _progressWindow = new ExportProgressWindow
             {
-                // DataContext를 이벤트로 전달받은 ViewModel로 설정
                 DataContext = e.ProgressViewModel,
-                // 이 창을 주인으로 설정하여 중앙에 표시
                 Owner = this
             };
 
-            // 메인 창 비활성화 (렌더링 중 다른 작업 방지)
             this.IsEnabled = false;
-            // 모달리스(Modeless)로 창을 띄워 UI 스레드를 막지 않도록 함
             _progressWindow.Show();
         }
 
         private void MainViewModel_ExportFinished(object? sender, EventArgs e)
         {
-            // UI 스레드에서 창을 닫도록 보장
             Dispatcher.Invoke(() =>
             {
                 _progressWindow?.Close();
                 _progressWindow = null;
 
-                // 메인 창 다시 활성화
                 this.IsEnabled = true;
-                // 메인 창을 다시 맨 앞으로 가져옴
                 this.Activate();
             });
         }
@@ -238,43 +239,26 @@ namespace VideoEditor
             });
         }
 
-        // MainWindow.xaml.cs
-
-        // using System.ComponentModel; // 파일 상단에 이 using 문이 있는지 확인하세요.
-
-        // ... (기존 클래스 선언은 그대로 둡니다)
-
-        // ✅ MainViewModel의 속성 변경을 감지하여 UI를 업데이트하는 중앙 허브 역할의 메서드
         private void MainViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            // --- 1. 타임라인의 총 길이가 변경되었을 때의 처리 ---
             if (e.PropertyName == nameof(MainViewModel.TotalTimelineDurationMs))
             {
-                // UI 스레드에서 실행되도록 보장합니다 (필수).
                 Dispatcher.Invoke(() =>
                 {
-                    // ViewModel의 최신 값을 가져와 로컬 변수를 업데이트합니다.
                     _currentTimelineDurationSec = _mainViewModel.TotalTimelineDurationMs / 1000.0;
-                    // 업데이트된 길이로 눈금자를 다시 그립니다.
                     DrawTimelineRuler();
 
-                    // 디버깅 로그 추가
                     System.Diagnostics.Debug.WriteLine($"[UI Event] Ruler updated to: {_currentTimelineDurationSec:F2} seconds.");
                 });
             }
-
-            // --- 2. 타임라인의 현재 위치(시간)가 변경되었을 때의 처리 ---
             if (e.PropertyName == nameof(MainViewModel.CurrentTimelinePosition))
             {
-                // UI 스레드에서 실행되도록 보장합니다 (필수).
                 Dispatcher.Invoke(() =>
                 {
                     if (_playheadLine != null)
                     {
-                        // ViewModel의 현재 시간(초)을 가져와 픽셀 위치로 변환합니다.
                         double newX = _mainViewModel.CurrentTimelinePosition * _mainViewModel.VideoEditor.PixelsPerSecond;
 
-                        // 플레이헤드 라인의 X 좌표를 업데이트하여 시각적으로 움직입니다.
                         _playheadLine.X1 = newX;
                         _playheadLine.X2 = newX;
                     }
@@ -310,7 +294,6 @@ namespace VideoEditor
         {
             if (float.TryParse(SpeedTextBox.Text, out float speed))
             {
-                // 배속 범위 제한 (0.1 ~ 25.0)
                 speed = Math.Max(0.1f, Math.Min(25.0f, speed));
                 _mainViewModel.PlayerViewModel.PlaybackRate = speed;
                 SpeedTextBox.Text = speed.ToString("F2");
@@ -324,7 +307,6 @@ namespace VideoEditor
 
         private void SpeedMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            // 배속 컨트롤 패널과 비디오 정보 패널을 토글
             if (SpeedControlPanel.Visibility == Visibility.Visible)
             {
                 SpeedControlPanel.Visibility = Visibility.Collapsed;

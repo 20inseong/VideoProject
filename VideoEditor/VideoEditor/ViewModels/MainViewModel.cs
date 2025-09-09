@@ -154,10 +154,8 @@ namespace VideoEditor.ViewModels
 
         private async Task StartExportProcessAsync()
         {
-            // --- 1. 메서드 시작 로그 ---
             Debug.WriteLine("[DEBUG] StartExportProcessAsync method has started.");
 
-            // --- 2. _mainWindow 상태 확인 로그 ---
             if (_mainWindow == null)
             {
                 Debug.WriteLine("[DEBUG] CRITICAL: _mainWindow is NULL. The dialog cannot be shown correctly.");
@@ -175,7 +173,6 @@ namespace VideoEditor.ViewModels
                 FileName = "output.mp4"
             };
 
-            // --- 3. 대화상자 결과 확인 로그 ---
             Debug.WriteLine("[DEBUG] Showing SaveFileDialog now...");
             bool? dialogResult = saveFileDialog.ShowDialog(_mainWindow);
             Debug.WriteLine($"[DEBUG] SaveFileDialog returned with result: {dialogResult?.ToString() ?? "null"}");
@@ -188,7 +185,6 @@ namespace VideoEditor.ViewModels
 
             string outputPath = saveFileDialog.FileName;
 
-            // --- 4. 실제 로직 호출 직전/직후 로그 ---
             Debug.WriteLine($"[DEBUG] Path selected. Preparing to call RunExportLogicAsync with path: {outputPath}");
             await RunExportLogicAsync(outputPath);
             Debug.WriteLine("[DEBUG] RunExportLogicAsync has completed.");
@@ -238,56 +234,19 @@ namespace VideoEditor.ViewModels
                     argumentsBuilder.Append($"-i \"{safeTempPath}\" ");
                 }
 
-                //var filterComplexBuilder = new StringBuilder();
-                //double totalDurationSec = TotalTimelineDurationMs / 1000.0;
-                //string outputResolution = "1920x1080";
-                //string outputFrameRate = "30";
-                //string audioSampleRate = "44100";
-                //var orderedClips = VideoEditor.TimelineClips.OrderBy(c => c.StartPosition).ToList();
-
-                // --- 2. FFmpeg 명령어 생성 (완전히 새로운 방식) ---
                 var filterComplexBuilder = new StringBuilder();
                 var orderedClips = VideoEditor.TimelineClips.OrderBy(c => c.StartPosition).ToList();
                 double totalDurationSec = TotalTimelineDurationMs / 1000.0;
-
-                // "무간격(Gapless)" 타임라인을 위해 클립들의 순수 길이 합계로 총 길이를 재계산
-                //double gaplessTotalDurationSec = orderedClips.Sum(c => c.Duration);
 
                 string outputResolution = "1920x1080";
                 string outputFrameRate = "30";
                 string audioSampleRate = "44100";
 
-                //filterComplexBuilder.Append($"color=c=black:s={outputResolution}:r={outputFrameRate}:d={totalDurationSec.ToString("F6", CultureInfo.InvariantCulture)}[base_v];");
-                //filterComplexBuilder.Append($"anullsrc=r={audioSampleRate}:cl=stereo:d={totalDurationSec.ToString("F6", CultureInfo.InvariantCulture)}[base_a];");
-
-                // 최종 결과물의 검은색 배경 비디오와 무음 오디오를 생성
                 filterComplexBuilder.Append($"color=c=black:s={outputResolution}:r={outputFrameRate}:d={totalDurationSec.ToString("F6", CultureInfo.InvariantCulture)}[base_v];");
                 filterComplexBuilder.Append($"anullsrc=r={audioSampleRate}:cl=stereo:d={totalDurationSec.ToString("F6", CultureInfo.InvariantCulture)}[base_a];");
 
                 var videoStreamNamesToOverlay = new List<string>();
                 var audioStreamNamesToMix = new List<string> { "[base_a]" };
-                //double gaplessCurrentTime = 0.0;
-
-                //string lastVideoOutput = "[base_v]";
-                //var audioStreamNames = new List<string> { "[base_a]" };
-
-                //for (int i = 0; i < orderedClips.Count; i++)
-                //{
-                //    var clip = orderedClips[i];
-                //    string safeClipPath = safePathMappings[clip.VideoPath];
-                //    int fileIndex = safeInputFiles.IndexOf(safeClipPath);
-
-                //    string sourceStartTime = clip.SourceStartTime.ToString("F6", CultureInfo.InvariantCulture);
-                //    string duration = clip.Duration.ToString("F6", CultureInfo.InvariantCulture);
-
-                //    var startPositionMs = (long)(clip.StartPosition * 1000);
-
-                //    filterComplexBuilder.Append($"[{fileIndex}:v]trim=start={sourceStartTime}:duration={duration},setpts=PTS-STARTPTS,scale={outputResolution},setsar=1[v{i}];");
-                //    filterComplexBuilder.Append($"[{fileIndex}:a]atrim=start={sourceStartTime}:duration={duration},asetpts=PTS-STARTPTS[a_trimmed{i}];");
-                //    filterComplexBuilder.Append($"[a_trimmed{i}]adelay={startPositionMs}|{startPositionMs}[a{i}];");
-
-                //    audioStreamNames.Add($"[a{i}]");
-                //}
 
                 for (int i = 0; i < orderedClips.Count; i++)
                 {
@@ -301,34 +260,16 @@ namespace VideoEditor.ViewModels
                     string videoDelayTime = clip.StartPosition.ToString("F6", CultureInfo.InvariantCulture);
                     var audioDelayTimeMs = (long)(clip.StartPosition * 1000);
 
-                    // --- 비디오 스트림 처리 (자르기 -> 초기화 -> 'StartPosition'으로 시간 이동) ---
                     string videoTrimmed = $"[v_trimmed{i}]";
                     string videoDelayed = $"[v_delayed{i}]";
                     filterComplexBuilder.Append($"[{fileIndex}:v]trim=start={sourceStartTime}:duration={duration},setpts=PTS-STARTPTS,scale={outputResolution},setsar=1{videoTrimmed};");
                     filterComplexBuilder.Append($"{videoTrimmed}setpts=PTS+{videoDelayTime}/TB{videoDelayed};");
                     videoStreamNamesToOverlay.Add(videoDelayed);
 
-                    // --- 오디오 스트림 처리 (자르기 -> 초기화 -> 'StartPosition'으로 시간 이동) ---
                     filterComplexBuilder.Append($"[{fileIndex}:a]atrim=start={sourceStartTime}:duration={duration},asetpts=PTS-STARTPTS[a_trimmed{i}];");
                     filterComplexBuilder.Append($"[a_trimmed{i}]adelay={audioDelayTimeMs}|{audioDelayTimeMs}[a{i}];");
                     audioStreamNamesToMix.Add($"[a{i}]");
                 }
-
-                //for (int i = 0; i < orderedClips.Count; i++)
-                //{
-                //    var clip = orderedClips[i];
-                //    string clipStart = clip.StartPosition.ToString("F6", CultureInfo.InvariantCulture);
-                //    string clipEnd = (clip.StartPosition + clip.Duration).ToString("F6", CultureInfo.InvariantCulture);
-                //    string newVideoOutput = (i == orderedClips.Count - 1) ? "[out_v]" : $"[v_out{i}]";
-
-                //    filterComplexBuilder.Append($"{lastVideoOutput}[v{i}]overlay=x=0:y=0:enable='between(t,{clipStart},{clipEnd})'{newVideoOutput}");
-
-                //    if (i < orderedClips.Count - 1)
-                //    {
-                //        filterComplexBuilder.Append(";");
-                //        lastVideoOutput = newVideoOutput;
-                //    }
-                //}
 
                 string lastVideoOutput = "[base_v]";
                 for (int i = 0; i < videoStreamNamesToOverlay.Count; i++)
@@ -344,9 +285,6 @@ namespace VideoEditor.ViewModels
                         lastVideoOutput = newVideoOutput;
                     }
                 }
-
-                //string amixInputs = string.Join("", audioStreamNames);
-                //filterComplexBuilder.Append($";{amixInputs}amix=inputs={audioStreamNames.Count}[out_a]");
 
                 string amixInputs = string.Join("", audioStreamNamesToMix);
                 filterComplexBuilder.Append($";{amixInputs}amix=inputs={audioStreamNamesToMix.Count}[out_a]");

@@ -18,6 +18,8 @@
 
     <Window.InputBindings>
         <KeyBinding Key="Delete" Command="{Binding VideoEditor.DeleteSelectedClipCommand}" />
+        <KeyBinding Key="C" Modifiers="Ctrl" Command="{Binding VideoEditor.CopySelectedClipCommand}" />
+        <KeyBinding Key="V" Modifiers="Ctrl" Command="{Binding VideoEditor.PasteClipCommand}" CommandParameter="{Binding CurrentTimelinePosition}"/>
     </Window.InputBindings>
 
     <Window.Resources>
@@ -291,13 +293,13 @@ BorderThickness="1">
 
                         <!-- ✅ (1) 타임라인 상단 메뉴 -->
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5,2,5,2">
-                            <Button x:Name="btnZoomIn" Content="확대(+)" Margin="2"/>
-                            <Button x:Name="btnZoomOut" Content="축소(-)" Margin="2"/>
+                            <Button x:Name="btnZoomIn" Content="확대(+)" Margin="2" Command="{Binding VideoEditor.ZoomInCommand}"/>
+                            <Button x:Name="btnZoomOut" Content="축소(-)" Margin="2" Command="{Binding VideoEditor.ZoomOutCommand}"/>
                             <TextBlock Text="확대/축소: " Foreground="White" VerticalAlignment="Center" Margin="10,0,5,0"/>
-                            <TextBlock x:Name="txtZoomValue" Text="100%" Foreground="White" VerticalAlignment="Center" Width="50"/>
+                            <TextBlock x:Name="txtZoomValue" Text="{Binding VideoEditor.ZoomPercentage, StringFormat={}{0:F0}%}" Foreground="White" VerticalAlignment="Center" Width="50"/>
                             <Button x:Name="btnSplitClip" Content="클립 분할" Margin="10,2,2,2" Command="{Binding VideoEditor.SplitClipCommand}" CommandParameter="{Binding CurrentTimelinePosition}"/>
-                            <Button x:Name="btnCopyClip" Content="복사" Margin="2"/>
-                            <Button x:Name="btnPasteClip" Content="붙여넣기" Margin="2"/>
+                            <Button x:Name="btnCopyClip" Content="복사" Margin="2" Command="{Binding VideoEditor.CopySelectedClipCommand}"/>
+                            <Button x:Name="btnPasteClip" Content="붙여넣기" Margin="2" Command="{Binding VideoEditor.PasteClipCommand}" CommandParameter="{Binding CurrentTimelinePosition}"/>
                             <Button x:Name="btnDeleteClip" Content="삭제" Margin="2" Command="{Binding VideoEditor.DeleteSelectedClipCommand}"/>
                             <Button x:Name="btnExportVideo" Content="내보내기" Margin="15,2,2,2" Background="#5F9E30" Foreground="White" 
                                     Command="{Binding DataContext.ExportVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
