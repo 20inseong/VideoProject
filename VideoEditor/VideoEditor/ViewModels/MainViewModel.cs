@@ -8,6 +8,7 @@ using VideoEditor.Models;
 using System.Windows.Threading;
 using System.Globalization;
 using System.IO;
+using LibVLCSharp.Shared;
 
 namespace VideoEditor.ViewModels
 {
@@ -496,6 +497,21 @@ namespace VideoEditor.ViewModels
             PlayerViewModel.TotalDuration = newTotalDurationMs;
 
             //Debug.WriteLine($"[Timeline Duration] 총 타임라인 길이 업데이트: {TotalTimelineDurationMs / 1000.0:F2}초");
+        }
+
+        public void Dispose()
+        {
+            PlayerViewModel?.Dispose();
+            VideoEditor?.Dispose();
+
+            if (VideoEditor != null)
+            {
+                VideoEditor.OnClipAdded -= MainViewModel_OnClipAdded;
+            }
+            if (PlayerViewModel != null && PlayerViewModel.MediaPlayer != null)
+            {
+                PlayerViewModel.MediaPlayer.EndReached -= OnClipFinished;
+            }
         }
     }
 }

@@ -52,7 +52,67 @@ namespace VideoEditor
             };
 
             DrawTimelineRuler();
+
+            InitializeNewViewModel();
         }
+
+        private void NewProject_Click(object sender, RoutedEventArgs e)
+        {
+            var newWindow = new MainWindow();
+
+            newWindow.Show();
+
+            //this.Close();
+        }
+
+        private void MainWindow_Closing(object sender, CancelEventArgs e)
+        {
+            if (DataContext is MainViewModel vm)
+            {
+                vm.Dispose();
+                System.Diagnostics.Debug.WriteLine("[Project] ViewModel resources have been disposed.");
+            }
+        }
+
+        private void InitializeNewViewModel()
+        {
+            if (_mainViewModel != null)
+            {
+                _mainViewModel.ExportStarted -= MainViewModel_ExportStarted;
+                _mainViewModel.ExportFinished -= MainViewModel_ExportFinished;
+                _mainViewModel.PropertyChanged -= MainViewModel_PropertyChanged;
+                if (_mainViewModel.VideoEditor != null)
+                {
+                    _mainViewModel.VideoEditor.PropertyChanged -= VideoEditor_PropertyChanged;
+                }
+            }
+
+            _mainViewModel = new MainViewModel(this);
+            DataContext = _mainViewModel;
+
+            _mainViewModel.ExportStarted += MainViewModel_ExportStarted;
+            _mainViewModel.ExportFinished += MainViewModel_ExportFinished;
+            _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
+            _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
+
+            videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MediaPlayer;
+            DrawTimelineRuler();
+            System.Diagnostics.Debug.WriteLine("[Project] A new ViewModel has been initialized.");
+        }
+
+        private void Project_Reset_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show("현재 프로젝트의 초기화를 시작하시겠습니까? 저장하지 않은 내용은 사라집니다.",
+                                         "새 프로젝트",
+                                         MessageBoxButton.YesNo,
+                                         MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                InitializeNewViewModel();
+            }
+        }
+
 
         private void VideoEditor_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {

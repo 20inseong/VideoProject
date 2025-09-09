@@ -10,6 +10,7 @@
         xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
         mc:Ignorable="d"
         Title="MainWindow" Height="800" Width="1500"
+        Closing="MainWindow_Closing"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="#2B2B2B"
@@ -60,8 +61,9 @@
             <Menu Grid.Row="0" Background="#525252" Foreground="White">
                 <!-- 파일 -->
                 <MenuItem Header="파일" >
-                    <MenuItem Header="새 프로젝트"/>
+                    <MenuItem Header="새 프로젝트" Click="NewProject_Click"/>
                     <MenuItem Header="프로젝트 열기"/>
+                    <MenuItem Header="프로젝트 초기화" Click="Project_Reset_Click"/>
                     <MenuItem Header="최근 파일 열기" />
                     <Separator/>
                     <MenuItem Header="미디어 가져오기" Click="btnSelectMedia_Click"/>
@@ -69,7 +71,8 @@
                     <MenuItem Header="프로젝트 저장" />
                     <MenuItem Header="편집 파일 저장" />
                     <Separator/>
-                    <MenuItem Header="렌더링" />
+                    <MenuItem Header="렌더링" 
+                              Command="{Binding DataContext.ExportVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
                     <MenuItem Header="렌더링 파일 미리보기" />
                     <Separator/>
                     <MenuItem Header="프로젝트 설정" />
