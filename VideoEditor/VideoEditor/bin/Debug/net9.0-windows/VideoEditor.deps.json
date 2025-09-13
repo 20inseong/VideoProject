@@ -11,6 +11,7 @@
           "Emgu.CV": "4.11.0.5746",
           "Emgu.CV.Bitmap": "4.11.0.5746",
           "Emgu.CV.runtime.windows": "4.11.0.5746",
+          "LibVLCSharp": "3.9.4",
           "LibVLCSharp.WPF": "3.9.4",
           "Microsoft.Xaml.Behaviors.Wpf": "1.1.135",
           "VideoLAN.LibVLC.Windows": "3.0.21",

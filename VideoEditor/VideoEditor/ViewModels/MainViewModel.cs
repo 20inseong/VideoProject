@@ -35,7 +35,8 @@ namespace VideoEditor.ViewModels
         {
             // 모든 클립은 가시 레이어로 추가되어 비디오/오디오가 재생됨 (소프트 클록 사용)
             var z = PlayerViewModel.Layers.Count; // 다음 ZIndex
-            var layer = PlayerViewModel.AddLayer(e.VideoPath, left: 0, top: 0, width: 640, height: 360, opacity: 1.0, zIndex: z);
+            // 크기를 지정하지 않으면 해상도에 맞게 자동 설정됨
+            var layer = PlayerViewModel.AddLayer(e.VideoPath, left: 0, top: 0, opacity: 1.0, zIndex: z);
             // 현재 클록 시간으로 동기화
             layer.MediaPlayer.Time = PlayerViewModel.CurrentTime;
             layer.MediaPlayer.Play();

@@ -62,6 +62,10 @@
               "target": "Package",
               "version": "[4.11.0.5746, )"
             },
+            "LibVLCSharp": {
+              "target": "Package",
+              "version": "[3.9.4, )"
+            },
             "LibVLCSharp.WPF": {
               "target": "Package",
               "version": "[3.9.4, )"

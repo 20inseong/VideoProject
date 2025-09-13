@@ -131,11 +131,23 @@ namespace VideoEditor.ViewModels
 			{
 				Left = left ?? 0,
 				Top = top ?? 0,
-				Width = width ?? 640,
-				Height = height ?? 360,
 				Opacity = opacity,
 				ZIndex = zIndex
 			};
+			
+			// 크기가 지정되지 않았으면 해상도에 맞게 자동 설정 (비동기로 처리됨)
+			if (width == null || height == null)
+			{
+				// 기본값 설정 (해상도 로드 후 자동으로 업데이트됨)
+				layer.Width = 640;
+				layer.Height = 360;
+			}
+			else
+			{
+				layer.Width = width.Value;
+				layer.Height = height.Value;
+			}
+			
 			// 동기화
 			layer.MediaPlayer.Volume = Volume;
 			layer.MediaPlayer.SetRate(PlaybackRate);
