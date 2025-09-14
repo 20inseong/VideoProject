@@ -40,6 +40,13 @@ namespace VideoEditor.ViewModels
             layer.MediaPlayer.Time = PlayerViewModel.CurrentTime;
             layer.MediaPlayer.Play();
 
+            // 클립과 레이어 연결
+            var addedClip = VideoEditor.TimelineClips.LastOrDefault();
+            if (addedClip != null)
+            {
+                addedClip.AssociatedLayer = layer;
+            }
+
             // StatusMessage = $"'{System.IO.Path.GetFileNameWithoutExtension(e.VideoPath)}' 클립 재생을 시작합니다.";
         }
     }

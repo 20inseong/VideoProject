@@ -24,6 +24,12 @@ namespace VideoEditor
         private Point _dragStartPoint;
         private Line _playheadLine;
         private double _currentTimelineDurationSec = 300;
+        private bool _isResizing = false;
+        private Point _resizeStartPoint;
+        private VideoLayerViewModel? _resizingLayer;
+        private bool _isDragging = false;
+        private Point _layerDragStartPoint;
+        private VideoLayerViewModel? _draggingLayer;
         public MainWindow()
         {
             InitializeComponent();
@@ -34,6 +40,56 @@ namespace VideoEditor
 
 
             this.Loaded += MainWindow_Loaded;
+            InitializeClipPropertyControls();
+            
+            // 클립 선택 이벤트 연결
+            _mainViewModel.PlayerViewModel.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(PlayerViewModel.SelectedLayer))
+                {
+                    if (_mainViewModel.PlayerViewModel.SelectedLayer != null)
+                    {
+                        ShowClipPropertiesPanel();
+                        UpdateClipPropertyControls();
+                    }
+                    else
+                    {
+                        HideClipPropertiesPanel();
+                    }
+                }
+            };
+
+            // 타임라인 클립 선택 이벤트 연결
+            _mainViewModel.VideoEditor.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(VideoEditorViewModel.SelectedClip))
+                {
+                    var selectedClip = _mainViewModel.VideoEditor.SelectedClip;
+                    if (selectedClip?.AssociatedLayer != null)
+                    {
+                        _mainViewModel.PlayerViewModel.SelectedLayer = selectedClip.AssociatedLayer;
+                    }
+                }
+            };
+
+            // 크기 조절 시작 이벤트 연결
+            _mainViewModel.PlayerViewModel.OnStartResize += (s, e) =>
+            {
+                _isResizing = true;
+                _resizingLayer = e.Layer;
+                _resizeStartPoint = Mouse.GetPosition(this);
+                this.CaptureMouse();
+            };
+
+            // 드래그 시작 이벤트 연결
+            _mainViewModel.PlayerViewModel.OnStartDrag += (s, e) =>
+            {
+                _isDragging = true;
+                _draggingLayer = e.Layer;
+                _layerDragStartPoint = Mouse.GetPosition(this);
+                this.CaptureMouse();
+            };
+
             // 소프트 클록 이벤트로 플레이헤드/길이 업데이트
             _mainViewModel.PlayerViewModel.ClockTimeChanged += (_, __) =>
             {
@@ -73,6 +129,10 @@ namespace VideoEditor
             };
 
             DrawTimelineRuler();
+            
+            // 마우스 이벤트 처리
+            this.MouseMove += MainWindow_MouseMove;
+            this.MouseLeftButtonUp += MainWindow_MouseLeftButtonUp;
         }
 
         private void btnSelectMedia_Click(object sender, RoutedEventArgs e)
@@ -251,6 +311,132 @@ namespace VideoEditor
                 SpeedControlPanel.Visibility = Visibility.Visible;
                 VideoInfoPanel.Visibility = Visibility.Collapsed;
                 SpeedControlPanel.Margin = new Thickness(10, 40, 10, 10);
+            }
+        }
+
+        private void InitializeClipPropertyControls()
+        {
+            // 슬라이더 이벤트 연결
+            PositionXSlider.ValueChanged += (s, e) => UpdateSelectedClipProperties();
+            PositionYSlider.ValueChanged += (s, e) => UpdateSelectedClipProperties();
+            WidthSlider.ValueChanged += (s, e) => UpdateSelectedClipProperties();
+            HeightSlider.ValueChanged += (s, e) => UpdateSelectedClipProperties();
+            ClipSpeedSlider.ValueChanged += (s, e) => UpdateSelectedClipProperties();
+            RotationSlider.ValueChanged += (s, e) => UpdateSelectedClipProperties();
+            OpacitySlider.ValueChanged += (s, e) => UpdateSelectedClipProperties();
+
+            // 값 표시 업데이트
+            PositionXSlider.ValueChanged += (s, e) => PositionXValue.Text = ((int)e.NewValue).ToString();
+            PositionYSlider.ValueChanged += (s, e) => PositionYValue.Text = ((int)e.NewValue).ToString();
+            WidthSlider.ValueChanged += (s, e) => WidthValue.Text = ((int)e.NewValue).ToString();
+            HeightSlider.ValueChanged += (s, e) => HeightValue.Text = ((int)e.NewValue).ToString();
+            ClipSpeedSlider.ValueChanged += (s, e) => ClipSpeedValue.Text = $"{e.NewValue:F1}x";
+            RotationSlider.ValueChanged += (s, e) => RotationValue.Text = $"{e.NewValue:F0}°";
+            OpacitySlider.ValueChanged += (s, e) => OpacityValue.Text = $"{(int)(e.NewValue * 100)}%";
+        }
+
+        private void UpdateSelectedClipProperties()
+        {
+            var selectedLayer = _mainViewModel.PlayerViewModel.SelectedLayer;
+            if (selectedLayer != null)
+            {
+                selectedLayer.Left = PositionXSlider.Value;
+                selectedLayer.Top = PositionYSlider.Value;
+                selectedLayer.Width = WidthSlider.Value;
+                selectedLayer.Height = HeightSlider.Value;
+                selectedLayer.PlaybackRate = ClipSpeedSlider.Value;
+                selectedLayer.Rotation = RotationSlider.Value;
+                selectedLayer.Opacity = OpacitySlider.Value;
+            }
+        }
+
+        private void ShowClipPropertiesPanel()
+        {
+            ClipPropertiesPanel.Visibility = Visibility.Visible;
+            VideoInfoPanel.Visibility = Visibility.Collapsed;
+            SpeedControlPanel.Visibility = Visibility.Collapsed;
+        }
+
+        private void HideClipPropertiesPanel()
+        {
+            ClipPropertiesPanel.Visibility = Visibility.Collapsed;
+            VideoInfoPanel.Visibility = Visibility.Visible;
+        }
+
+        private void UpdateClipPropertyControls()
+        {
+            var selectedLayer = _mainViewModel.PlayerViewModel.SelectedLayer;
+            if (selectedLayer != null)
+            {
+                PositionXSlider.Value = selectedLayer.Left;
+                PositionYSlider.Value = selectedLayer.Top;
+                WidthSlider.Value = selectedLayer.Width;
+                HeightSlider.Value = selectedLayer.Height;
+                ClipSpeedSlider.Value = selectedLayer.PlaybackRate;
+                RotationSlider.Value = selectedLayer.Rotation;
+                OpacitySlider.Value = selectedLayer.Opacity;
+            }
+        }
+
+        private void MainWindow_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (_isResizing && _resizingLayer != null)
+            {
+                var currentPosition = e.GetPosition(this);
+                var deltaX = currentPosition.X - _resizeStartPoint.X;
+                var deltaY = currentPosition.Y - _resizeStartPoint.Y;
+
+                // 크기 조절 (최소 크기 제한)
+                var newWidth = Math.Max(50, _resizingLayer.Width + deltaX);
+                var newHeight = Math.Max(50, _resizingLayer.Height + deltaY);
+
+                _resizingLayer.Width = newWidth;
+                _resizingLayer.Height = newHeight;
+
+                // 슬라이더 값도 업데이트
+                WidthSlider.Value = newWidth;
+                HeightSlider.Value = newHeight;
+                WidthValue.Text = ((int)newWidth).ToString();
+                HeightValue.Text = ((int)newHeight).ToString();
+
+                _resizeStartPoint = currentPosition;
+            }
+            else if (_isDragging && _draggingLayer != null)
+            {
+                var currentPosition = e.GetPosition(this);
+                var deltaX = currentPosition.X - _layerDragStartPoint.X;
+                var deltaY = currentPosition.Y - _layerDragStartPoint.Y;
+
+                // 위치 조절
+                var newLeft = Math.Max(0, _draggingLayer.Left + deltaX);
+                var newTop = Math.Max(0, _draggingLayer.Top + deltaY);
+
+                _draggingLayer.Left = newLeft;
+                _draggingLayer.Top = newTop;
+
+                // 슬라이더 값도 업데이트
+                PositionXSlider.Value = newLeft;
+                PositionYSlider.Value = newTop;
+                PositionXValue.Text = ((int)newLeft).ToString();
+                PositionYValue.Text = ((int)newTop).ToString();
+
+                _layerDragStartPoint = currentPosition;
+            }
+        }
+
+        private void MainWindow_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_isResizing)
+            {
+                _isResizing = false;
+                _resizingLayer = null;
+                this.ReleaseMouseCapture();
+            }
+            else if (_isDragging)
+            {
+                _isDragging = false;
+                _draggingLayer = null;
+                this.ReleaseMouseCapture();
             }
         }
     }

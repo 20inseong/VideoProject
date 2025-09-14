@@ -36,10 +36,12 @@ namespace VideoEditor.ViewModels
         private Point _dragStartPoint;
         private double _originalClipStartPosition;
         private int _originalClipTrackIndex;
+        private VideoClip? _selectedClip;
 
         public ICommand DropOnTimelineCommand { get; }
         public ICommand ClipMouseDownCommand { get; }
         public ICommand ClipMouseMoveCommand { get; }
+        public ICommand ClipClickCommand { get; }
 
 
         public ObservableCollection<VideoClip> TimelineClips
@@ -54,6 +56,27 @@ namespace VideoEditor.ViewModels
             set => SetProperty(ref _pixelsPerSecond, value);
         }
 
+        public VideoClip? SelectedClip
+        {
+            get => _selectedClip;
+            set
+            {
+                if (SetProperty(ref _selectedClip, value))
+                {
+                    // 이전 선택 해제
+                    foreach (var clip in TimelineClips)
+                    {
+                        clip.IsSelected = false;
+                    }
+                    // 새 선택 설정
+                    if (value != null)
+                    {
+                        value.IsSelected = true;
+                    }
+                }
+            }
+        }
+
         public VideoEditorViewModel()
         {
             TimelineClips = new ObservableCollection<VideoClip>();
@@ -64,6 +87,7 @@ namespace VideoEditor.ViewModels
 
             ClipMouseDownCommand = new RelayCommand<MouseButtonEventArgs>(ExecuteClipMouseDown);
             ClipMouseMoveCommand = new RelayCommand<MouseEventArgs>(ExecuteClipMouseMove);
+            ClipClickCommand = new RelayCommand<MouseButtonEventArgs>(ExecuteClipClick);
         }
 
         private async void ExecuteDropOnTimeline(DragEventArgs? e)
@@ -230,6 +254,16 @@ namespace VideoEditor.ViewModels
             DragDrop.DoDragDrop((DependencyObject)e.Source, dragData, DragDropEffects.Move);
 
             _draggedClip = null;
+        }
+
+        private void ExecuteClipClick(MouseButtonEventArgs? e)
+        {
+            if (e == null) return;
+
+            if ((e.Source as FrameworkElement)?.DataContext is VideoClip clickedClip)
+            {
+                SelectedClip = clickedClip;
+            }
         }
 
         public void Dispose()

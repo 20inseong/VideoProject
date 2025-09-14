@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 using VideoEditor.Common;
+using VideoEditor.ViewModels;
 
 namespace VideoEditor.Models
 {
@@ -19,6 +20,11 @@ namespace VideoEditor.Models
         private string _videoPath;
         private BitmapImage _thumbnail;
         private int _trackIndex;
+        private bool _isSelected;
+        private double _playbackRate = 1.0;
+        private double _scaleX = 1.0;
+        private double _scaleY = 1.0;
+        private double _rotation = 0.0;
 
         public string Name
         {
@@ -71,6 +77,37 @@ namespace VideoEditor.Models
         public string Category { get; set; } = "미분류";
 
         public Guid Id { get; } = Guid.NewGuid();
+        public VideoLayerViewModel? AssociatedLayer { get; set; }
+
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set => SetProperty(ref _isSelected, value);
+        }
+
+        public double PlaybackRate
+        {
+            get => _playbackRate;
+            set => SetProperty(ref _playbackRate, value);
+        }
+
+        public double ScaleX
+        {
+            get => _scaleX;
+            set => SetProperty(ref _scaleX, value);
+        }
+
+        public double ScaleY
+        {
+            get => _scaleY;
+            set => SetProperty(ref _scaleY, value);
+        }
+
+        public double Rotation
+        {
+            get => _rotation;
+            set => SetProperty(ref _rotation, value);
+        }
 
         public void UpdateWidth(double pixelsPerSecond)
         {

@@ -3,36 +3,36 @@
   "WorkspaceRootPath": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|c:\\users\\roxno\\source\\repos\\videoproject\\videoeditor\\videoeditor\\viewmodels\\videoeditorviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|solutionrelative:videoeditor\\viewmodels\\videoeditorviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|c:\\users\\roxno\\source\\repos\\videoproject\\videoeditor\\videoeditor\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
       "RelativeMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|solutionrelative:videoeditor\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|c:\\users\\roxno\\source\\repos\\videoproject\\videoeditor\\videoeditor\\mainwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|solutionrelative:videoeditor\\mainwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|c:\\users\\roxno\\source\\repos\\videoproject\\videoeditor\\videoeditor\\viewmodels\\playerviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|solutionrelative:videoeditor\\viewmodels\\playerviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|c:\\users\\roxno\\source\\repos\\videoproject\\videoeditor\\videoeditor\\viewmodels\\mainviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|solutionrelative:videoeditor\\viewmodels\\mainviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|c:\\users\\roxno\\source\\repos\\videoproject\\videoeditor\\videoeditor\\models\\videoclip.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|solutionrelative:videoeditor\\models\\videoclip.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|c:\\users\\roxno\\source\\repos\\videoproject\\videoeditor\\videoeditor\\viewmodels\\videolistviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|solutionrelative:videoeditor\\viewmodels\\videolistviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|c:\\users\\roxno\\source\\repos\\videoproject\\videoeditor\\videoeditor\\mainwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|solutionrelative:videoeditor\\mainwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|c:\\users\\roxno\\source\\repos\\videoproject\\videoeditor\\videoeditor\\viewmodels\\mainviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|solutionrelative:videoeditor\\viewmodels\\mainviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|c:\\users\\roxno\\source\\repos\\videoproject\\videoeditor\\videoeditor\\videoeditor.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
       "RelativeMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|solutionrelative:videoeditor\\videoeditor.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|c:\\users\\roxno\\source\\repos\\videoproject\\videoeditor\\videoeditor\\viewmodels\\playerviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|solutionrelative:videoeditor\\viewmodels\\playerviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|c:\\users\\roxno\\source\\repos\\videoproject\\videoeditor\\videoeditor\\viewmodels\\videolistviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|solutionrelative:videoeditor\\viewmodels\\videolistviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|c:\\users\\roxno\\source\\repos\\videoproject\\videoeditor\\videoeditor\\viewmodels\\videoeditorviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{9CA88DB5-637C-44C3-AD4C-E689E14DAC0B}|VideoEditor\\VideoEditor.csproj|solutionrelative:videoeditor\\viewmodels\\videoeditorviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\roxno\\source\\repos\\VideoProject\\.gitignore||{3B902123-F8A7-4915-9F01-361F908088D0}"
@@ -57,7 +57,7 @@
       "DocumentGroups": [
         {
           "DockedHeight": 270,
-          "SelectedChildIndex": 12,
+          "SelectedChildIndex": 11,
           "Children": [
             {
               "$type": "Bookmark",
@@ -77,44 +77,6 @@
             },
             {
               "$type": "Bookmark",
-              "Name": "ST:131:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:129:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:130:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "PlayerViewModel.cs",
-              "DocumentMoniker": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\ViewModels\\PlayerViewModel.cs",
-              "RelativeDocumentMoniker": "VideoEditor\\ViewModels\\PlayerViewModel.cs",
-              "ToolTip": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\ViewModels\\PlayerViewModel.cs",
-              "RelativeToolTip": "VideoEditor\\ViewModels\\PlayerViewModel.cs",
-              "ViewState": "AgIAAAQAAAAAAAAAAAAAABoAAAAZAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-09-07T10:23:58.478Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "MainWindow.xaml.cs",
-              "DocumentMoniker": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\MainWindow.xaml.cs",
-              "RelativeDocumentMoniker": "VideoEditor\\MainWindow.xaml.cs",
-              "ToolTip": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\MainWindow.xaml.cs",
-              "RelativeToolTip": "VideoEditor\\MainWindow.xaml.cs",
-              "ViewState": "AgIAABoAAAAAAAAAAAA4wCsAAAAkAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-22T12:15:54.329Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Bookmark",
               "Name": "ST:136:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
             },
             {
@@ -126,50 +88,40 @@
               "Name": "ST:137:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
             },
             {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "VideoEditorViewModel.cs",
-              "DocumentMoniker": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\ViewModels\\VideoEditorViewModel.cs",
-              "RelativeDocumentMoniker": "VideoEditor\\ViewModels\\VideoEditorViewModel.cs",
-              "ToolTip": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\ViewModels\\VideoEditorViewModel.cs",
-              "RelativeToolTip": "VideoEditor\\ViewModels\\VideoEditorViewModel.cs",
-              "ViewState": "AgIAAJ8AAAAAAAAAAAAqwKkAAABAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-28T06:59:49.329Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "MainViewModel.cs",
-              "DocumentMoniker": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\ViewModels\\MainViewModel.cs",
-              "RelativeDocumentMoniker": "VideoEditor\\ViewModels\\MainViewModel.cs",
-              "ToolTip": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\ViewModels\\MainViewModel.cs",
-              "RelativeToolTip": "VideoEditor\\ViewModels\\MainViewModel.cs",
-              "ViewState": "AgIAABwAAAAAAAAAAAAYwCoAAAAMAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-24T03:21:55.999Z",
-              "EditorCaption": ""
-            },
-            {
               "$type": "Bookmark",
               "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
             },
             {
-              "$type": "Document",
-              "DocumentIndex": 7,
-              "Title": "VideoEditor.csproj",
-              "DocumentMoniker": "C:\\Users\\roxno\\Source\\Repos\\VideoProject\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
-              "RelativeDocumentMoniker": "VideoEditor\\VideoEditor.csproj",
-              "ToolTip": "C:\\Users\\roxno\\Source\\Repos\\VideoProject\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
-              "RelativeToolTip": "VideoEditor\\VideoEditor.csproj",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA4AAAAlAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2025-08-18T08:38:14.828Z"
+              "$type": "Bookmark",
+              "Name": "ST:129:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 5,
+              "Title": "PlayerViewModel.cs",
+              "DocumentMoniker": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\ViewModels\\PlayerViewModel.cs",
+              "RelativeDocumentMoniker": "VideoEditor\\ViewModels\\PlayerViewModel.cs",
+              "ToolTip": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\ViewModels\\PlayerViewModel.cs",
+              "RelativeToolTip": "VideoEditor\\ViewModels\\PlayerViewModel.cs",
+              "ViewState": "AgIAABAAAAAAAAAAAAAAwCUAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-18T05:05:49.702Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "MainWindow.xaml.cs",
+              "DocumentMoniker": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\MainWindow.xaml.cs",
+              "RelativeDocumentMoniker": "VideoEditor\\MainWindow.xaml.cs",
+              "ToolTip": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\MainWindow.xaml.cs",
+              "RelativeToolTip": "VideoEditor\\MainWindow.xaml.cs",
+              "ViewState": "AgIAAC8BAAAAAAAAAAAowD8BAABTAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-07-22T12:15:54.329Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
               "Title": "MainWindow.xaml",
               "DocumentMoniker": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\MainWindow.xaml",
               "RelativeDocumentMoniker": "VideoEditor\\MainWindow.xaml",
@@ -181,31 +133,15 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
-              "Title": "App.xaml",
-              "DocumentMoniker": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\App.xaml",
-              "RelativeDocumentMoniker": "VideoEditor\\App.xaml",
-              "ToolTip": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\App.xaml",
-              "RelativeToolTip": "VideoEditor\\App.xaml",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-08-18T04:41:45.763Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "VideoClip.cs",
-              "DocumentMoniker": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\Models\\VideoClip.cs",
-              "RelativeDocumentMoniker": "VideoEditor\\Models\\VideoClip.cs",
-              "ToolTip": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\Models\\VideoClip.cs",
-              "RelativeToolTip": "VideoEditor\\Models\\VideoClip.cs",
-              "ViewState": "AgIAAFkAAAAAAAAAAAAswAwAAAAFAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-18T10:20:08.004Z"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:135:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+              "DocumentIndex": 4,
+              "Title": "VideoEditor.csproj",
+              "DocumentMoniker": "C:\\Users\\roxno\\Source\\Repos\\VideoProject\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
+              "RelativeDocumentMoniker": "VideoEditor\\VideoEditor.csproj",
+              "ToolTip": "C:\\Users\\roxno\\Source\\Repos\\VideoProject\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
+              "RelativeToolTip": "VideoEditor\\VideoEditor.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAABAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2025-08-18T08:38:14.828Z"
             },
             {
               "$type": "Document",
@@ -215,7 +151,7 @@
               "RelativeDocumentMoniker": "VideoEditor\\ViewModels\\VideoListViewModel.cs",
               "ToolTip": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\ViewModels\\VideoListViewModel.cs",
               "RelativeToolTip": "VideoEditor\\ViewModels\\VideoListViewModel.cs",
-              "ViewState": "AgIAACgAAAAAAAAAAAAUwA8AAAA2AAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAADwvwAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-08-18T04:41:43.353Z"
             },
@@ -230,6 +166,59 @@
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAAEAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
               "WhenOpened": "2025-08-18T04:43:39.216Z"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "MainViewModel.cs",
+              "DocumentMoniker": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\ViewModels\\MainViewModel.cs",
+              "RelativeDocumentMoniker": "VideoEditor\\ViewModels\\MainViewModel.cs",
+              "ToolTip": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\ViewModels\\MainViewModel.cs",
+              "RelativeToolTip": "VideoEditor\\ViewModels\\MainViewModel.cs",
+              "ViewState": "AgIAABUAAAAAAAAAAAAowCAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-07-24T03:21:55.999Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "VideoClip.cs",
+              "DocumentMoniker": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\Models\\VideoClip.cs",
+              "RelativeDocumentMoniker": "VideoEditor\\Models\\VideoClip.cs",
+              "ToolTip": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\Models\\VideoClip.cs",
+              "RelativeToolTip": "VideoEditor\\Models\\VideoClip.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAE8AAAAiAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-18T10:20:08.004Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "VideoEditorViewModel.cs",
+              "DocumentMoniker": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\ViewModels\\VideoEditorViewModel.cs",
+              "RelativeDocumentMoniker": "VideoEditor\\ViewModels\\VideoEditorViewModel.cs",
+              "ToolTip": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\ViewModels\\VideoEditorViewModel.cs",
+              "RelativeToolTip": "VideoEditor\\ViewModels\\VideoEditorViewModel.cs",
+              "ViewState": "AgIAAGIAAAAAAAAAAAAMwGsAAAAYAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-07-28T06:59:49.329Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "App.xaml",
+              "DocumentMoniker": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\App.xaml",
+              "RelativeDocumentMoniker": "VideoEditor\\App.xaml",
+              "ToolTip": "C:\\Users\\roxno\\source\\repos\\VideoProject\\VideoEditor\\VideoEditor\\App.xaml",
+              "RelativeToolTip": "VideoEditor\\App.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2025-08-18T04:41:45.763Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -254,18 +243,6 @@
               "ViewState": "AgIAABsAAAAAAAAAAAA0wBoAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-08-02T04:57:24.448Z"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:134:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:132:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
             },
             {
               "$type": "Bookmark",

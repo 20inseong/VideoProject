@@ -181,13 +181,53 @@
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid Width="{Binding Width}" Height="{Binding Height}" Opacity="{Binding Opacity}">
+                                            <Border Width="{Binding Width}" Height="{Binding Height}" Opacity="{Binding Opacity}">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="BorderBrush" Value="Transparent"/>
+                                                        <Setter Property="BorderThickness" Value="0"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                <Setter Property="BorderBrush" Value="Yellow"/>
+                                                                <Setter Property="BorderThickness" Value="3"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <Grid>
                                                 <vlc:VideoView>
                                                     <vlc:VideoView.MediaPlayer>
                                                         <Binding Path="MediaPlayer" />
                                                     </vlc:VideoView.MediaPlayer>
                                                 </vlc:VideoView>
-                                            </Grid>
+                                                
+                                                <!-- 선택된 경우 크기 조절 핸들 표시 -->
+                                                <Grid Visibility="{Binding IsSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <!-- 우하단 크기 조절 핸들 -->
+                                                    <Rectangle Width="10" Height="10" Fill="Yellow" 
+                                                               HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                               Cursor="SizeNWSE" Margin="0,0,-5,-5">
+                                                        <b:Interaction.Triggers>
+                                                            <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
+                                                                <b:InvokeCommandAction 
+                                                                    Command="{Binding DataContext.PlayerViewModel.StartResizeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    PassEventArgsToCommand="False" />
+                                                            </b:EventTrigger>
+                                                        </b:Interaction.Triggers>
+                                                    </Rectangle>
+                                                </Grid>
+                                                
+                                                <b:Interaction.Triggers>
+                                                    <b:EventTrigger EventName="MouseLeftButtonDown">
+                                                        <b:InvokeCommandAction 
+                                                            Command="{Binding DataContext.PlayerViewModel.SelectLayerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}"
+                                                            PassEventArgsToCommand="False" />
+                                                    </b:EventTrigger>
+                                                </b:Interaction.Triggers>
+                                                </Grid>
+                                            </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
@@ -264,6 +304,61 @@
                     TickFrequency="0.25" IsSnapToTickEnabled="True" />
                             <TextBlock x:Name="SpeedValueText" Text="{Binding PlayerViewModel.PlaybackRateText}" Foreground="White" 
                        HorizontalAlignment="Center" Margin="0,5,0,0" />
+                        </StackPanel>
+
+                        <!-- 클립 속성 편집 패널 -->
+                        <StackPanel x:Name="ClipPropertiesPanel" Grid.Row="1" Margin="10,40,10,10" Visibility="Collapsed">
+                            <TextBlock Text="클립 속성" FontWeight="Bold" Foreground="White" Margin="0,0,0,10" />
+
+                            <!-- 위치 조절 -->
+                            <TextBlock Text="위치" FontWeight="Bold" Foreground="White" Margin="0,10,0,5" />
+                            <StackPanel Orientation="Horizontal" Margin="0,5,0,5">
+                                <TextBlock Text="X:" Foreground="White" Width="30" VerticalAlignment="Center" />
+                                <Slider x:Name="PositionXSlider" Width="100" Minimum="0" Maximum="800" Value="0" VerticalAlignment="Center" />
+                                <TextBlock x:Name="PositionXValue" Text="0" Foreground="White" Width="40" VerticalAlignment="Center" Margin="5,0,0,0" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,5,0,5">
+                                <TextBlock Text="Y:" Foreground="White" Width="30" VerticalAlignment="Center" />
+                                <Slider x:Name="PositionYSlider" Width="100" Minimum="0" Maximum="600" Value="0" VerticalAlignment="Center" />
+                                <TextBlock x:Name="PositionYValue" Text="0" Foreground="White" Width="40" VerticalAlignment="Center" Margin="5,0,0,0" />
+                            </StackPanel>
+
+                            <!-- 크기 조절 -->
+                            <TextBlock Text="크기" FontWeight="Bold" Foreground="White" Margin="0,10,0,5" />
+                            <StackPanel Orientation="Horizontal" Margin="0,5,0,5">
+                                <TextBlock Text="폭:" Foreground="White" Width="30" VerticalAlignment="Center" />
+                                <Slider x:Name="WidthSlider" Width="100" Minimum="50" Maximum="800" Value="640" VerticalAlignment="Center" />
+                                <TextBlock x:Name="WidthValue" Text="640" Foreground="White" Width="40" VerticalAlignment="Center" Margin="5,0,0,0" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,5,0,5">
+                                <TextBlock Text="높이:" Foreground="White" Width="30" VerticalAlignment="Center" />
+                                <Slider x:Name="HeightSlider" Width="100" Minimum="50" Maximum="600" Value="360" VerticalAlignment="Center" />
+                                <TextBlock x:Name="HeightValue" Text="360" Foreground="White" Width="40" VerticalAlignment="Center" Margin="5,0,0,0" />
+                            </StackPanel>
+
+                            <!-- 배속 조절 -->
+                            <TextBlock Text="배속" FontWeight="Bold" Foreground="White" Margin="0,10,0,5" />
+                            <StackPanel Orientation="Horizontal" Margin="0,5,0,5">
+                                <TextBlock Text="속도:" Foreground="White" Width="30" VerticalAlignment="Center" />
+                                <Slider x:Name="ClipSpeedSlider" Width="100" Minimum="0.1" Maximum="5.0" Value="1.0" VerticalAlignment="Center" />
+                                <TextBlock x:Name="ClipSpeedValue" Text="1.0x" Foreground="White" Width="40" VerticalAlignment="Center" Margin="5,0,0,0" />
+                            </StackPanel>
+
+                            <!-- 회전 -->
+                            <TextBlock Text="회전" FontWeight="Bold" Foreground="White" Margin="0,10,0,5" />
+                            <StackPanel Orientation="Horizontal" Margin="0,5,0,5">
+                                <TextBlock Text="각도:" Foreground="White" Width="30" VerticalAlignment="Center" />
+                                <Slider x:Name="RotationSlider" Width="100" Minimum="0" Maximum="360" Value="0" VerticalAlignment="Center" />
+                                <TextBlock x:Name="RotationValue" Text="0°" Foreground="White" Width="40" VerticalAlignment="Center" Margin="5,0,0,0" />
+                            </StackPanel>
+
+                            <!-- 투명도 -->
+                            <TextBlock Text="투명도" FontWeight="Bold" Foreground="White" Margin="0,10,0,5" />
+                            <StackPanel Orientation="Horizontal" Margin="0,5,0,5">
+                                <TextBlock Text="값:" Foreground="White" Width="30" VerticalAlignment="Center" />
+                                <Slider x:Name="OpacitySlider" Width="100" Minimum="0" Maximum="1" Value="1" VerticalAlignment="Center" />
+                                <TextBlock x:Name="OpacityValue" Text="100%" Foreground="White" Width="40" VerticalAlignment="Center" Margin="5,0,0,0" />
+                            </StackPanel>
                         </StackPanel>
 
                         <!-- 영상 정보 표시 패널 -->
@@ -378,9 +473,20 @@ BorderThickness="1">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Width="{Binding Width}" Height="50"
-                                                    BorderBrush="Black" BorderThickness="1"
                                                     CornerRadius="3" ClipToBounds="True"
                                                     Cursor="Hand">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="BorderBrush" Value="Black"/>
+                                                        <Setter Property="BorderThickness" Value="1"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                <Setter Property="BorderBrush" Value="Yellow"/>
+                                                                <Setter Property="BorderThickness" Value="3"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
                                                 <b:Interaction.Triggers>
                                                     <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
                                                         <b:InvokeCommandAction 
@@ -390,6 +496,11 @@ BorderThickness="1">
                                                     <b:EventTrigger EventName="PreviewMouseMove">
                                                         <b:InvokeCommandAction 
                                                             Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            PassEventArgsToCommand="True" />
+                                                    </b:EventTrigger>
+                                                    <b:EventTrigger EventName="MouseLeftButtonDown">
+                                                        <b:InvokeCommandAction 
+                                                            Command="{Binding DataContext.VideoEditor.ClipClickCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                             PassEventArgsToCommand="True" />
                                                     </b:EventTrigger>
                                                 </b:Interaction.Triggers>

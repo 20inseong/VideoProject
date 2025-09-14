@@ -10,9 +10,28 @@ using System.ComponentModel;
 using Wpf.Ui.Input;
 using System.Collections.ObjectModel;
 using System.Windows.Threading;
+using System.Windows;
 
 namespace VideoEditor.ViewModels
 {
+	public class StartResizeEventArgs : EventArgs
+	{
+		public VideoLayerViewModel Layer { get; }
+		public StartResizeEventArgs(VideoLayerViewModel layer)
+		{
+			Layer = layer;
+		}
+	}
+
+	public class StartDragEventArgs : EventArgs
+	{
+		public VideoLayerViewModel Layer { get; }
+		public StartDragEventArgs(VideoLayerViewModel layer)
+		{
+			Layer = layer;
+		}
+	}
+
 	public class PlayerViewModel : ViewModelBase, IDisposable
 	{
 		private readonly LibVLC _libVLC;
@@ -122,8 +141,32 @@ namespace VideoEditor.ViewModels
 		public ICommand SetSpeed5Command { get; }
 		public ICommand SetSpeed10Command { get; }
 		public ICommand SetSpeed25Command { get; }
+		public ICommand SelectLayerCommand { get; }
+		public ICommand StartResizeCommand { get; }
 
 		public ObservableCollection<VideoLayerViewModel> Layers { get; } = new ObservableCollection<VideoLayerViewModel>();
+		private VideoLayerViewModel? _selectedLayer;
+
+		public VideoLayerViewModel? SelectedLayer
+		{
+			get => _selectedLayer;
+			set
+			{
+				if (SetProperty(ref _selectedLayer, value))
+				{
+					// 이전 선택 해제
+					foreach (var layer in Layers)
+					{
+						layer.IsSelected = false;
+					}
+					// 새 선택 설정
+					if (value != null)
+					{
+						value.IsSelected = true;
+					}
+				}
+			}
+		}
 
 		public VideoLayerViewModel AddLayer(string filePath, double? left = null, double? top = null, double? width = null, double? height = null, double opacity = 1.0, int zIndex = 0)
 		{
@@ -175,6 +218,8 @@ namespace VideoEditor.ViewModels
 			SetSpeed5Command = new RelayCommand<object>(_ => SetPlaybackRate(5.0f));
 			SetSpeed10Command = new RelayCommand<object>(_ => SetPlaybackRate(10.0f));
 			SetSpeed25Command = new RelayCommand<object>(_ => SetPlaybackRate(25.0f));
+			SelectLayerCommand = new RelayCommand<VideoLayerViewModel>(ExecuteSelectLayer);
+			StartResizeCommand = new RelayCommand<VideoLayerViewModel>(ExecuteStartResize);
 
 			MediaPlayer.Volume = _volume;
 
@@ -208,6 +253,29 @@ namespace VideoEditor.ViewModels
 		{
 			PlaybackRate = rate;
 		}
+
+		private void ExecuteSelectLayer(VideoLayerViewModel? layer)
+		{
+			if (layer != null)
+			{
+				SelectedLayer = layer;
+				// 드래그 모드 시작 이벤트 발생
+				OnStartDrag?.Invoke(this, new StartDragEventArgs(layer));
+			}
+		}
+
+		private void ExecuteStartResize(VideoLayerViewModel? layer)
+		{
+			if (layer != null)
+			{
+				SelectedLayer = layer;
+				// 크기 조절 모드 시작 이벤트 발생
+				OnStartResize?.Invoke(this, new StartResizeEventArgs(layer));
+			}
+		}
+
+		public event EventHandler<StartResizeEventArgs>? OnStartResize;
+		public event EventHandler<StartDragEventArgs>? OnStartDrag;
 
 		public void LoadMedia(string filePath, bool disableVideoOutput = false)
 		{
