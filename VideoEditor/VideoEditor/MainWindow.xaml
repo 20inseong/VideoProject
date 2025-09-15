@@ -24,6 +24,132 @@
     </Window.InputBindings>
 
     <Window.Resources>
+        <Common:TimelineClipTemplateSelector x:Key="ClipTemplateSelector">
+
+            <!-- 1. VideoClip을 위한 템플릿 (기존 템플릿과 동일) -->
+            <Common:TimelineClipTemplateSelector.VideoClipTemplate>
+                <DataTemplate>
+                    <Border Width="{Binding Width}" Height="50" BorderBrush="Black" BorderThickness="1" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="Black"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="BorderBrush" Value="#FFD700"/>
+                                        <Setter Property="BorderThickness" Value="2.5"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <b:Interaction.Triggers>
+                            <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
+                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseDownCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                            </b:EventTrigger>
+                            <b:EventTrigger EventName="PreviewMouseMove">
+                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                            </b:EventTrigger>
+                        </b:Interaction.Triggers>
+                        <Border.Background>
+                            <ImageBrush ImageSource="{Binding Thumbnail}" TileMode="Tile" Stretch="UniformToFill" ViewportUnits="Absolute" Viewport="0,0,80,50" />
+                        </Border.Background>
+                        <Grid>
+                            <Rectangle Fill="#60000000" />
+                            <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </Common:TimelineClipTemplateSelector.VideoClipTemplate>
+
+            <!-- 2. AudioClip을 위한 템플릿 (요청하신 파란색 배경) -->
+            <Common:TimelineClipTemplateSelector.AudioClipTemplate>
+                <DataTemplate>
+                    <Border Width="{Binding Width}" Height="50" Background="#2A5D84" BorderBrush="Black" BorderThickness="1" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="Black"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="BorderBrush" Value="#FFD700"/>
+                                        <Setter Property="BorderThickness" Value="2.5"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <b:Interaction.Triggers>
+                            <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
+                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseDownCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                            </b:EventTrigger>
+                            <b:EventTrigger EventName="PreviewMouseMove">
+                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                            </b:EventTrigger>
+                        </b:Interaction.Triggers>
+                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                    </Border>
+                </DataTemplate>
+            </Common:TimelineClipTemplateSelector.AudioClipTemplate>
+
+            <!-- 3. ImageClip을 위한 템플릿 (요청하신 초록색 배경) -->
+            <Common:TimelineClipTemplateSelector.ImageClipTemplate>
+                <DataTemplate>
+                    <Border Width="{Binding Width}" Height="50" Background="#3E8948" BorderBrush="Black" BorderThickness="1" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="Black"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="BorderBrush" Value="#FFD700"/>
+                                        <Setter Property="BorderThickness" Value="2.5"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <b:Interaction.Triggers>
+                            <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
+                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseDownCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                            </b:EventTrigger>
+                            <b:EventTrigger EventName="PreviewMouseMove">
+                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                            </b:EventTrigger>
+                        </b:Interaction.Triggers>
+                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                    </Border>
+                </DataTemplate>
+            </Common:TimelineClipTemplateSelector.ImageClipTemplate>
+
+            <!-- 4. TextClip을 위한 템플릿 (기본 회색 배경) -->
+            <Common:TimelineClipTemplateSelector.TextClipTemplate>
+                <DataTemplate>
+                    <Border Width="{Binding Width}" Height="50" Background="#6E6E6E" BorderBrush="Black" BorderThickness="1" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="Black"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="BorderBrush" Value="#FFD700"/>
+                                        <Setter Property="BorderThickness" Value="2.5"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <b:Interaction.Triggers>
+                            <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
+                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseDownCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                            </b:EventTrigger>
+                            <b:EventTrigger EventName="PreviewMouseMove">
+                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                            </b:EventTrigger>
+                        </b:Interaction.Triggers>
+                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                    </Border>
+                </DataTemplate>
+            </Common:TimelineClipTemplateSelector.TextClipTemplate>
+
+        </Common:TimelineClipTemplateSelector>
+        
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <Common:TimeConverter x:Key="Converter" />
         <Common:TimeToPixelConverter x:Key="TimeToPixelConverter" />
@@ -107,7 +233,9 @@
                     </MenuItem>
                     <MenuItem Header="배속" x:Name="SpeedMenuItem" Click="SpeedMenuItem_Click"/>
                     <MenuItem Header="자막">
-                        <MenuItem Header="자막 생성" />
+                        <MenuItem Header="자막 생성" 
+                                  Command="{Binding VideoEditor.AddTextClipCommand}"
+                                  CommandParameter="{Binding CurrentTimelinePosition}"/>
                         <MenuItem Header="음성 인식 자막 생성" />
                     </MenuItem>
                     <Separator/>
@@ -348,7 +476,11 @@
                                         IsHitTestVisible="False"
                                         Panel.ZIndex="20"/>
 
-                                <ItemsControl x:Name="ClipsItemsControl" ItemsSource="{Binding VideoEditor.TimelineClips}" Panel.ZIndex="10" Margin="0,10,0,-10">
+                                <ItemsControl x:Name="ClipsItemsControl" 
+                                              ItemsSource="{Binding VideoEditor.TimelineClips}"
+                                              ItemTemplateSelector="{StaticResource ClipTemplateSelector}"
+                                              Panel.ZIndex="10" 
+                                              Margin="0,10,0,-10">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <Canvas />
@@ -362,52 +494,6 @@
                                         </Style>
                                     </ItemsControl.ItemContainerStyle>
 
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border Width="{Binding Width}" Height="50"
-                                                    BorderBrush="Black" BorderThickness="1"
-                                                    CornerRadius="3" ClipToBounds="True"
-                                                    Cursor="Hand">
-                                                
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="BorderBrush" Value="Black"/>
-                                                        <Setter Property="BorderThickness" Value="1"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                                <Setter Property="BorderBrush" Value="#FFD700"/>
-                                                                <!-- Gold/Yellow -->
-                                                                <Setter Property="BorderThickness" Value="2.5"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                
-                                                <b:Interaction.Triggers>
-                                                    <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
-                                                        <b:InvokeCommandAction 
-                                                            Command="{Binding DataContext.VideoEditor.ClipMouseDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                            PassEventArgsToCommand="True" />
-                                                    </b:EventTrigger>
-                                                    <b:EventTrigger EventName="PreviewMouseMove">
-                                                        <b:InvokeCommandAction 
-                                                            Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                            PassEventArgsToCommand="True" />
-                                                    </b:EventTrigger>
-                                                </b:Interaction.Triggers>
-                                                <Border.Background>
-                                                    <ImageBrush ImageSource="{Binding Thumbnail}"
-                                                                TileMode="Tile" Stretch="UniformToFill"
-                                                                ViewportUnits="Absolute" Viewport="0,0,80,50" />
-                                                </Border.Background>
-                                                <Grid>
-                                                    <Rectangle Fill="#60000000" />
-                                                    <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold"
-                                                               VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </Grid>
                         </ScrollViewer>

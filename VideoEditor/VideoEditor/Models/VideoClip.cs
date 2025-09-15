@@ -1,126 +1,42 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 using VideoEditor.Common;
 
 namespace VideoEditor.Models
 {
-    public class VideoClip : ViewModelBase
+    public class VideoClip : TimelineClipBase
     {
-        private string _name;
-        private double _startPosition;
-        private double _startTime;
-        private double _duration;
-        private double _width;
-        private string _videoPath;
-        private BitmapImage _thumbnail;
-        private int _trackIndex;
-        private bool _isSelected;
+        private double _sourceStartTime;
+        private string _videoPath = string.Empty;
+        private BitmapImage? _thumbnail;
 
-        public string Name
-        {
-            get => _name;
-            set => SetProperty(ref _name, value);
-        }
-
-        public double StartPosition
-        {
-            get => _startPosition;
-            set => SetProperty(ref _startPosition, value);
-        }
-
-        public double StartTime
-        {
-            get => _startTime;
-            set => SetProperty(ref _startTime, value);
-        }
-
-        public double SourceStartTime // 원본 비디오 파일 내에서의 시작 시간 (초)
-        {
-            get => _startTime;
-            set => SetProperty(ref _startTime, value);
-        }
-
-        public double Duration
-        {
-            get => _duration;
-            set => SetProperty(ref _duration, value);
-        }
-
-        public double Width
-        {
-            get => _width;
-            set => SetProperty(ref _width, value);
-        }
-
-        public string VideoPath
-        {
-            get => _videoPath;
-            set => SetProperty(ref _videoPath, value);
-        }
-
-        public BitmapImage Thumbnail
-        {
-            get => _thumbnail;
-            set => SetProperty(ref _thumbnail, value);
-        }
-
-        public int TrackIndex
-        {
-            get => _trackIndex;
-            set => SetProperty(ref _trackIndex, value);
-        }
-
-        public bool IsSelected
-        {
-            get => _isSelected;
-            set => SetProperty(ref _isSelected, value);
-        }
-
+        public double SourceStartTime { get => _sourceStartTime; set => SetProperty(ref _sourceStartTime, value); }
+        public string VideoPath { get => _videoPath; set => SetProperty(ref _videoPath, value); }
+        public BitmapImage? Thumbnail { get => _thumbnail; set => SetProperty(ref _thumbnail, value); }
         public string Category { get; set; } = "미분류";
-
-        public Guid Id { get; } = Guid.NewGuid();
-
-        public void UpdateWidth(double pixelsPerSecond)
-        {
-            this.Width = this.Duration * pixelsPerSecond;
-        }
 
         public VideoClip() { }
 
         public VideoClip(VideoClip original)
         {
-            Name = original.Name;
-            StartPosition = original.StartPosition;
-            StartTime = original.StartTime;
-            SourceStartTime = original.SourceStartTime;
-            Duration = original.Duration;
-            Width = original.Width;
-            VideoPath = original.VideoPath;
-            Thumbnail = original.Thumbnail;
-            Category = original.Category;
-            TrackIndex = original.TrackIndex;
+            this.Name = original.Name;
+            this.StartPosition = original.StartPosition;
+            this.Duration = original.Duration;
+            this.Width = original.Width;
+            this.TrackIndex = original.TrackIndex;
+            this.IsSelected = false;
+
+            this.SourceStartTime = original.SourceStartTime;
+            this.VideoPath = original.VideoPath;
+            this.Thumbnail = original.Thumbnail;
+            this.Category = original.Category;
         }
 
-        // 클립 복사 메소드
-        public VideoClip Clone()
+        public override TimelineClipBase Clone()
         {
-            return new VideoClip
+            return new VideoClip(this)
             {
-                Name = this.Name + " (복사본)",
-                StartPosition = this.StartPosition,
-                StartTime = this.StartTime,
-                SourceStartTime = this.SourceStartTime,
-                Duration = this.Duration,
-                Width = this.Width,
-                VideoPath = this.VideoPath, 
-                Thumbnail = this.Thumbnail,
-                Category = this.Category,
-                TrackIndex = this.TrackIndex
+                Name = this.Name + " (복사본)"
             };
         }
     }

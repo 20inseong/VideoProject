@@ -14,14 +14,27 @@ using System.Windows.Shapes;
 
 namespace VideoEditor
 {
-    /// <summary>
-    /// ExportProgressWindow.xaml에 대한 상호 작용 논리
-    /// </summary>
     public partial class ExportProgressWindow : Window
     {
+        private bool _isCloseAllowed = false;
+
         public ExportProgressWindow()
         {
             InitializeComponent();
+        }
+
+        public void AllowClose()
+        {
+            _isCloseAllowed = true;
+        }
+
+        private void ExportProgressWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            // 닫기가 허용된 상태가 아니라면, 닫기를 취소한다.
+            if (!_isCloseAllowed)
+            {
+                e.Cancel = true;
+            }
         }
     }
 }

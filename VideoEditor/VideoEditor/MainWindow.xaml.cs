@@ -36,15 +36,15 @@ namespace VideoEditor
             _mainViewModel.ExportStarted += MainViewModel_ExportStarted;
             _mainViewModel.ExportFinished += MainViewModel_ExportFinished;
 
-            videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MediaPlayer;
+            videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MainVideoPlayer;
 
             this.Loaded += MainWindow_Loaded;
             _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
 
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
 
-            _mainViewModel.PlayerViewModel.MediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
-            _mainViewModel.PlayerViewModel.MediaPlayer.Stopped += MediaPlayer_Stopped;
+            _mainViewModel.PlayerViewModel.MainVideoPlayer.LengthChanged += MediaPlayer_LengthChanged;
+            _mainViewModel.PlayerViewModel.MainVideoPlayer.Stopped += MediaPlayer_Stopped;
 
             TimelineScrollViewer.ScrollChanged += (s, e) =>
             {
@@ -95,7 +95,7 @@ namespace VideoEditor
             _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
 
-            videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MediaPlayer;
+            videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MainVideoPlayer;
             DrawTimelineRuler();
             System.Diagnostics.Debug.WriteLine("[Project] A new ViewModel has been initialized.");
         }
@@ -138,8 +138,13 @@ namespace VideoEditor
         {
             Dispatcher.Invoke(() =>
             {
-                _progressWindow?.Close();
-                _progressWindow = null;
+                if (_progressWindow != null)
+                {
+                    _progressWindow.AllowClose();
+
+                    _progressWindow.Close();
+                    _progressWindow = null;
+                }
 
                 this.IsEnabled = true;
                 this.Activate();
@@ -149,7 +154,20 @@ namespace VideoEditor
         private void btnSelectMedia_Click(object sender, RoutedEventArgs e)
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
-            openFileDialog.Filter = "Media files (*.mp4;*.avi;*.mkv;*.mov)|*.mp4;*.avi;*.mkv;*.mov|All files (*.*)|*.*";
+
+            string videoFilter = "*.mp4;*.avi;*.mkv;*.mov;*.wmv";
+            string audioFilter = "*.mp3;*.wav;*.m4a;*.aac";
+            string imageFilter = "*.jpg;*.jpeg;*.png;*.bmp";
+
+            string allSupportedFilter = $"{videoFilter};{audioFilter};{imageFilter}";
+
+            openFileDialog.Filter =
+                $"모든 미디어 파일 ({allSupportedFilter})|{allSupportedFilter}|" +
+                $"비디오 파일 ({videoFilter})|{videoFilter}|" +
+                $"오디오 파일 ({audioFilter})|{audioFilter}|" +
+                $"이미지 파일 ({imageFilter})|{imageFilter}|" +
+                "모든 파일 (*.*)|*.*";
+
             openFileDialog.Multiselect = true;
 
             if (openFileDialog.ShowDialog() == true)
@@ -178,7 +196,7 @@ namespace VideoEditor
 
         private void Timeline_DragOver(object sender, DragEventArgs e) 
         {
-            if (e.Data.GetDataPresent("VideoClip"))
+            if (e.Data.GetDataPresent("TimelineClip"))
             {
                 e.Effects = DragDropEffects.Move;
             }

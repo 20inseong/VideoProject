@@ -29,13 +29,13 @@ namespace VideoEditor.ViewModels
 
     public class VideoEditorViewModel : ViewModelBase
     {
-        private ObservableCollection<VideoClip> _timelineClips;
+        private ObservableCollection<TimelineClipBase> _timelineClips;
         private double _pixelsPerSecond = 10.0;
         private LibVLC _libVLC;
         public event EventHandler<ClipAddedEventArgs>? OnClipAdded;
-        private VideoClip? _draggedClip;
-        private VideoClip? _selectedClip;
-        private VideoClip? _copiedClip;
+        private TimelineClipBase? _draggedClip;
+        private TimelineClipBase? _selectedClip;
+        private TimelineClipBase? _copiedClip;
 
         private Point _dragStartPoint;
         private double _originalClipStartPosition;
@@ -50,15 +50,16 @@ namespace VideoEditor.ViewModels
          public IRelayCommand<double> PasteClipCommand { get; }
         public ICommand ZoomInCommand { get; }
         public ICommand ZoomOutCommand { get; }
+        public ICommand AddTextClipCommand { get; }
         public RelayCommand<object> DeleteSelectedClipCommand { get; }
 
-        public ObservableCollection<VideoClip> TimelineClips
+        public ObservableCollection<TimelineClipBase> TimelineClips
         {
             get => _timelineClips;
             set => SetProperty(ref _timelineClips, value);
         }
 
-        public VideoClip? SelectedClip
+        public TimelineClipBase? SelectedClip
         {
             get => _selectedClip;
             set
@@ -82,6 +83,7 @@ namespace VideoEditor.ViewModels
                     foreach (var clip in TimelineClips)
                     {
                         clip.UpdateWidth(_pixelsPerSecond);
+                        clip.OnPropertyChanged(nameof(clip.StartPosition));
                     }
                     OnPropertyChanged(nameof(ZoomPercentage));
                 }
@@ -99,7 +101,7 @@ namespace VideoEditor.ViewModels
 
         public VideoEditorViewModel()
         {
-            TimelineClips = new ObservableCollection<VideoClip>();
+            TimelineClips = new ObservableCollection<TimelineClipBase>();
             Core.Initialize();
             _libVLC = new LibVLC();
 
@@ -115,6 +117,24 @@ namespace VideoEditor.ViewModels
 
             ZoomInCommand = new RelayCommand<object>(_ => ZoomIn());
             ZoomOutCommand = new RelayCommand<object>(_ => ZoomOut());
+
+            AddTextClipCommand = new RelayCommand<double>(ExecuteAddTextClip);
+        }
+
+        private void ExecuteAddTextClip(double creationTime)
+        {
+            const double defaultDuration = 5.0; // 자막 기본 길이 5초
+
+            var newClip = new TextClip
+            {
+                Name = "새 자막",
+                Text = "자막을 입력하세요",
+                StartPosition = creationTime,
+                Duration = defaultDuration,
+                Width = defaultDuration * PixelsPerSecond,
+                TrackIndex = FindAvailableTrack(creationTime, defaultDuration)
+            };
+            TimelineClips.Add(newClip);
         }
 
         private void ZoomIn()
@@ -200,31 +220,87 @@ namespace VideoEditor.ViewModels
             if (originalClip == null) return;
 
             double originalDuration = originalClip.Duration;
-            double originalSourceStartTime = originalClip.SourceStartTime;
             double splitPointInClip = currentTimelinePosition - originalClip.StartPosition;
 
             originalClip.Duration = splitPointInClip;
             originalClip.UpdateWidth(this.PixelsPerSecond);
 
-            var newClip = new VideoClip(originalClip)
-            {
-                Name = originalClip.Name + " (2)",
-                StartPosition = currentTimelinePosition,
-                Duration = originalDuration - splitPointInClip,
+            TimelineClipBase? newClip = null;
 
-                SourceStartTime = originalSourceStartTime + splitPointInClip,
-            };
-            newClip.UpdateWidth(this.PixelsPerSecond);
+            switch (originalClip)
+            {
+                case VideoClip vc:
+                    newClip = new VideoClip
+                    {
+                        Name = vc.Name + " (2)",
+                        VideoPath = vc.VideoPath,
+                        Thumbnail = vc.Thumbnail,
+                        Category = vc.Category,
+                        StartPosition = currentTimelinePosition,
+                        Duration = originalDuration - splitPointInClip,
+                        SourceStartTime = vc.SourceStartTime + splitPointInClip,
+                        TrackIndex = vc.TrackIndex
+                    };
+                    break;
 
-            int originalClipIndex = TimelineClips.IndexOf(originalClip);
-            if (originalClipIndex != -1)
-            {
-                TimelineClips.Insert(originalClipIndex + 1, newClip);
+                case AudioClip ac:
+                    newClip = new AudioClip
+                    {
+                        Name = ac.Name + " (2)",
+                        AudioPath = ac.AudioPath,
+                        StartPosition = currentTimelinePosition,
+                        Duration = originalDuration - splitPointInClip,
+                        SourceStartTime = ac.SourceStartTime + splitPointInClip,
+                        TrackIndex = ac.TrackIndex
+                    };
+                    break;
+
+                    // 향후 ImageClip이나 TextClip도 자르고 싶다면 여기에 case를 추가
             }
-            else
+
+            if (newClip != null)
             {
-                TimelineClips.Add(newClip);
+                newClip.UpdateWidth(this.PixelsPerSecond);
+
+                int originalClipIndex = TimelineClips.IndexOf(originalClip);
+                if (originalClipIndex != -1)
+                {
+                    TimelineClips.Insert(originalClipIndex + 1, newClip);
+                }
+                else
+                {
+                    TimelineClips.Add(newClip);
+                }
+
+                Debug.WriteLine($"[Split LOG] '{originalClip.Name}' 클립 자르기 완료. 새 클립 '{newClip.Name}' 생성됨.");
             }
+
+            //double originalDuration = originalClip.Duration;
+            //double originalSourceStartTime = originalClip.SourceStartTime;
+            //double splitPointInClip = currentTimelinePosition - originalClip.StartPosition;
+
+            //originalClip.Duration = splitPointInClip;
+            //originalClip.UpdateWidth(this.PixelsPerSecond);
+
+            //var newClip = new VideoClip(originalClip)
+            //{
+            //    Name = originalClip.Name + " (2)",
+            //    StartPosition = currentTimelinePosition,
+            //    Duration = originalDuration - splitPointInClip,
+
+            //    SourceStartTime = originalSourceStartTime + splitPointInClip,
+            //};
+            //newClip.UpdateWidth(this.PixelsPerSecond);
+
+            //int originalClipIndex = TimelineClips.IndexOf(originalClip);
+            //if (originalClipIndex != -1)
+            //{
+            //    TimelineClips.Insert(originalClipIndex + 1, newClip);
+            //}
+            //else
+            //{
+            //    TimelineClips.Add(newClip);
+            //}
 
             //Console.WriteLine($"[Split LOG] 자르기 완료. '{newClip.Name}'는 원본 영상의 {newClip.SourceStartTime:F2}초부터 재생됩니다.");
         }
@@ -233,9 +309,9 @@ namespace VideoEditor.ViewModels
         {
             if (e == null) return;
 
-            if (e.Data.GetDataPresent("VideoClip"))
+            if (e.Data.GetDataPresent("TimelineClip"))
             {
-                if (e.Data.GetData("VideoClip") is VideoClip droppedClip && e.Source is FrameworkElement dropTarget)
+                if (e.Data.GetData("TimelineClip") is TimelineClipBase droppedClip && e.Source is FrameworkElement dropTarget)
                 {
                     Point finalDropPosition = e.GetPosition(dropTarget);
 
@@ -268,7 +344,7 @@ namespace VideoEditor.ViewModels
                         double startTimeInSeconds = dropPosition.X / this.PixelsPerSecond;
                         int trackIndex = (int)(dropPosition.Y / 60.0);
                         trackIndex = Math.Clamp(trackIndex, 0, 4);
-                        await AddVideoClip(droppedVideo, startTimeInSeconds, trackIndex);
+                        await AddMediaClipAsync(droppedVideo, startTimeInSeconds, trackIndex);
                     }
                     catch (Exception ex)
                     {
@@ -277,7 +353,34 @@ namespace VideoEditor.ViewModels
                 }
             }
         }
-        public async Task AddVideoClip(Myvideo video, double dropPosition, int trackIndex)
+        public async Task AddMediaClipAsync(Myvideo media, double dropPosition, int trackIndex)
+        {
+            string extension = Path.GetExtension(media.FullPath).ToLowerInvariant();
+            TimelineClipBase? newClip = null;
+
+            // 파일 확장자에 따라 적절한 클립 생성 메서드를 호출
+            if (extension is ".mp4" or ".avi" or ".mov" or ".mkv")
+            {
+                newClip = await CreateVideoClipAsync(media, dropPosition, trackIndex);
+            }
+            else if (extension is ".mp3" or ".wav" or ".m4a" or ".aac")
+            {
+                newClip = await CreateAudioClipAsync(media, dropPosition, trackIndex);
+            }
+            else if (extension is ".jpg" or ".jpeg" or ".png" or ".bmp")
+            {
+                newClip = await CreateImageClipAsync(media, dropPosition, trackIndex);
+            }
+
+            if (newClip != null)
+            {
+                TimelineClips.Add(newClip);
+                OnClipAdded?.Invoke(this, new ClipAddedEventArgs(media.FullPath));
+                Debug.WriteLine($"[+] {newClip.GetType().Name} added: {newClip.Name}");
+            }
+        }
+
+        private async Task<VideoClip?> CreateVideoClipAsync(Myvideo video, double position, int track)
         {
             double duration = 0;
             BitmapImage thumbnail = null;
@@ -344,29 +447,90 @@ namespace VideoEditor.ViewModels
                 thumbnail = new BitmapImage();
             }
 
-            VideoClip newClip = new VideoClip
+
+            return new VideoClip
             {
                 Name = video.Title,
                 VideoPath = video.FullPath,
-                Duration = duration,
-                StartPosition = dropPosition,
+                Duration = duration, // 분석된 길이
+                StartPosition = position,
                 Width = duration * PixelsPerSecond,
-                Thumbnail = thumbnail,
+                Thumbnail = thumbnail, // 생성된 썸네일
                 Category = video.Category,
-                TrackIndex = trackIndex
+                TrackIndex = track
             };
+        }
 
-            TimelineClips.Add(newClip);
-            //Console.WriteLine($"클립 추가됨: {newClip.Name}, 시작 위치: {newClip.StartPosition}초, 길이: {newClip.Duration}초");
+        private async Task<AudioClip?> CreateAudioClipAsync(Myvideo audio, double position, int track)
+        {
+            double duration = 0;
+            try
+            {
+                // LibVLC를 사용하여 오디오 파일 길이 분석
+                using (var media = new Media(_libVLC, new Uri(audio.FullPath)))
+                {
+                    await media.Parse(MediaParseOptions.ParseNetwork);
+                    duration = media.Duration / 1000.0;
+                }
 
-            OnClipAdded?.Invoke(this, new ClipAddedEventArgs(newClip.VideoPath));
+                if (duration <= 0) return null; // 길이가 없는 파일은 추가하지 않음
+
+                return new AudioClip
+                {
+                    Name = audio.Title,
+                    AudioPath = audio.FullPath,
+                    StartPosition = position,
+                    TrackIndex = track,
+                    Duration = duration,
+                    Width = duration * PixelsPerSecond
+                };
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error creating audio clip: {ex.Message}");
+                return null;
+            }
+        }
+
+        private Task<ImageClip?> CreateImageClipAsync(Myvideo image, double position, int track)
+        {
+            try
+            {
+                // WPF의 BitmapImage를 사용하여 이미지 로드 (썸네일로 바로 사용)
+                var thumbnail = new BitmapImage();
+                thumbnail.BeginInit();
+                thumbnail.UriSource = new Uri(image.FullPath);
+                thumbnail.CacheOption = BitmapCacheOption.OnLoad; // 로드 시 메모리에 캐시
+                thumbnail.EndInit();
+                thumbnail.Freeze(); // 다른 스레드에서 접근할 수 있도록 동결
+
+                // 이미지는 기본 길이를 5초로 설정 (나중에 사용자가 조절 가능)
+                const double defaultDuration = 5.0;
+
+                var clip = new ImageClip
+                {
+                    Name = image.Title,
+                    ImagePath = image.FullPath,
+                    Thumbnail = thumbnail,
+                    StartPosition = position,
+                    TrackIndex = track,
+                    Duration = defaultDuration,
+                    Width = defaultDuration * PixelsPerSecond
+                };
+                return Task.FromResult<ImageClip?>(clip);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error creating image clip: {ex.Message}");
+                return Task.FromResult<ImageClip?>(null);
+            }
         }
 
         private void ExecuteClipMouseDown(MouseButtonEventArgs? e)
         {
             if (e == null) return;
 
-            if ((e.Source as FrameworkElement)?.DataContext is VideoClip clickedClip)
+            if ((e.Source as FrameworkElement)?.DataContext is TimelineClipBase clickedClip)
             {
                 if (SelectedClip != null && SelectedClip != clickedClip)
                 {
@@ -392,13 +556,13 @@ namespace VideoEditor.ViewModels
         {
             if (e == null || _draggedClip == null || e.LeftButton != MouseButtonState.Pressed) return;
 
-            DataObject dragData = new DataObject("VideoClip", _draggedClip);
+            DataObject dragData = new DataObject("TimelineClip", _draggedClip);
             DragDrop.DoDragDrop((DependencyObject)e.Source, dragData, DragDropEffects.Move);
 
             _draggedClip = null;
         }
 
-        private double AdjustClipPosition(VideoClip movingClip, double desiredStartPosition, int desiredTrackIndex)
+        private double AdjustClipPosition(TimelineClipBase movingClip, double desiredStartPosition, int desiredTrackIndex)
         {
             double newStartPosition = Math.Max(0, desiredStartPosition);
 

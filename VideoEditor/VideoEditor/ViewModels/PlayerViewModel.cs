@@ -14,7 +14,9 @@ namespace VideoEditor.ViewModels
     public class PlayerViewModel : ViewModelBase, IDisposable
     {
         internal readonly LibVLC _libVLC;
-        public MediaPlayer MediaPlayer { get; }
+        public MediaPlayer MainVideoPlayer { get; }
+        public List<MediaPlayer> AudioOnlyPlayers { get; }
+        private const int AUDIO_PLAYER_COUNT = 5;
         private bool _isPlaying;
         public ICommand PlayPauseCommand { get; }
         public ICommand StopCommand { get; }
@@ -57,9 +59,9 @@ namespace VideoEditor.ViewModels
             {
                 if (SetProperty(ref _currentTime, value))
                 {
-                    if (MediaPlayer != null && Math.Abs(MediaPlayer.Time - value) > 50)
+                    if (MainVideoPlayer != null && Math.Abs(MainVideoPlayer.Time - value) > 50)
                     {
-                        MediaPlayer.Time = value;
+                        MainVideoPlayer.Time = value;
                     }
                 }
             }
@@ -80,9 +82,9 @@ namespace VideoEditor.ViewModels
             {
                 if (SetProperty(ref _volume, value))
                 {
-                    if (MediaPlayer != null)
+                    if (MainVideoPlayer != null)
                     {
-                        MediaPlayer.Volume = _volume;
+                        MainVideoPlayer.Volume = _volume;
                     }
                 }
             }
@@ -97,11 +99,11 @@ namespace VideoEditor.ViewModels
                 if (SetProperty(ref _playbackRate, value))
                 {
                     // 배속 값이 변경될 때 LibVLCSharp의 MediaPlayer 배속도 업데이트
-                    if (MediaPlayer != null)
+                    if (MainVideoPlayer != null)
                     {
                         try
                         {
-                            MediaPlayer.SetRate(value);
+                            MainVideoPlayer.SetRate(value);
                         }
                         catch (Exception ex)
                         {
@@ -132,7 +134,14 @@ namespace VideoEditor.ViewModels
         {
             Core.Initialize();
             _libVLC = new LibVLC();
-            MediaPlayer = new MediaPlayer(_libVLC);
+            MainVideoPlayer = new MediaPlayer(_libVLC);
+
+            AudioOnlyPlayers = new List<MediaPlayer>();
+            for (int i = 0; i < AUDIO_PLAYER_COUNT; i++)
+            {
+                var audioPlayer = new MediaPlayer(_libVLC);
+                AudioOnlyPlayers.Add(audioPlayer);
+            }
 
             SetSpeed05Command = new RelayCommand<object>(_ => SetPlaybackRate(0.5f));
             SetSpeed075Command = new RelayCommand<object>(_ => SetPlaybackRate(0.75f));
@@ -144,38 +153,87 @@ namespace VideoEditor.ViewModels
             SetSpeed10Command = new RelayCommand<object>(_ => SetPlaybackRate(10.0f));
             SetSpeed25Command = new RelayCommand<object>(_ => SetPlaybackRate(25.0f));
 
-            //VideoViewBackground = new WpfMedia.SolidColorBrush((WpfMedia.Color)WpfMedia.ColorConverter.ConvertFromString("#525252"));
-
             VideoViewBackground = DefaultPlayerBackgroundBrush;
 
             PlayPauseCommand = new RelayCommand<object>(ExecutePlayPause, CanExecutePlayPause);
             StopCommand = new RelayCommand<object>(ExecuteStop, CanExecuteStop);
 
-            MediaPlayer.Playing += (s, e) => UIDispatcher.Invoke(() => IsPlaying = true);
-            MediaPlayer.Paused += (s, e) => UIDispatcher.Invoke(() => IsPlaying = false);
-            MediaPlayer.Stopped += (s, e) => UIDispatcher.Invoke(() =>
+            MainVideoPlayer.Playing += (s, e) => UIDispatcher.Invoke(() => IsPlaying = true);
+            MainVideoPlayer.Paused += (s, e) => UIDispatcher.Invoke(() => IsPlaying = false);
+            MainVideoPlayer.Stopped += (s, e) => UIDispatcher.Invoke(() =>
             {
                 IsPlaying = false;
                 CurrentTime = 0;
             });
-            MediaPlayer.EndReached += (s, e) => UIDispatcher.Invoke(() => IsPlaying = false);
-            MediaPlayer.TimeChanged += (s, e) => {
+            MainVideoPlayer.EndReached += (s, e) => UIDispatcher.Invoke(() => IsPlaying = false);
+            MainVideoPlayer.TimeChanged += (s, e) => {
                 if (Math.Abs(_currentTime - e.Time) > 50)
                 {
                     CurrentTime = e.Time;
                 }
             };
-            MediaPlayer.Volume = _volume;
+            MainVideoPlayer.Volume = _volume;
+        }
+
+        public void PauseAllPlayers()
+        {
+            if (MainVideoPlayer.IsPlaying)
+            {
+                MainVideoPlayer.Pause();
+            }
+            foreach (var player in AudioOnlyPlayers)
+            {
+                if (player.IsPlaying)
+                {
+                    player.Pause();
+                }
+            }
+        }
+
+        public void ResumeAllPlayers()
+        {
+            if (MainVideoPlayer.CanPause)
+            {
+                MainVideoPlayer.Play();
+            }
+
+            foreach (var player in AudioOnlyPlayers)
+            {
+                if (!player.IsPlaying && player.Media != null)
+                {
+                    player.Play();
+                }
+            }
+        }
+
+        public MediaPlayer? GetAvailableAudioPlayer()
+        {
+            return AudioOnlyPlayers.FirstOrDefault(p => !p.IsPlaying);
+        }
+
+        public void StopAllAudioPlayers()
+        {
+            foreach (var player in AudioOnlyPlayers)
+            {
+                if (player.IsPlaying)
+                {
+                    player.Stop();
+                }
+                if (player.Media != null)
+                {
+                    player.Media = null;
+                }
+            }
         }
 
         public void LoadMedia(string filePath)
         {
             var newMediaUri = new Uri(filePath).AbsoluteUri;
-            if (MediaPlayer.Media?.Mrl == newMediaUri) return;
+            if (MainVideoPlayer.Media?.Mrl == newMediaUri) return;
 
-            MediaPlayer.Media?.Dispose();
+            MainVideoPlayer.Media?.Dispose();
             var media = new Media(_libVLC, new Uri(filePath));
-            MediaPlayer.Media = media;
+            MainVideoPlayer.Media = media;
             IsControlBarVisible = true;
             PlaybackRate = 1.0f;
             VideoViewBackground = EmptySpaceBackgroundBrush;
@@ -183,27 +241,28 @@ namespace VideoEditor.ViewModels
 
         public void Play()
         {
-            if (MediaPlayer.Media != null)
+            if (MainVideoPlayer.Media != null)
             {
-                MediaPlayer.Play();
+                MainVideoPlayer.Play();
                 VideoViewBackground = DefaultPlayerBackgroundBrush;
             }
         }
 
         public void Pause()
         {
-            if (MediaPlayer.IsPlaying)
-                MediaPlayer.Pause();
+            if (MainVideoPlayer.IsPlaying)
+                MainVideoPlayer.Pause();
         }
 
         public void Stop()
         {
-            MediaPlayer.Stop();
+            MainVideoPlayer.Stop();
+            StopAllAudioPlayers();
         }
 
         private void ExecutePlayPause(object? _)
         {
-            if (MediaPlayer.IsPlaying)
+            if (MainVideoPlayer.IsPlaying)
             {
                 Pause();
             }
@@ -213,7 +272,7 @@ namespace VideoEditor.ViewModels
             }
         }
 
-        public bool CanExecutePlayPause(object? _) => MediaPlayer.Media != null;
+        public bool CanExecutePlayPause(object? _) => MainVideoPlayer.Media != null;
 
         private void ExecuteStop(object? _)
         {
@@ -222,7 +281,7 @@ namespace VideoEditor.ViewModels
 
         public bool CanExecuteStop(object? _)
         {
-            var state = MediaPlayer.State;
+            var state = MainVideoPlayer.State;
             return state == VLCState.Playing || state == VLCState.Paused;
 
         }
@@ -234,32 +293,40 @@ namespace VideoEditor.ViewModels
 
         public void PlayMediaFrom(string filePath, long startTimeMs)
         {
-            if (MediaPlayer.Media?.Mrl == new Uri(filePath).AbsoluteUri && MediaPlayer.IsPlaying)
+            if (MainVideoPlayer.Media?.Mrl == new Uri(filePath).AbsoluteUri && MainVideoPlayer.IsPlaying)
             {
                 return;
             }
 
-            MediaPlayer.Stop(); // 일단 정지
+            MainVideoPlayer.Stop();
 
             var media = new Media(_libVLC, new Uri(filePath));
-            MediaPlayer.Media = media;
-            MediaPlayer.Play();
-            MediaPlayer.Time = startTimeMs;
+            MainVideoPlayer.Media = media;
+            MainVideoPlayer.Play();
+            MainVideoPlayer.Time = startTimeMs;
         }
 
         public void Dispose()
         {
-            if (MediaPlayer != null)
-            {
-                MediaPlayer.Stop();
-                MediaPlayer.Dispose();
-            }
+            //if (MainVideoPlayer != null)
+            //{
+            //    MainVideoPlayer.Stop();
+            //    MainVideoPlayer.Dispose();
+            //}
 
-            if (_libVLC != null)
-            {
-                _libVLC.Dispose();
-            }
+            //if (_libVLC != null)
+            //{
+            //    _libVLC.Dispose();
+            //}
 
+            //GC.SuppressFinalize(this);
+
+            MainVideoPlayer?.Dispose();
+            foreach (var player in AudioOnlyPlayers)
+            {
+                player?.Dispose();
+            }
+            _libVLC?.Dispose();
             GC.SuppressFinalize(this);
         }
     }

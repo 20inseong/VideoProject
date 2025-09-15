@@ -5,16 +5,18 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:VideoEditor"
         mc:Ignorable="d"
-        Title="렌더링 진행률" Height="150" Width="500"
+        Title="렌더링 진행률" Height="180" Width="500"
         WindowStyle="ToolWindow"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
-        Topmost="True">
+        Topmost="True"
+        Closing="ExportProgressWindow_Closing">
     <Grid Margin="15">
         <StackPanel VerticalAlignment="Center">
             <TextBlock Text="{Binding StatusMessage}" FontSize="14" Margin="0,0,0,10" TextWrapping="Wrap"/>
             <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100" Height="25"/>
+            <Button Command="{Binding CancelCommand}" Content="취소" Width="100" Height="30" Margin="0,15,0,0" HorizontalAlignment="Right" IsCancel="True"/>
         </StackPanel>
     </Grid>
 </Window>
