@@ -23,7 +23,7 @@ namespace VideoEditor
         private ExportProgressWindow? _progressWindow;
         private Myvideo _draggedVideo = null;
         private Point _dragStartPoint;
-        private Line _playheadLine;
+        //private Line _playheadLine;
         private double _currentTimelineDurationSec = 300;
         public MainWindow()
         {
@@ -36,15 +36,15 @@ namespace VideoEditor
             _mainViewModel.ExportStarted += MainViewModel_ExportStarted;
             _mainViewModel.ExportFinished += MainViewModel_ExportFinished;
 
-            videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MainVideoPlayer;
+            //videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MainVideoPlayer;
 
-            this.Loaded += MainWindow_Loaded;
+            //this.Loaded += MainWindow_Loaded;
             _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
 
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
 
-            _mainViewModel.PlayerViewModel.MainVideoPlayer.LengthChanged += MediaPlayer_LengthChanged;
-            _mainViewModel.PlayerViewModel.MainVideoPlayer.Stopped += MediaPlayer_Stopped;
+            //_mainViewModel.PlayerViewModel.MainVideoPlayer.LengthChanged += MediaPlayer_LengthChanged;
+            //_mainViewModel.PlayerViewModel.MainVideoPlayer.Stopped += MediaPlayer_Stopped;
 
             TimelineScrollViewer.ScrollChanged += (s, e) =>
             {
@@ -53,7 +53,7 @@ namespace VideoEditor
 
             DrawTimelineRuler();
 
-            InitializeNewViewModel();
+            //InitializeNewViewModel();
         }
 
         private void NewProject_Click(object sender, RoutedEventArgs e)
@@ -95,7 +95,7 @@ namespace VideoEditor
             _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
 
-            videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MainVideoPlayer;
+            //videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MainVideoPlayer;
             DrawTimelineRuler();
             System.Diagnostics.Debug.WriteLine("[Project] A new ViewModel has been initialized.");
         }
@@ -287,35 +287,35 @@ namespace VideoEditor
             }
         }
 
-        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            InitializePlayhead();
-            DrawTimelineRuler();
-        }
+        //private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        //{
+        //    InitializePlayhead();
+        //    DrawTimelineRuler();
+        //}
 
-        private void InitializePlayhead()
-        {
-            _playheadLine = new Line
-            {
-                Stroke = Brushes.Red,
-                StrokeThickness = 2,
-                Y1 = 0,
-                Y2 = PlayheadCanvas.ActualHeight > 0 ? PlayheadCanvas.ActualHeight : 300
-            };
-            PlayheadCanvas.Children.Add(_playheadLine);
-        }
+        //private void InitializePlayhead()
+        //{
+        //    _playheadLine = new Line
+        //    {
+        //        Stroke = Brushes.Red,
+        //        StrokeThickness = 2,
+        //        Y1 = 0,
+        //        Y2 = PlayheadCanvas.ActualHeight > 0 ? PlayheadCanvas.ActualHeight : 300
+        //    };
+        //    PlayheadCanvas.Children.Add(_playheadLine);
+        //}
 
-        private void MediaPlayer_LengthChanged(object sender, LibVLCSharp.Shared.MediaPlayerLengthChangedEventArgs e)
-        {
-            Dispatcher.Invoke(() =>
-            {
-                double videoDurationSec = e.Length / 1000.0;
+        //private void MediaPlayer_LengthChanged(object sender, LibVLCSharp.Shared.MediaPlayerLengthChangedEventArgs e)
+        //{
+        //    Dispatcher.Invoke(() =>
+        //    {
+        //        double videoDurationSec = e.Length / 1000.0;
 
-                _currentTimelineDurationSec = Math.Max(300.0, videoDurationSec);
+        //        _currentTimelineDurationSec = Math.Max(300.0, videoDurationSec);
 
-                DrawTimelineRuler();
-            });
-        }
+        //        DrawTimelineRuler();
+        //    });
+        //}
 
         private void MainViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
@@ -329,31 +329,31 @@ namespace VideoEditor
                     System.Diagnostics.Debug.WriteLine($"[UI Event] Ruler updated to: {_currentTimelineDurationSec:F2} seconds.");
                 });
             }
-            if (e.PropertyName == nameof(MainViewModel.CurrentTimelinePosition))
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    if (_playheadLine != null)
-                    {
-                        double newX = _mainViewModel.CurrentTimelinePosition * _mainViewModel.VideoEditor.PixelsPerSecond;
+            //if (e.PropertyName == nameof(MainViewModel.CurrentTimelinePosition))
+            //{
+            //    Dispatcher.Invoke(() =>
+            //    {
+            //        if (_playheadLine != null)
+            //        {
+            //            double newX = _mainViewModel.CurrentTimelinePosition * _mainViewModel.VideoEditor.PixelsPerSecond;
 
-                        _playheadLine.X1 = newX;
-                        _playheadLine.X2 = newX;
-                    }
-                });
-            }
+            //            _playheadLine.X1 = newX;
+            //            _playheadLine.X2 = newX;
+            //        }
+            //    });
+            //}
         }
-        private void MediaPlayer_Stopped(object? sender, EventArgs e)
-        {
-            Dispatcher.Invoke(() =>
-            {
-                if (_mainViewModel.IsTimelinePlaying == false)
-                {
-                    _playheadLine.X1 = 0;
-                    _playheadLine.X2 = 0;
-                }
-            });
-        }
+        //private void MediaPlayer_Stopped(object? sender, EventArgs e)
+        //{
+        //    Dispatcher.Invoke(() =>
+        //    {
+        //        if (_mainViewModel.IsTimelinePlaying == false)
+        //        {
+        //            _playheadLine.X1 = 0;
+        //            _playheadLine.X2 = 0;
+        //        }
+        //    });
+        //}
         private void PlayheadCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (e.Source is Canvas canvas)
@@ -363,8 +363,8 @@ namespace VideoEditor
 
                 _mainViewModel.SeekTimeline(clickedTimeSec);
 
-                _playheadLine.X1 = position.X;
-                _playheadLine.X2 = position.X;
+                //_playheadLine.X1 = position.X;
+                //_playheadLine.X2 = position.X;
             }
         }
 

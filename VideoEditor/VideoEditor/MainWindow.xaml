@@ -304,15 +304,54 @@
                         </Grid.RowDefinitions>
 
                         <!-- (2) 중앙 영역: vlcplayer로 프레임을 표시 -->
-                        <Grid Grid.Row="0" Margin="5,5,5,5" Grid.ColumnSpan="2">
-                            <vlc:VideoView x:Name="videoView" Background="{Binding PlayerViewModel.VideoViewBackground}"/>
+                        <Grid Grid.Row="0" Margin="5,5,5,5" Grid.ColumnSpan="2" Background="{Binding PlayerBackground}" ClipToBounds="True">
+                            <Viewbox Stretch="Uniform">
+                                <ItemsControl ItemsSource="{Binding PlayerViewModel.Layers}" Width="1920" Height="1080">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <Canvas />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <Setter Property="Canvas.Left" Value="{Binding Left}"/>
+                                            <Setter Property="Canvas.Top" Value="{Binding Top}"/>
+                                            <Setter Property="Panel.ZIndex" Value="{Binding ZIndex}"/>
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
+
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <ContentControl>
+                                                <ContentControl.Style>
+                                                    <Style TargetType="ContentControl">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsVisible}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ContentControl.Style>
+                                                <vlc:VideoView MediaPlayer="{Binding MediaPlayer}" 
+                                       Width="{Binding Width}" 
+                                       Height="{Binding Height}" />
+                                            </ContentControl>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Viewbox>
                         </Grid>
 
                         <StackPanel x:Name="show_VideoBar" 
                                     Orientation="Horizontal" 
                                     Grid.Row="1" 
                                     Margin="10,0,10,10" 
-                                    Visibility="{Binding PlayerViewModel.IsControlBarVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Visibility="{Binding IsControlBarVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
                                     VerticalAlignment="Bottom" 
                                     Grid.ColumnSpan="2">
                             <Button Content="{Binding PlayPauseButtonContent}"
@@ -327,7 +366,7 @@
 
                             <Slider Width="300" Minimum="0"
                                     Value="{Binding CurrentTimelineTimeMs, Mode=TwoWay}"
-                                    Maximum="{Binding PlayerViewModel.TotalDuration}"
+                                    Maximum="{Binding TotalTimelineDurationMs}"
                                     IsSnapToTickEnabled="True" TickFrequency="1000" />
                             <TextBlock Text="{Binding TotalTimelineDurationMs, Converter={StaticResource Converter}}"
                                        Margin="10,0,10,0" VerticalAlignment="Center"/>
@@ -472,9 +511,18 @@
                                 </b:Interaction.Triggers>
 
                                 <Canvas x:Name="PlayheadCanvas"
-                                        Height="300"
-                                        IsHitTestVisible="False"
-                                        Panel.ZIndex="20"/>
+                                        Height="{Binding ActualHeight, ElementName=TimelineCanvas}"
+                                        IsHitTestVisible="True"
+                                        Panel.ZIndex="20"
+                                        MouseLeftButtonDown="PlayheadCanvas_MouseLeftButtonDown">
+
+                                    <Line Stroke="Red"
+                                          StrokeThickness="2"
+                                          Y1="0"
+                                          Y2="{Binding ActualHeight, ElementName=PlayheadCanvas}"
+                                          X1="{Binding CurrentTimelinePosition, Converter={StaticResource TimeToPixelConverter}}"
+                                          X2="{Binding CurrentTimelinePosition, Converter={StaticResource TimeToPixelConverter}}" />
+                                </Canvas>
 
                                 <ItemsControl x:Name="ClipsItemsControl" 
                                               ItemsSource="{Binding VideoEditor.TimelineClips}"

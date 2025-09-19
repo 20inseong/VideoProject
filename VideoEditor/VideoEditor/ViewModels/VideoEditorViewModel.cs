@@ -274,35 +274,6 @@ namespace VideoEditor.ViewModels
 
                 Debug.WriteLine($"[Split LOG] '{originalClip.Name}' 클립 자르기 완료. 새 클립 '{newClip.Name}' 생성됨.");
             }
-
-            //double originalDuration = originalClip.Duration;
-            //double originalSourceStartTime = originalClip.SourceStartTime;
-            //double splitPointInClip = currentTimelinePosition - originalClip.StartPosition;
-
-            //originalClip.Duration = splitPointInClip;
-            //originalClip.UpdateWidth(this.PixelsPerSecond);
-
-            //var newClip = new VideoClip(originalClip)
-            //{
-            //    Name = originalClip.Name + " (2)",
-            //    StartPosition = currentTimelinePosition,
-            //    Duration = originalDuration - splitPointInClip,
-
-            //    SourceStartTime = originalSourceStartTime + splitPointInClip,
-            //};
-            //newClip.UpdateWidth(this.PixelsPerSecond);
-
-            //int originalClipIndex = TimelineClips.IndexOf(originalClip);
-            //if (originalClipIndex != -1)
-            //{
-            //    TimelineClips.Insert(originalClipIndex + 1, newClip);
-            //}
-            //else
-            //{
-            //    TimelineClips.Add(newClip);
-            //}
-
-            //Console.WriteLine($"[Split LOG] 자르기 완료. '{newClip.Name}'는 원본 영상의 {newClip.SourceStartTime:F2}초부터 재생됩니다.");
         }
 
         private async void ExecuteDropOnTimeline(DragEventArgs? e)
