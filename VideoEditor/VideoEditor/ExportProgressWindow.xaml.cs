@@ -30,7 +30,6 @@ namespace VideoEditor
 
         private void ExportProgressWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            // 닫기가 허용된 상태가 아니라면, 닫기를 취소한다.
             if (!_isCloseAllowed)
             {
                 e.Cancel = true;

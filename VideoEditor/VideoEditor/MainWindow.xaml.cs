@@ -36,15 +36,12 @@ namespace VideoEditor
             _mainViewModel.ExportStarted += MainViewModel_ExportStarted;
             _mainViewModel.ExportFinished += MainViewModel_ExportFinished;
 
-            videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MainVideoPlayer;
+            InitializeVideoViews();
 
             this.Loaded += MainWindow_Loaded;
             _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
 
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
-
-            _mainViewModel.PlayerViewModel.MainVideoPlayer.LengthChanged += MediaPlayer_LengthChanged;
-            _mainViewModel.PlayerViewModel.MainVideoPlayer.Stopped += MediaPlayer_Stopped;
 
             TimelineScrollViewer.ScrollChanged += (s, e) =>
             {
@@ -52,8 +49,19 @@ namespace VideoEditor
             };
 
             DrawTimelineRuler();
+        }
 
-            InitializeNewViewModel();
+        private void InitializeVideoViews()
+        {
+            var playerViewModel = _mainViewModel.PlayerViewModel;
+            if (playerViewModel.VideoPlayers.Count >= 5)
+            {
+                videoView0.MediaPlayer = playerViewModel.VideoPlayers[0];
+                videoView1.MediaPlayer = playerViewModel.VideoPlayers[1];
+                videoView2.MediaPlayer = playerViewModel.VideoPlayers[2];
+                videoView3.MediaPlayer = playerViewModel.VideoPlayers[3];
+                videoView4.MediaPlayer = playerViewModel.VideoPlayers[4];
+            }
         }
 
         private void NewProject_Click(object sender, RoutedEventArgs e)
@@ -95,7 +103,8 @@ namespace VideoEditor
             _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
 
-            videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MainVideoPlayer;
+            //videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MainVideoPlayer;
+            InitializeVideoViews();
             DrawTimelineRuler();
             System.Diagnostics.Debug.WriteLine("[Project] A new ViewModel has been initialized.");
         }

@@ -274,35 +274,6 @@ namespace VideoEditor.ViewModels
 
                 Debug.WriteLine($"[Split LOG] '{originalClip.Name}' 클립 자르기 완료. 새 클립 '{newClip.Name}' 생성됨.");
             }
-
-            //double originalDuration = originalClip.Duration;
-            //double originalSourceStartTime = originalClip.SourceStartTime;
-            //double splitPointInClip = currentTimelinePosition - originalClip.StartPosition;
-
-            //originalClip.Duration = splitPointInClip;
-            //originalClip.UpdateWidth(this.PixelsPerSecond);
-
-            //var newClip = new VideoClip(originalClip)
-            //{
-            //    Name = originalClip.Name + " (2)",
-            //    StartPosition = currentTimelinePosition,
-            //    Duration = originalDuration - splitPointInClip,
-
-            //    SourceStartTime = originalSourceStartTime + splitPointInClip,
-            //};
-            //newClip.UpdateWidth(this.PixelsPerSecond);
-
-            //int originalClipIndex = TimelineClips.IndexOf(originalClip);
-            //if (originalClipIndex != -1)
-            //{
-            //    TimelineClips.Insert(originalClipIndex + 1, newClip);
-            //}
-            //else
-            //{
-            //    TimelineClips.Add(newClip);
-            //}
-
-            //Console.WriteLine($"[Split LOG] 자르기 완료. '{newClip.Name}'는 원본 영상의 {newClip.SourceStartTime:F2}초부터 재생됩니다.");
         }
 
         private async void ExecuteDropOnTimeline(DragEventArgs? e)
@@ -358,7 +329,6 @@ namespace VideoEditor.ViewModels
             string extension = Path.GetExtension(media.FullPath).ToLowerInvariant();
             TimelineClipBase? newClip = null;
 
-            // 파일 확장자에 따라 적절한 클립 생성 메서드를 호출
             if (extension is ".mp4" or ".avi" or ".mov" or ".mkv")
             {
                 newClip = await CreateVideoClipAsync(media, dropPosition, trackIndex);
@@ -466,14 +436,13 @@ namespace VideoEditor.ViewModels
             double duration = 0;
             try
             {
-                // LibVLC를 사용하여 오디오 파일 길이 분석
                 using (var media = new Media(_libVLC, new Uri(audio.FullPath)))
                 {
                     await media.Parse(MediaParseOptions.ParseNetwork);
                     duration = media.Duration / 1000.0;
                 }
 
-                if (duration <= 0) return null; // 길이가 없는 파일은 추가하지 않음
+                if (duration <= 0) return null;
 
                 return new AudioClip
                 {
@@ -496,15 +465,13 @@ namespace VideoEditor.ViewModels
         {
             try
             {
-                // WPF의 BitmapImage를 사용하여 이미지 로드 (썸네일로 바로 사용)
                 var thumbnail = new BitmapImage();
                 thumbnail.BeginInit();
                 thumbnail.UriSource = new Uri(image.FullPath);
-                thumbnail.CacheOption = BitmapCacheOption.OnLoad; // 로드 시 메모리에 캐시
+                thumbnail.CacheOption = BitmapCacheOption.OnLoad;
                 thumbnail.EndInit();
-                thumbnail.Freeze(); // 다른 스레드에서 접근할 수 있도록 동결
+                thumbnail.Freeze();
 
-                // 이미지는 기본 길이를 5초로 설정 (나중에 사용자가 조절 가능)
                 const double defaultDuration = 5.0;
 
                 var clip = new ImageClip

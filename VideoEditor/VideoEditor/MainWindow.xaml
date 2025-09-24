@@ -303,11 +303,18 @@
                             <!-- 영상 조작 UI (StackPanel) -->
                         </Grid.RowDefinitions>
 
-                        <!-- (2) 중앙 영역: vlcplayer로 프레임을 표시 -->
-                        <Grid Grid.Row="0" Margin="5,5,5,5" Grid.ColumnSpan="2">
-                            <vlc:VideoView x:Name="videoView" Background="{Binding PlayerViewModel.VideoViewBackground}"/>
+                        <Border Grid.Row="0" Margin="5" Background="{Binding PlayerViewModel.VideoViewBackground}" />
+
+                        <!-- 비디오 플레이어 뷰 (트랙 0~4에 해당하며, 아래에 있을수록 위에 그려짐) -->
+                        <Grid Grid.Row="0" Margin="5" x:Name="VideoPlayerHost">
+                            <vlc:VideoView x:Name="videoView0" />
+                            <vlc:VideoView x:Name="videoView1" />
+                            <vlc:VideoView x:Name="videoView2" />
+                            <vlc:VideoView x:Name="videoView3" />
+                            <vlc:VideoView x:Name="videoView4" />
                         </Grid>
 
+                        <!-- 기존 컨트롤 바 (변경 없음) -->
                         <StackPanel x:Name="show_VideoBar" 
                                     Orientation="Horizontal" 
                                     Grid.Row="1" 
@@ -315,24 +322,25 @@
                                     Visibility="{Binding PlayerViewModel.IsControlBarVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
                                     VerticalAlignment="Bottom" 
                                     Grid.ColumnSpan="2">
-                            <Button Content="{Binding PlayPauseButtonContent}"
-                                    Command="{Binding PlayPauseTimelineCommand}"
-                                    Width="40"/>
 
-                            <Button x:Name="btnStop" Content="■" Width="40" Margin="5,0,0,0"
-                                    Command="{Binding StopTimelineCommand}"/>
+                                    <Button Content="{Binding PlayPauseButtonContent}"
+                                            Command="{Binding PlayPauseTimelineCommand}"
+                                            Width="40"/>
 
-                            <TextBlock Text="{Binding CurrentTimelineTimeMs, Converter={StaticResource Converter}}"
-                                       VerticalAlignment="Center" Margin="5,0"/>
+                                    <Button x:Name="btnStop" Content="■" Width="40" Margin="5,0,0,0"
+                                            Command="{Binding StopTimelineCommand}"/>
 
-                            <Slider Width="300" Minimum="0"
-                                    Value="{Binding CurrentTimelineTimeMs, Mode=TwoWay}"
-                                    Maximum="{Binding PlayerViewModel.TotalDuration}"
-                                    IsSnapToTickEnabled="True" TickFrequency="1000" />
-                            <TextBlock Text="{Binding TotalTimelineDurationMs, Converter={StaticResource Converter}}"
-                                       Margin="10,0,10,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding CurrentTimelineTimeMs, Converter={StaticResource Converter}}"
+                                               VerticalAlignment="Center" Margin="5,0"/>
 
-                            <TextBlock Text="볼륨" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                                    <Slider Width="300" Minimum="0"
+                                            Value="{Binding CurrentTimelineTimeMs, Mode=TwoWay}"
+                                            Maximum="{Binding PlayerViewModel.TotalDuration}"
+                                            IsSnapToTickEnabled="True" TickFrequency="1000" />
+                                    <TextBlock Text="{Binding TotalTimelineDurationMs, Converter={StaticResource Converter}}"
+                                               Margin="10,0,10,0" VerticalAlignment="Center"/>
+
+                                    <TextBlock Text="볼륨" VerticalAlignment="Center" Margin="10,0,5,0"/>
                             <Slider Width="100" Minimum="0" Maximum="100" VerticalAlignment="Center"
                                     Value="{Binding PlayerViewModel.Volume, Mode=TwoWay}"/>
                         </StackPanel>
