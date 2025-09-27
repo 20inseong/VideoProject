@@ -106,15 +106,20 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <b:Interaction.Triggers>
-                            <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
-                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseDownCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
-                            </b:EventTrigger>
-                            <b:EventTrigger EventName="PreviewMouseMove">
-                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
-                            </b:EventTrigger>
-                        </b:Interaction.Triggers>
-                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                        <Grid>
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
+                                    <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseDownCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                                </b:EventTrigger>
+                                <b:EventTrigger EventName="PreviewMouseMove">
+                                    <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+
+                            <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" Cursor="Hand" />
+
+                            <Rectangle Fill="Transparent" Width="8" HorizontalAlignment="Right" Cursor="SizeWE" Tag="ResizeHandle" />
+                        </Grid>
                     </Border>
                 </DataTemplate>
             </Common:TimelineClipTemplateSelector.ImageClipTemplate>
@@ -135,15 +140,20 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <b:Interaction.Triggers>
-                            <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
-                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseDownCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
-                            </b:EventTrigger>
-                            <b:EventTrigger EventName="PreviewMouseMove">
-                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
-                            </b:EventTrigger>
-                        </b:Interaction.Triggers>
-                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                        <Grid>
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
+                                    <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseDownCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                                </b:EventTrigger>
+                                <b:EventTrigger EventName="PreviewMouseMove">
+                                    <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+
+                            <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" Cursor="Hand" />
+
+                            <Rectangle Fill="Transparent" Width="8" HorizontalAlignment="Right" Cursor="SizeWE" Tag="ResizeHandle" />
+                        </Grid>
                     </Border>
                 </DataTemplate>
             </Common:TimelineClipTemplateSelector.TextClipTemplate>
@@ -469,9 +479,13 @@
                                       Background="Transparent">
 
                             <!-- 모든 타임라인 요소를 담을 Grid -->
-                            <Grid x:Name="TimelineCanvas" Height="300" Background="Transparent"
-                                          AllowDrop="True"
-                                          DragOver="Timeline_DragOver">
+                            <Grid x:Name="TimelineCanvas" Height="300" 
+                                  Background="Transparent"
+                                  AllowDrop="True"
+                                  DragOver="Timeline_DragOver"
+                                  PreviewMouseLeftButtonDown="TimelineCanvas_PreviewMouseLeftButtonDown"
+                                  PreviewMouseMove="TimelineCanvas_PreviewMouseMove"
+                                  PreviewMouseLeftButtonUp="TimelineCanvas_PreviewMouseLeftButtonUp">
                                 <b:Interaction.Triggers>
                                     <b:EventTrigger EventName="Drop">
                                         <b:InvokeCommandAction Command="{Binding VideoEditor.DropOnTimelineCommand}"

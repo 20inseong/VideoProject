@@ -107,7 +107,7 @@ namespace VideoEditor.ViewModels
         }
         private CancellationTokenSource? _clipUpdateCts;
 
-        private readonly Dictionary<VideoClip, MediaPlayer> _activeVideoPlayers = new();
+        private readonly Dictionary<TimelineClipBase, MediaPlayer> _activeVisualClipPlayers = new();
         private readonly Dictionary<TimelineClipBase, MediaPlayer> _activeAudioPlayers = new();
 
         private readonly DispatcherTimer _timelineTimer;
@@ -537,7 +537,7 @@ namespace VideoEditor.ViewModels
             Debug.WriteLine("[COMMAND] Stop 버튼 클릭.");
             _timelineTimer.Stop();
             PlayerViewModel.Stop(); // 모든 플레이어 정지 및 미디어 해제
-            _activeVideoPlayers.Clear();
+            _activeVisualClipPlayers.Clear();
             _activeAudioPlayers.Clear();
 
             CurrentTimelinePosition = 0;
@@ -556,7 +556,7 @@ namespace VideoEditor.ViewModels
             }
 
             PlayerViewModel.Stop();
-            _activeVideoPlayers.Clear();
+            _activeVisualClipPlayers.Clear();
             _activeAudioPlayers.Clear();
 
             CurrentTimelinePosition = timeSec;
@@ -588,41 +588,63 @@ namespace VideoEditor.ViewModels
                 .Where(c => c.StartPosition <= CurrentTimelinePosition && (c.StartPosition + c.Duration) > CurrentTimelinePosition)
                 .ToList();
 
-            var activeVideoClips = activeClips.OfType<VideoClip>()
-                                              .OrderBy(v => v.TrackIndex)
-                                              .ToList();
+            var activeVisualClips = activeClips
+                .Where(c => c is VideoClip || c is ImageClip)
+                .OrderBy(c => c.TrackIndex)
+                .ToList();
 
             var activeAudioClips = activeClips.OfType<AudioClip>().ToList();
 
-            var videosToDeactivate = _activeVideoPlayers.Keys.Except(activeVideoClips).ToList();
-            foreach (var clip in videosToDeactivate)
+            var visualClipsToDeactivate = _activeVisualClipPlayers.Keys.Except(activeVisualClips).ToList();
+            foreach (var clip in visualClipsToDeactivate)
             {
-                if (_activeVideoPlayers.TryGetValue(clip, out var player))
+                if (_activeVisualClipPlayers.TryGetValue(clip, out var player))
                 {
                     player.Stop();
                     player.Media?.Dispose();
                     player.Media = null;
-                    _activeVideoPlayers.Remove(clip);
+                    _activeVisualClipPlayers.Remove(clip);
                 }
             }
 
             for (int trackIndex = 0; trackIndex < PlayerViewModel.VideoPlayers.Count; trackIndex++)
             {
                 var player = PlayerViewModel.VideoPlayers[trackIndex];
-                var clipForThisTrack = activeVideoClips.FirstOrDefault(c => c.TrackIndex == trackIndex);
+                var clipForThisTrack = activeVisualClips.FirstOrDefault(c => c.TrackIndex == trackIndex);
 
                 if (clipForThisTrack != null)
                 {
-                    if (!_activeVideoPlayers.ContainsKey(clipForThisTrack))
+                    if (!_activeVisualClipPlayers.ContainsKey(clipForThisTrack))
                     {
-                        _activeVideoPlayers[clipForThisTrack] = player;
+                        _activeVisualClipPlayers[clipForThisTrack] = player;
 
                         double timeWithinClip = CurrentTimelinePosition - clipForThisTrack.StartPosition;
-                        double seekTimeInSource = clipForThisTrack.SourceStartTime + timeWithinClip;
+                        double seekTimeInSource = 0; // 이미지 클립의 SourceStartTime은 0으로 간주
+                        string mediaPath = string.Empty;
 
-                        player.Media = PlayerViewModel.PrepareMedia(clipForThisTrack.VideoPath, seekTimeInSource, false);
-                        if (IsTimelinePlaying) player.Play();
+                        if (clipForThisTrack is VideoClip videoClip)
+                        {
+                            seekTimeInSource = videoClip.SourceStartTime + timeWithinClip;
+                            mediaPath = videoClip.VideoPath;
+                        }
+                        else if (clipForThisTrack is ImageClip imageClip)
+                        {
+                            mediaPath = imageClip.ImagePath;
+                            seekTimeInSource = 0; // 이미지는 시작 시간이 0으로 고정되어 있다고 가정 (LibVLC 이미지 재생)
+                        }
+                        // TextClip도 시각적 클립이지만, LibVLC MediaPlayer로 직접 표시하지 않습니다.
+                        // 따라서 여기서는 VideoClip과 ImageClip만 처리합니다.
+
+                        if (!string.IsNullOrEmpty(mediaPath))
+                        {
+                            player.Media = PlayerViewModel.PrepareMedia(mediaPath, seekTimeInSource, false);
+                            if (IsTimelinePlaying) player.Play();
+                        }
                     }
+                    // (선택 사항) 이미 재생 중인 클립이더라도, 타임라인을 수동으로 탐색했을 때 정확한 위치로 이동시키려면
+                    // player.SetTime((long)(seekTimeInSource * 1000)); 와 같은 로직을 추가할 수 있습니다.
+                    // 하지만 현재는 ClipAdded/Stop/SeekTimeline에서 플레이어를 재설정하므로
+                    // 여기서는 필요하지 않을 수 있습니다.
                 }
                 else
                 {

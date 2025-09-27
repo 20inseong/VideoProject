@@ -37,11 +37,18 @@ namespace VideoEditor.ViewModels
         private TimelineClipBase? _selectedClip;
         private TimelineClipBase? _copiedClip;
 
+        private bool _isResizing = false;
+        private TimelineClipBase? _resizingClip;
+        private Point _resizeStartPoint;
+        private double _originalClipDuration;
+
         private Point _dragStartPoint;
         private double _originalClipStartPosition;
         private int _originalClipTrackIndex;
 
         public double ZoomPercentage => PixelsPerSecond * 10.0;
+
+        public bool IsResizing => _isResizing;
 
         public ICommand DropOnTimelineCommand { get; }
         public ICommand ClipMouseDownCommand { get; }
@@ -254,8 +261,17 @@ namespace VideoEditor.ViewModels
                         TrackIndex = ac.TrackIndex
                     };
                     break;
-
-                    // 향후 ImageClip이나 TextClip도 자르고 싶다면 여기에 case를 추가
+                case ImageClip ic:
+                    newClip = new ImageClip
+                    {
+                        Name = ic.Name + " (2)",
+                        ImagePath = ic.ImagePath,
+                        Thumbnail = ic.Thumbnail,
+                        StartPosition = currentTimelinePosition,
+                        Duration = originalDuration - splitPointInClip,
+                        TrackIndex = ic.TrackIndex
+                    };
+                    break;
             }
 
             if (newClip != null)
@@ -497,6 +513,11 @@ namespace VideoEditor.ViewModels
         {
             if (e == null) return;
 
+            if ((e.OriginalSource as FrameworkElement)?.Tag is "ResizeHandle")
+            {
+                return;
+            }
+
             if ((e.Source as FrameworkElement)?.DataContext is TimelineClipBase clickedClip)
             {
                 if (SelectedClip != null && SelectedClip != clickedClip)
@@ -521,12 +542,50 @@ namespace VideoEditor.ViewModels
 
         private void ExecuteClipMouseMove(MouseEventArgs? e)
         {
-            if (e == null || _draggedClip == null || e.LeftButton != MouseButtonState.Pressed) return;
+            if (_isResizing || e == null || _draggedClip == null || e.LeftButton != MouseButtonState.Pressed) return;
 
             DataObject dragData = new DataObject("TimelineClip", _draggedClip);
             DragDrop.DoDragDrop((DependencyObject)e.Source, dragData, DragDropEffects.Move);
 
             _draggedClip = null;
+        }
+
+        public void StartClipResize(TimelineClipBase clip, Point startPoint)
+        {
+            if (!(clip is ImageClip || clip is TextClip)) return;
+
+            _isResizing = true;
+            _resizingClip = clip;
+            _resizeStartPoint = startPoint;
+            _originalClipDuration = clip.Duration;
+
+            // 크기 조절 중에는 다른 클립이 선택되지 않도록 처리
+            if (SelectedClip != null && SelectedClip != clip)
+            {
+                SelectedClip.IsSelected = false;
+            }
+            clip.IsSelected = true;
+            SelectedClip = clip;
+        }
+
+        public void UpdateClipResize(Point currentPoint)
+        {
+            if (!_isResizing || _resizingClip == null) return;
+
+            double deltaX = currentPoint.X - _resizeStartPoint.X;
+            double deltaTime = deltaX / PixelsPerSecond;
+
+            // 최소 길이를 0.1초로 제한하여 클립이 사라지는 것을 방지
+            double newDuration = Math.Max(0.1, _originalClipDuration + deltaTime);
+
+            _resizingClip.Duration = newDuration;
+            _resizingClip.UpdateWidth(PixelsPerSecond);
+        }
+
+        public void EndClipResize()
+        {
+            _isResizing = false;
+            _resizingClip = null;
         }
 
         private double AdjustClipPosition(TimelineClipBase movingClip, double desiredStartPosition, int desiredTrackIndex)

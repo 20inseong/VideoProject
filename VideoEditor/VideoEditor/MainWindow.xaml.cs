@@ -408,5 +408,38 @@ namespace VideoEditor
             }
         }
 
+        private void TimelineCanvas_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.OriginalSource is FrameworkElement fe && fe.Tag is "ResizeHandle")
+            {
+                if (fe.DataContext is TimelineClipBase clip)
+                {
+                    (sender as UIElement)?.CaptureMouse();
+                    _mainViewModel.VideoEditor.StartClipResize(clip, e.GetPosition(TimelineCanvas));
+
+                    e.Handled = true;
+                }
+            }
+        }
+        private void TimelineCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (_mainViewModel.VideoEditor.IsResizing)
+            {
+                _mainViewModel.VideoEditor.UpdateClipResize(e.GetPosition(TimelineCanvas));
+            }
+        }
+
+        private void TimelineCanvas_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_mainViewModel.VideoEditor.IsResizing)
+            {
+                _mainViewModel.VideoEditor.EndClipResize();
+
+                (sender as UIElement)?.ReleaseMouseCapture();
+
+                e.Handled = true;
+            }
+        }
+
     }
 }
