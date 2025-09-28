@@ -10,11 +10,11 @@ none
 false
 TRACE;DEBUG;NET;NET9_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NET9_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\App.xaml
-21192179522
+5881369883
 8441685866156
-23-1019746299
+2754647279
 210452613484
-ExportProgressWindow.xaml;MainWindow.xaml;
+ExportProgressWindow.xaml;MainWindow.xaml;Views\ClipEditorView.xaml;Views\EmotionEditorView.xaml;Views\SpeedEditorView.xaml;
 
 False
 

@@ -919,3 +919,9 @@ C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffm
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\bin\postproc-58.dll
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\bin\swresample-5.dll
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\bin\swscale-8.dll
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Views\ClipEditorView.g.cs
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Views\EmotionEditorView.g.cs
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Views\SpeedEditorView.g.cs
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Views\ClipEditorView.baml
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Views\EmotionEditorView.baml
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Views\SpeedEditorView.baml

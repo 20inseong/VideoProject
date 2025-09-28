@@ -28,6 +28,7 @@ namespace VideoEditor.ViewModels
         public PlayerViewModel PlayerViewModel { get; }
         public VideoListViewModel VideoList { get; }
         public VideoEditorViewModel VideoEditor { get; }
+        public EditorHostViewModel EditorHost { get; }
         public string StatusMessage { get; set; } = "준비 완료";
         public IAsyncRelayCommand ExportVideoCommand { get; }
 
@@ -35,6 +36,9 @@ namespace VideoEditor.ViewModels
         public event EventHandler? ExportFinished;
         private Window? _mainWindow;
         private CancellationTokenSource? _exportCts;
+
+        private string _activeDisplayText = string.Empty;
+        private bool _isTextVisible = false;
 
         public MainViewModel(Window mainWindow) : this()
         {
@@ -112,12 +116,24 @@ namespace VideoEditor.ViewModels
 
         private readonly DispatcherTimer _timelineTimer;
 
+        public string ActiveDisplayText
+        {
+            get => _activeDisplayText;
+            set => SetProperty(ref _activeDisplayText, value);
+        }
+
+        public bool IsTextVisible
+        {
+            get => _isTextVisible;
+            set => SetProperty(ref _isTextVisible, value);
+        }
 
         public MainViewModel()
         {
             PlayerViewModel = new PlayerViewModel();
             VideoList = new VideoListViewModel();
             VideoEditor = new VideoEditorViewModel();
+            EditorHost = new EditorHostViewModel(PlayerViewModel, VideoEditor);
 
             VideoEditor.OnClipAdded += MainViewModel_OnClipAdded;
 
@@ -594,6 +610,23 @@ namespace VideoEditor.ViewModels
                 .ToList();
 
             var activeAudioClips = activeClips.OfType<AudioClip>().ToList();
+
+            var activeTextClip = activeClips
+                .OfType<TextClip>()
+                .OrderByDescending(c => c.TrackIndex)
+                .FirstOrDefault();
+
+            if (activeTextClip != null)
+            {
+                // 활성화된 자막이 있으면, 내용을 업데이트하고 보이도록 설정합니다.
+                ActiveDisplayText = activeTextClip.Text;
+                IsTextVisible = true;
+            }
+            else
+            {
+                // 활성화된 자막이 없으면, 보이지 않도록 설정합니다.
+                IsTextVisible = false;
+            }
 
             var visualClipsToDeactivate = _activeVisualClipPlayers.Keys.Except(activeVisualClips).ToList();
             foreach (var clip in visualClipsToDeactivate)

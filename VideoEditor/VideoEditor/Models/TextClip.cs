@@ -8,13 +8,19 @@ namespace VideoEditor.Models
 {
     public class TextClip : TimelineClipBase
     {
-        public string Text { get; set; } = "자막을 입력하세요";
+        private string _text = "자막을 입력하세요";
+        public string Text
+        {
+            get => _text;
+            set => SetProperty(ref _text, value);
+        }
+
         public override TimelineClipBase Clone()
         {
             var newClip = new TextClip
             {
                 Name = this.Name + " (복사본)",
-                Text = this.Text,
+                Text = this.Text, // 복사할 때도 새로운 속성을 사용
                 StartPosition = this.StartPosition,
                 Duration = this.Duration,
                 Width = this.Width,

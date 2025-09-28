@@ -518,6 +518,12 @@ namespace VideoEditor.ViewModels
                 return;
             }
 
+            var itemsControl = (e.Source as FrameworkElement)?.FindAncestor<ItemsControl>();
+            if (itemsControl != null)
+            {
+                itemsControl.Focus();
+            }
+
             if ((e.Source as FrameworkElement)?.DataContext is TimelineClipBase clickedClip)
             {
                 if (SelectedClip != null && SelectedClip != clickedClip)
@@ -532,7 +538,6 @@ namespace VideoEditor.ViewModels
                 _originalClipStartPosition = clickedClip.StartPosition;
                 _originalClipTrackIndex = clickedClip.TrackIndex;
 
-                var itemsControl = (e.Source as FrameworkElement).FindAncestor<ItemsControl>();
                 if (itemsControl != null)
                 {
                     _dragStartPoint = e.GetPosition(itemsControl);
@@ -559,7 +564,6 @@ namespace VideoEditor.ViewModels
             _resizeStartPoint = startPoint;
             _originalClipDuration = clip.Duration;
 
-            // 크기 조절 중에는 다른 클립이 선택되지 않도록 처리
             if (SelectedClip != null && SelectedClip != clip)
             {
                 SelectedClip.IsSelected = false;

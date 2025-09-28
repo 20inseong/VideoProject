@@ -7,6 +7,9 @@
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
         xmlns:Common="clr-namespace:VideoEditor.Common"
+        xmlns:models="clr-namespace:VideoEditor.Models" 
+        xmlns:views="clr-namespace:VideoEditor.Views"
+        xmlns:viewmodels="clr-namespace:VideoEditor.ViewModels"
         xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
         mc:Ignorable="d"
         Title="MainWindow" Height="800" Width="1500"
@@ -118,7 +121,8 @@
 
                             <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" Cursor="Hand" />
 
-                            <Rectangle Fill="Transparent" Width="8" HorizontalAlignment="Right" Cursor="SizeWE" Tag="ResizeHandle" />
+                            <Rectangle Fill="Transparent" Width="8" HorizontalAlignment="Right" Cursor="SizeWE" Tag="ResizeHandle"
+                                       PreviewMouseLeftButtonDown="ResizeHandle_PreviewMouseLeftButtonDown" />
                         </Grid>
                     </Border>
                 </DataTemplate>
@@ -152,7 +156,8 @@
 
                             <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" Cursor="Hand" />
 
-                            <Rectangle Fill="Transparent" Width="8" HorizontalAlignment="Right" Cursor="SizeWE" Tag="ResizeHandle" />
+                            <Rectangle Fill="Transparent" Width="8" HorizontalAlignment="Right" Cursor="SizeWE" Tag="ResizeHandle"
+                                       PreviewMouseLeftButtonDown="ResizeHandle_PreviewMouseLeftButtonDown" />
                         </Grid>
                     </Border>
                 </DataTemplate>
@@ -164,6 +169,48 @@
         <Common:TimeConverter x:Key="Converter" />
         <Common:TimeToPixelConverter x:Key="TimeToPixelConverter" />
         <Common:TrackToPositionConverter x:Key="TrackToPositionConverter" />
+
+        <!-- 1. TextClip이 선택되었을 때 보여줄 편집기 -->
+        <DataTemplate DataType="{x:Type models:TextClip}">
+            <StackPanel Margin="10">
+                <TextBlock Text="자막 편집" FontWeight="Bold" Foreground="White" FontSize="16" Margin="0,0,0,10"/>
+                <TextBlock Text="내용:" Foreground="White" Margin="0,10,0,5"/>
+                <TextBox Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         Height="100"
+                         VerticalScrollBarVisibility="Auto"/>
+
+                <TextBlock Text="이름:" Foreground="White" Margin="0,10,0,5"/>
+                <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- 2. VideoClip 또는 ImageClip이 선택되었을 때 보여줄 기본 정보 패널 -->
+        <DataTemplate DataType="{x:Type models:VideoClip}">
+            <StackPanel Margin="10">
+                <TextBlock Text="클립 정보" FontWeight="Bold" Foreground="White" FontSize="16" Margin="0,0,0,10"/>
+                <TextBlock Text="이름:" Foreground="White" FontWeight="Bold" />
+                <TextBlock Text="{Binding Name}" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,5" />
+                <TextBlock Text="타입:" Foreground="White" FontWeight="Bold" />
+                <TextBlock Text="비디오 클립" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,5" />
+                <TextBlock Text="길이:" Foreground="White" FontWeight="Bold" />
+                <TextBlock Text="{Binding Duration, StringFormat={}{0:F2}초}" Foreground="White" Margin="0,0,0,5" />
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- ImageClip을 위한 템플릿 (VideoClip과 유사하게 만들 수 있습니다) -->
+        <DataTemplate DataType="{x:Type models:ImageClip}">
+            <StackPanel Margin="10">
+                <TextBlock Text="클립 정보" FontWeight="Bold" Foreground="White" FontSize="16" Margin="0,0,0,10"/>
+                <TextBlock Text="{Binding Name}" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,5" />
+                <TextBlock Text="타입:" Foreground="White" FontWeight="Bold" />
+                <TextBlock Text="이미지 클립" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,5" />
+                <TextBlock Text="길이:" Foreground="White" FontWeight="Bold" />
+                <TextBlock Text="{Binding Duration, StringFormat={}{0:F2}초}" Foreground="White" Margin="0,0,0,5" />
+            </StackPanel>
+        </DataTemplate>
+        
     </Window.Resources>
 
     <WindowChrome.WindowChrome>
@@ -241,7 +288,7 @@
                         <MenuItem Header="뮤트" />
                         <MenuItem Header="음성 텍스트 변환" />
                     </MenuItem>
-                    <MenuItem Header="배속" x:Name="SpeedMenuItem" Click="SpeedMenuItem_Click"/>
+                    <MenuItem Header="배속" Command="{Binding EditorHost.ShowSpeedEditorCommand}"/>
                     <MenuItem Header="자막">
                         <MenuItem Header="자막 생성" 
                                   Command="{Binding VideoEditor.AddTextClipCommand}"
@@ -313,15 +360,44 @@
                             <!-- 영상 조작 UI (StackPanel) -->
                         </Grid.RowDefinitions>
 
-                        <Border Grid.Row="0" Margin="5" Background="{Binding PlayerViewModel.VideoViewBackground}" />
+                        <Grid Grid.Row="0">
 
-                        <!-- 비디오 플레이어 뷰 (트랙 0~4에 해당하며, 아래에 있을수록 위에 그려짐) -->
-                        <Grid Grid.Row="0" Margin="5" x:Name="VideoPlayerHost">
-                            <vlc:VideoView x:Name="videoView0" />
-                            <vlc:VideoView x:Name="videoView1" />
-                            <vlc:VideoView x:Name="videoView2" />
-                            <vlc:VideoView x:Name="videoView3" />
-                            <vlc:VideoView x:Name="videoView4" />
+                            <Border Margin="5" Background="{Binding PlayerViewModel.VideoViewBackground}" />
+
+                            <!-- 1. 비디오 플레이어 뷰 (항상 아래에 위치) -->
+                            <Grid Margin="5" x:Name="VideoPlayerHost">
+                                <vlc:VideoView x:Name="videoView0" />
+                                <vlc:VideoView x:Name="videoView1" />
+                                <vlc:VideoView x:Name="videoView2" />
+                                <vlc:VideoView x:Name="videoView3" />
+                                <vlc:VideoView x:Name="videoView4" />
+                            </Grid>
+
+                            <!-- ✨ [결정적인 수정] 자막을 Popup 컨트롤 안에 배치 -->
+                            <Popup x:Name="SubtitlePopup"
+                                   IsOpen="{Binding IsTextVisible, Mode=OneWay}"
+                                   PlacementTarget="{Binding ElementName=VideoPlayerHost}"
+                                   Placement="Relative"
+                                   AllowsTransparency="True">
+
+                                <!-- Popup 내부의 Grid가 비디오 영역과 동일한 크기를 갖도록 설정 -->
+                                <Grid Width="{Binding ElementName=VideoPlayerHost, Path=ActualWidth}"
+                                      Height="{Binding ElementName=VideoPlayerHost, Path=ActualHeight}">
+
+                                    <!-- 기존 자막 UI는 그대로 사용하되, Grid 내부에 배치하여 정렬 -->
+                                    <Border Margin="10" Padding="10,5" CornerRadius="5"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Bottom"
+                                            Background="#80000000">
+                                        <TextBlock Text="{Binding ActiveDisplayText}"
+                                                   Foreground="White"
+                                                   FontSize="24"
+                                                   FontWeight="Bold"
+                                                   TextAlignment="Center"/>
+                                    </Border>
+                                </Grid>
+                            </Popup>
+
                         </Grid>
 
                         <!-- 기존 컨트롤 바 (변경 없음) -->
@@ -359,74 +435,21 @@
 
                 <!--- 영상 설정 -->
                 <Border Grid.Column="2" Grid.Row="0" Background="#36443d" BorderBrush="Black" BorderThickness="1">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Text="상태 표시" x:Name="StatusTextBlock" Foreground="White" 
-                                   VerticalAlignment="Top" HorizontalAlignment="Left" Margin="10,10,0,0" Grid.Row="0" />
-
-                        <!-- 배속 컨트롤 패널 -->
-                        <StackPanel x:Name="SpeedControlPanel" Grid.Row="1" Visibility="Collapsed" Margin="10,40,10,10">
-                            <TextBlock Text="배속 설정" FontWeight="Bold" Foreground="White" Margin="0,0,0,10" />
-
-                            <StackPanel Orientation="Horizontal" Margin="0,5,0,5">
-                                <TextBlock Text="배속:" Foreground="White" VerticalAlignment="Center" Width="80" />
-                                <TextBox x:Name="SpeedTextBox" Width="70" Text="{Binding PlayerViewModel.PlaybackRate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"/>
-                                <Button x:Name="ApplySpeedButton" Content="적용" Width="50" Margin="5,0,0,0" Click="ApplySpeedButton_Click"/>
-                            </StackPanel>
-
-                            <TextBlock Text="프리셋:" Foreground="White" Margin="0,10,0,5" />
-                            <UniformGrid Columns="3" Rows="3">
-                                <Button Content="0.5x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed05Command}"/>
-                                <Button Content="0.75x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed075Command}"/>
-                                <Button Content="1.0x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed1Command}"/>
-                                <Button Content="1.25x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed125Command}"/>
-                                <Button Content="1.5x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed15Command}"/>
-                                <Button Content="2.0x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed2Command}"/>
-                                <Button Content="5.0x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed5Command}"/>
-                                <Button Content="10.0x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed10Command}"/>
-                                <Button Content="25.0x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed25Command}"/>
-                            </UniformGrid>
-
-                            <TextBlock Text="슬라이더:" Foreground="White" Margin="0,10,0,5" />
-                            <Slider x:Name="SpeedSlider" Minimum="0.25" Maximum="25.0" Value="{Binding PlayerViewModel.PlaybackRate, Mode=TwoWay}" 
-                                    TickFrequency="0.25" IsSnapToTickEnabled="True" />
-                            <TextBlock x:Name="SpeedValueText" Text="{Binding PlayerViewModel.PlaybackRateText}" Foreground="White" 
-                                       HorizontalAlignment="Center" Margin="0,5,0,0" />
-                        </StackPanel>
-
-                        <!-- 영상 정보 표시 패널 -->
-                        <StackPanel x:Name="VideoInfoPanel" Grid.Row="1" Margin="10,40,10,10" Visibility="Visible">
-                            <TextBlock Text="영상 정보" FontWeight="Bold" Foreground="White" Margin="0,0,0,10" />
-
-                            <StackPanel Margin="0,5,0,10">
-                                <TextBlock Text="파일명:" Foreground="White" FontWeight="Bold" />
-                                <TextBlock x:Name="txtFileName" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,5" />
-
-                                <TextBlock Text="경로:" Foreground="White" FontWeight="Bold" />
-                                <TextBlock x:Name="txtFilePath" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,5" />
-
-                                <TextBlock Text="재생 길이:" Foreground="White" FontWeight="Bold" />
-                                <TextBlock x:Name="txtDuration" Foreground="White" Margin="0,0,0,5" />
-                            </StackPanel>
-
-                            <TextBlock Text="카테고리:" Foreground="White" FontWeight="Bold" Margin="0,10,0,5" />
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                                <ComboBox x:Name="cmbCategory" Width="150" IsEditable="True" >
-                                    <ComboBoxItem Content="미분류" />
-                                    <ComboBoxItem Content="감정1" />
-                                    <ComboBoxItem Content="감정2" />
-                                    <ComboBoxItem Content="감정3" />
-                                    <ComboBoxItem Content="감정4" />
-                                    <ComboBoxItem Content="감정5" />
-                                </ComboBox>
-                                <Button x:Name="btnAddCategory" Content="추가" Width="50" Margin="5,0,0,0"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Grid>
+                    <ContentControl Content="{Binding EditorHost.CurrentEditor}">
+                        <ContentControl.Resources>
+                            <!-- ✨ [핵심] ViewModel 타입에 따라 어떤 View를 보여줄지 결정 -->
+                            <DataTemplate DataType="{x:Type viewmodels:VideoEditorViewModel}">
+                                <views:ClipEditorView DataContext="{Binding SelectedClip}"/>
+                            </DataTemplate>
+                            <DataTemplate DataType="{x:Type viewmodels:PlayerViewModel}">
+                                <views:SpeedEditorView/>
+                            </DataTemplate>
+                            <!-- 나중에 EmotionViewModel을 만들면 아래와 같이 추가 -->
+                            <!-- <DataTemplate DataType="{x:Type viewmodels:EmotionViewModel}">
+                                <views:EmotionEditorView/>
+                                </DataTemplate> -->
+                        </ContentControl.Resources>
+                    </ContentControl>
                 </Border>
 
                 <Border Grid.Column="1" Grid.Row="1" Grid.ColumnSpan="2"
@@ -482,10 +505,7 @@
                             <Grid x:Name="TimelineCanvas" Height="300" 
                                   Background="Transparent"
                                   AllowDrop="True"
-                                  DragOver="Timeline_DragOver"
-                                  PreviewMouseLeftButtonDown="TimelineCanvas_PreviewMouseLeftButtonDown"
-                                  PreviewMouseMove="TimelineCanvas_PreviewMouseMove"
-                                  PreviewMouseLeftButtonUp="TimelineCanvas_PreviewMouseLeftButtonUp">
+                                  DragOver="Timeline_DragOver">
                                 <b:Interaction.Triggers>
                                     <b:EventTrigger EventName="Drop">
                                         <b:InvokeCommandAction Command="{Binding VideoEditor.DropOnTimelineCommand}"

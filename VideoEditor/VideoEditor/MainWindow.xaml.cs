@@ -25,6 +25,7 @@ namespace VideoEditor
         private Point _dragStartPoint;
         private Line _playheadLine;
         private double _currentTimelineDurationSec = 300;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -47,6 +48,9 @@ namespace VideoEditor
             {
                 RulerScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset);
             };
+
+            TimelineCanvas.PreviewMouseMove += TimelineCanvas_PreviewMouseMove;
+            TimelineCanvas.PreviewMouseLeftButtonUp += TimelineCanvas_PreviewMouseLeftButtonUp;
 
             DrawTimelineRuler();
         }
@@ -198,7 +202,7 @@ namespace VideoEditor
                 if (openFileDialog.FileNames.Any())
                 {
                     _mainViewModel.VideoList.SelectedVideoItem = _mainViewModel.VideoList.MyVideoes.LastOrDefault();
-                    StatusTextBlock.Text = $"{openFileDialog.FileNames.Length}개의 미디어가 목록에 추가되었습니다.";
+                    //StatusTextBlock.Text = $"{openFileDialog.FileNames.Length}개의 미디어가 목록에 추가되었습니다.";
                 }
             }
         }
@@ -377,50 +381,19 @@ namespace VideoEditor
             }
         }
 
-        private void ApplySpeedButton_Click(object sender, RoutedEventArgs e)
+        private void ResizeHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (float.TryParse(SpeedTextBox.Text, out float speed))
-            {
-                speed = Math.Max(0.1f, Math.Min(25.0f, speed));
-                _mainViewModel.PlayerViewModel.PlaybackRate = speed;
-                SpeedTextBox.Text = speed.ToString("F2");
-            }
-            else
-            {
-                MessageBox.Show("올바른 배속 값을 입력해주세요. (0.1 ~ 25.0)", "배속 설정 오류", MessageBoxButton.OK, MessageBoxImage.Warning);
-                SpeedTextBox.Text = _mainViewModel.PlayerViewModel.PlaybackRate.ToString("F2");
-            }
+            var handle = sender as FrameworkElement;
+            var clip = handle?.DataContext as TimelineClipBase;
+            if (handle == null || clip == null) return;
+
+            TimelineCanvas.CaptureMouse();
+
+            _mainViewModel.VideoEditor.StartClipResize(clip, e.GetPosition(TimelineCanvas));
+
+            e.Handled = true;
         }
 
-        private void SpeedMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            if (SpeedControlPanel.Visibility == Visibility.Visible)
-            {
-                SpeedControlPanel.Visibility = Visibility.Collapsed;
-                VideoInfoPanel.Visibility = Visibility.Visible;
-                VideoInfoPanel.Margin = new Thickness(10, 40, 10, 10);
-            }
-            else
-            {
-                SpeedControlPanel.Visibility = Visibility.Visible;
-                VideoInfoPanel.Visibility = Visibility.Collapsed;
-                SpeedControlPanel.Margin = new Thickness(10, 40, 10, 10);
-            }
-        }
-
-        private void TimelineCanvas_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            if (e.OriginalSource is FrameworkElement fe && fe.Tag is "ResizeHandle")
-            {
-                if (fe.DataContext is TimelineClipBase clip)
-                {
-                    (sender as UIElement)?.CaptureMouse();
-                    _mainViewModel.VideoEditor.StartClipResize(clip, e.GetPosition(TimelineCanvas));
-
-                    e.Handled = true;
-                }
-            }
-        }
         private void TimelineCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
         {
             if (_mainViewModel.VideoEditor.IsResizing)
