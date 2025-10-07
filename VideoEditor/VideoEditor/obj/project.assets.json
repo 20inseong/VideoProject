@@ -1207,6 +1207,21 @@
           "build/VideoLAN.LibVLC.Windows.targets": {}
         }
       },
+      "Whisper.net/1.8.1": {
+        "type": "package",
+        "compile": {
+          "lib/net9.0/Whisper.net.dll": {}
+        },
+        "runtime": {
+          "lib/net9.0/Whisper.net.dll": {}
+        }
+      },
+      "Whisper.net.Runtime/1.8.1": {
+        "type": "package",
+        "build": {
+          "build/Whisper.net.Runtime.targets": {}
+        }
+      },
       "WPF-UI/4.0.3": {
         "type": "package",
         "dependencies": {
@@ -4979,6 +4994,124 @@
         "videolan.libvlc.windows.nuspec"
       ]
     },
+    "Whisper.net/1.8.1": {
+      "sha512": "NOcPlajorIQ5bIaf21PESirTvhCSb/T4qbUZreoU31jOu2W6kGJRgy+1f/M7PK/atcWXLF5FsXIj2lHi5sym1w==",
+      "type": "package",
+      "path": "whisper.net/1.8.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE",
+        "lib/net8.0-android34.0/Whisper.net.dll",
+        "lib/net8.0-android34.0/Whisper.net.xml",
+        "lib/net8.0-ios18.0/Whisper.net.dll",
+        "lib/net8.0-maccatalyst18.0/Whisper.net.dll",
+        "lib/net8.0-tvos18.0/Whisper.net.dll",
+        "lib/net8.0/Whisper.net.dll",
+        "lib/net9.0-android35.0/Whisper.net.dll",
+        "lib/net9.0-android35.0/Whisper.net.xml",
+        "lib/net9.0-ios18.0/Whisper.net.dll",
+        "lib/net9.0-maccatalyst18.0/Whisper.net.dll",
+        "lib/net9.0-tvos18.0/Whisper.net.dll",
+        "lib/net9.0/Whisper.net.dll",
+        "lib/netstandard2.0/Whisper.net.dll",
+        "readme.md",
+        "whisper.net.1.8.1.nupkg.sha512",
+        "whisper.net.nuspec"
+      ]
+    },
+    "Whisper.net.Runtime/1.8.1": {
+      "sha512": "DW2JhlBbt0W5W+cIP8Uevt5+7XnjPIsG9b5FyAdeB9taNk9w1WFw9W7TYSNaqgyEbEHHPNOXA6hl+yrmBwOfsQ==",
+      "type": "package",
+      "path": "whisper.net.runtime/1.8.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "build/Whisper.net.Runtime.targets",
+        "build/android-arm64-v8a/libggml-base-whisper.so",
+        "build/android-arm64-v8a/libggml-cpu-whisper.so",
+        "build/android-arm64-v8a/libggml-whisper.so",
+        "build/android-arm64-v8a/libwhisper.so",
+        "build/android-x86/libggml-base-whisper.so",
+        "build/android-x86/libggml-cpu-whisper.so",
+        "build/android-x86/libggml-whisper.so",
+        "build/android-x86/libwhisper.so",
+        "build/android-x86_64/libggml-base-whisper.so",
+        "build/android-x86_64/libggml-cpu-whisper.so",
+        "build/android-x86_64/libggml-whisper.so",
+        "build/android-x86_64/libwhisper.so",
+        "build/browser-wasm/libggml-base-whisper.a",
+        "build/browser-wasm/libggml-cpu-whisper.a",
+        "build/browser-wasm/libggml-whisper.a",
+        "build/browser-wasm/libwhisper.a",
+        "build/ggml-metal.metal",
+        "build/ios-device/libggml-base-whisper.dylib",
+        "build/ios-device/libggml-blas-whisper.dylib",
+        "build/ios-device/libggml-cpu-whisper.dylib",
+        "build/ios-device/libggml-metal-whisper.dylib",
+        "build/ios-device/libggml-whisper.dylib",
+        "build/ios-device/libwhisper.dylib",
+        "build/ios-simulator/libggml-base-whisper.dylib",
+        "build/ios-simulator/libggml-blas-whisper.dylib",
+        "build/ios-simulator/libggml-cpu-whisper.dylib",
+        "build/ios-simulator/libggml-whisper.dylib",
+        "build/ios-simulator/libwhisper.dylib",
+        "build/linux-arm/libggml-base-whisper.so",
+        "build/linux-arm/libggml-cpu-whisper.so",
+        "build/linux-arm/libggml-whisper.so",
+        "build/linux-arm/libwhisper.so",
+        "build/linux-arm64/libggml-base-whisper.so",
+        "build/linux-arm64/libggml-cpu-whisper.so",
+        "build/linux-arm64/libggml-whisper.so",
+        "build/linux-arm64/libwhisper.so",
+        "build/linux-x64/libggml-base-whisper.so",
+        "build/linux-x64/libggml-cpu-whisper.so",
+        "build/linux-x64/libggml-whisper.so",
+        "build/linux-x64/libwhisper.so",
+        "build/maccatalyst/libggml-base-whisper.dylib",
+        "build/maccatalyst/libggml-blas-whisper.dylib",
+        "build/maccatalyst/libggml-cpu-whisper.dylib",
+        "build/maccatalyst/libggml-whisper.dylib",
+        "build/maccatalyst/libwhisper.dylib",
+        "build/macos-arm64/libggml-base-whisper.dylib",
+        "build/macos-arm64/libggml-blas-whisper.dylib",
+        "build/macos-arm64/libggml-cpu-whisper.dylib",
+        "build/macos-arm64/libggml-metal-whisper.dylib",
+        "build/macos-arm64/libggml-whisper.dylib",
+        "build/macos-arm64/libwhisper.dylib",
+        "build/macos-x64/libggml-base-whisper.dylib",
+        "build/macos-x64/libggml-blas-whisper.dylib",
+        "build/macos-x64/libggml-cpu-whisper.dylib",
+        "build/macos-x64/libggml-whisper.dylib",
+        "build/macos-x64/libwhisper.dylib",
+        "build/tvos-device/libggml-base-whisper.dylib",
+        "build/tvos-device/libggml-blas-whisper.dylib",
+        "build/tvos-device/libggml-cpu-whisper.dylib",
+        "build/tvos-device/libggml-metal-whisper.dylib",
+        "build/tvos-device/libggml-whisper.dylib",
+        "build/tvos-device/libwhisper.dylib",
+        "build/tvos-simulator/libggml-base-whisper.dylib",
+        "build/tvos-simulator/libggml-blas-whisper.dylib",
+        "build/tvos-simulator/libggml-cpu-whisper.dylib",
+        "build/tvos-simulator/libggml-whisper.dylib",
+        "build/tvos-simulator/libwhisper.dylib",
+        "build/win-arm64/ggml-base-whisper.dll",
+        "build/win-arm64/ggml-cpu-whisper.dll",
+        "build/win-arm64/ggml-whisper.dll",
+        "build/win-arm64/whisper.dll",
+        "build/win-x64/ggml-base-whisper.dll",
+        "build/win-x64/ggml-cpu-whisper.dll",
+        "build/win-x64/ggml-whisper.dll",
+        "build/win-x64/whisper.dll",
+        "build/win-x86/ggml-base-whisper.dll",
+        "build/win-x86/ggml-cpu-whisper.dll",
+        "build/win-x86/ggml-whisper.dll",
+        "build/win-x86/whisper.dll",
+        "content/readme.md",
+        "whisper.net.runtime.1.8.1.nupkg.sha512",
+        "whisper.net.runtime.nuspec"
+      ]
+    },
     "WPF-UI/4.0.3": {
       "sha512": "izkG9uL33gYDkZkirpamlvk6v9ru5QL+97Dgqhr0rkGcwuJZOPd5zkhEUwlDOZ25OFX3Hbp2O/jpHILCYPNfiQ==",
       "type": "package",
@@ -5060,27 +5193,29 @@
       "LibVLCSharp.WPF >= 3.9.4",
       "Microsoft.Xaml.Behaviors.Wpf >= 1.1.135",
       "VideoLAN.LibVLC.Windows >= 3.0.21",
-      "WPF-UI >= 4.0.3"
+      "WPF-UI >= 4.0.3",
+      "Whisper.net >= 1.8.1",
+      "Whisper.net.Runtime >= 1.8.1"
     ]
   },
   "packageFolders": {
-    "C:\\Users\\94320\\.nuget\\packages\\": {},
+    "C:\\Users\\roxno\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\94320\\source\\repos\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
+      "projectUniqueName": "C:\\Users\\roxno\\source\\repos\\1017VideoProj\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
       "projectName": "VideoEditor",
-      "projectPath": "C:\\Users\\94320\\source\\repos\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
-      "packagesPath": "C:\\Users\\94320\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\94320\\source\\repos\\VideoEditor\\VideoEditor\\obj\\",
+      "projectPath": "C:\\Users\\roxno\\source\\repos\\1017VideoProj\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
+      "packagesPath": "C:\\Users\\roxno\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\roxno\\source\\repos\\1017VideoProj\\VideoEditor\\VideoEditor\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\94320\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\roxno\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -5089,7 +5224,6 @@
       ],
       "sources": {
         "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-        "C:\\Program Files\\dotnet\\library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -5108,7 +5242,7 @@
         "auditLevel": "low",
         "auditMode": "direct"
       },
-      "SdkAnalysisLevel": "9.0.300"
+      "SdkAnalysisLevel": "9.0.100"
     },
     "frameworks": {
       "net9.0-windows7.0": {
@@ -5145,6 +5279,14 @@
           "WPF-UI": {
             "target": "Package",
             "version": "[4.0.3, )"
+          },
+          "Whisper.net": {
+            "target": "Package",
+            "version": "[1.8.1, )"
+          },
+          "Whisper.net.Runtime": {
+            "target": "Package",
+            "version": "[1.8.1, )"
           }
         },
         "imports": [
@@ -5166,7 +5308,7 @@
             "privateAssets": "none"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.102/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

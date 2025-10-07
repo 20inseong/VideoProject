@@ -1,4 +1,5 @@
-﻿using System.Windows;
+using System.Collections.ObjectModel;
+using System.Windows;
 using System.Diagnostics;
 using Microsoft.Win32;
 using System.Text;
@@ -31,6 +32,24 @@ namespace VideoEditor.ViewModels
         public EditorHostViewModel EditorHost { get; }
         public string StatusMessage { get; set; } = "준비 완료";
         public IAsyncRelayCommand ExportVideoCommand { get; }
+        public IAsyncRelayCommand TranscribeVideoCommand { get; }
+        public ObservableCollection<TranscriptionSegment> Transcription { get; } = new();
+
+        private bool _isTranscribing;
+        public bool IsTranscribing
+        {
+            get => _isTranscribing;
+            set => SetProperty(ref _isTranscribing, value);
+        }
+
+        private int _transcriptionProgress;
+        public int TranscriptionProgress
+        {
+            get => _transcriptionProgress;
+            set => SetProperty(ref _transcriptionProgress, value);
+        }
+
+        private readonly SpeechToTextService _speechToTextService;
 
         public event EventHandler<ExportStartedEventArgs>? ExportStarted;
         public event EventHandler? ExportFinished;
@@ -152,6 +171,9 @@ namespace VideoEditor.ViewModels
             VideoEditor = new VideoEditorViewModel();
             EditorHost = new EditorHostViewModel(PlayerViewModel, VideoEditor);
 
+            var modelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "ggml-base.bin");
+            _speechToTextService = new SpeechToTextService(modelPath);
+
             VideoEditor.OnClipAdded += MainViewModel_OnClipAdded;
 
             VideoEditor.TimelineClips.CollectionChanged += (s, e) =>
@@ -187,6 +209,7 @@ namespace VideoEditor.ViewModels
             PlayPauseTimelineCommand = new RelayCommand(ExecutePlayPauseTimeline);
             StopTimelineCommand = new RelayCommand(ExecuteStopTimeline);
             ExportVideoCommand = new AsyncRelayCommand(StartExportProcessAsync);
+            TranscribeVideoCommand = new AsyncRelayCommand(TranscribeVideo);
 
             _timelineTimer = new DispatcherTimer(DispatcherPriority.Render)
             {
@@ -195,6 +218,42 @@ namespace VideoEditor.ViewModels
             _timelineTimer.Tick += OnTimelineTimerTick;
 
             UpdateTotalTimelineDuration();
+        }
+
+        private async Task TranscribeVideo()
+        {
+            if (VideoList.SelectedVideoItem == null)
+            {
+                MessageBox.Show("Please select a video from the list.", "No Video Selected", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            IsTranscribing = true;
+            StatusMessage = "Transcribing video...";
+            OnPropertyChanged(nameof(StatusMessage));
+
+            try
+            {
+                var progress = new Progress<int>(p => TranscriptionProgress = p);
+                var segments = await _speechToTextService.TranscribeAsync(VideoList.SelectedVideoItem.FullPath, progress);
+                Transcription.Clear();
+                foreach (var segment in segments)
+                {
+                    Transcription.Add(segment);
+                }
+                StatusMessage = "Transcription finished.";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "Transcription failed.";
+                MessageBox.Show($"An error occurred during transcription: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsTranscribing = false;
+                TranscriptionProgress = 0;
+                OnPropertyChanged(nameof(StatusMessage));
+            }
         }
 
         public void UpdateHighlightBorderSize(double playerWidth, double playerHeight)
@@ -726,7 +785,7 @@ namespace VideoEditor.ViewModels
             }
             else
             {
-                // 활성화된 자막이 없으면, 보이지 않도록 설정합니다.
+                // 활성화된 자막이 없으면, 보이지 않도록 설정합니다。
                 IsTextVisible = false;
             }
 
