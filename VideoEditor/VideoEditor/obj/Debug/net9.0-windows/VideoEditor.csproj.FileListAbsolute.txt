@@ -2072,3 +2072,5 @@ C:\Users\roxno\source\repos\1017VideoProj\VideoEditor\VideoEditor\bin\Debug\net9
 C:\Users\roxno\source\repos\1017VideoProj\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\presets\libvpx-720p.ffpreset
 C:\Users\roxno\source\repos\1017VideoProj\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\presets\libvpx-720p50_60.ffpreset
 C:\Users\roxno\source\repos\1017VideoProj\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\README.txt
+C:\Users\roxno\source\repos\1017VideoProj\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Views\Controls\WaveformControl.baml
+C:\Users\roxno\source\repos\1017VideoProj\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Views\Controls\WaveformControl.g.cs

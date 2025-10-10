@@ -43,6 +43,20 @@ namespace VideoEditor.Models
             set => SetProperty(ref _showTranscription, value);
         }
 
+        private bool _isGeneratingWaveform;
+        public bool IsGeneratingWaveform
+        {
+            get => _isGeneratingWaveform;
+            set => SetProperty(ref _isGeneratingWaveform, value);
+        }
+
+        private System.Collections.Generic.List<System.Windows.Point> _waveformData = new System.Collections.Generic.List<System.Windows.Point>();
+        public System.Collections.Generic.List<System.Windows.Point> WaveformData
+        {
+            get => _waveformData;
+            set => SetProperty(ref _waveformData, value);
+        }
+
         public IRelayCommand ShowTranscriptionCommand { get; }
         public IRelayCommand HideTranscriptionCommand { get; }
 

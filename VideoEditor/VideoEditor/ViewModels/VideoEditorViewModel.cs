@@ -32,6 +32,7 @@ namespace VideoEditor.ViewModels
         private ObservableCollection<TimelineClipBase> _timelineClips;
         private double _pixelsPerSecond = 10.0;
         private LibVLC _libVLC;
+        private readonly WaveformService _waveformService;
         public event EventHandler<ClipAddedEventArgs>? OnClipAdded;
         private TimelineClipBase? _draggedClip;
         private TimelineClipBase? _selectedClip;
@@ -111,6 +112,7 @@ namespace VideoEditor.ViewModels
             TimelineClips = new ObservableCollection<TimelineClipBase>();
             Core.Initialize();
             _libVLC = new LibVLC();
+            _waveformService = new WaveformService();
 
             DropOnTimelineCommand = new RelayCommand<DragEventArgs>(ExecuteDropOnTimeline);
             ClipMouseDownCommand = new RelayCommand<MouseButtonEventArgs>(ExecuteClipMouseDown);
@@ -292,6 +294,26 @@ namespace VideoEditor.ViewModels
             }
         }
 
+        private async Task GenerateWaveformForClipAsync(TimelineClipBase clip, string mediaPath)
+        {
+            if (string.IsNullOrEmpty(mediaPath)) return;
+
+            clip.IsGeneratingWaveform = true;
+            try
+            {
+                var waveformData = await _waveformService.GenerateWaveformDataAsync(mediaPath);
+                clip.WaveformData = waveformData;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to generate waveform for {mediaPath}: {ex.Message}");
+            }
+            finally
+            {
+                clip.IsGeneratingWaveform = false;
+            }
+        }
+
         private async void ExecuteDropOnTimeline(DragEventArgs? e)
         {
             if (e == null) return;
@@ -452,6 +474,8 @@ namespace VideoEditor.ViewModels
                 SourceHeight = sourceHeight
             };
 
+            _ = GenerateWaveformForClipAsync(newClip, video.FullPath);
+
             newClip.UpdateWidth(this.PixelsPerSecond);
             return newClip;
         }
@@ -469,7 +493,7 @@ namespace VideoEditor.ViewModels
 
                 if (duration <= 0) return null;
 
-                return new AudioClip
+                var newClip = new AudioClip
                 {
                     Name = audio.Title,
                     AudioPath = audio.FullPath,
@@ -478,6 +502,10 @@ namespace VideoEditor.ViewModels
                     Duration = duration,
                     Width = duration * PixelsPerSecond
                 };
+
+                _ = GenerateWaveformForClipAsync(newClip, audio.FullPath);
+
+                return newClip;
             }
             catch (Exception ex)
             {

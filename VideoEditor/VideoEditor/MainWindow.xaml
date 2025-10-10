@@ -9,6 +9,7 @@
         xmlns:Common="clr-namespace:VideoEditor.Common"
         xmlns:models="clr-namespace:VideoEditor.Models" 
         xmlns:views="clr-namespace:VideoEditor.Views"
+        xmlns:controls="clr-namespace:VideoEditor.Views.Controls"
         xmlns:viewmodels="clr-namespace:VideoEditor.ViewModels"
         xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
         mc:Ignorable="d"
@@ -52,12 +53,27 @@
                                 <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
                             </b:EventTrigger>
                         </b:Interaction.Triggers>
-                        <Border.Background>
-                            <ImageBrush ImageSource="{Binding Thumbnail}" TileMode="Tile" Stretch="UniformToFill" ViewportUnits="Absolute" Viewport="0,0,80,50" />
-                        </Border.Background>
                         <Grid>
-                            <Rectangle Fill="#60000000" />
-                            <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Top Part: Thumbnails and Name -->
+                            <Grid Grid.Row="0">
+                                <Grid.Background>
+                                    <ImageBrush ImageSource="{Binding Thumbnail}" TileMode="Tile" Stretch="UniformToFill" ViewportUnits="Absolute" Viewport="0,0,80,50" />
+                                </Grid.Background>
+                                <Rectangle Fill="#60000000" />
+                                <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                            </Grid>
+
+                            <!-- Bottom Part: Waveform -->
+                            <Grid Grid.Row="1">
+                                <controls:WaveformControl WaveformData="{Binding WaveformData}" />
+                                <ProgressBar IsIndeterminate="True" Height="10" VerticalAlignment="Center" Margin="5"
+                                             Visibility="{Binding IsGeneratingWaveform, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            </Grid>
                         </Grid>
                     </Border>
                 </DataTemplate>
@@ -87,7 +103,12 @@
                                 <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
                             </b:EventTrigger>
                         </b:Interaction.Triggers>
-                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                        <Grid>
+                            <controls:WaveformControl WaveformData="{Binding WaveformData}" />
+                            <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                            <ProgressBar IsIndeterminate="True" Height="10" VerticalAlignment="Bottom" Margin="5"
+                                         Visibility="{Binding IsGeneratingWaveform, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        </Grid>
                     </Border>
                 </DataTemplate>
             </Common:TimelineClipTemplateSelector.AudioClipTemplate>

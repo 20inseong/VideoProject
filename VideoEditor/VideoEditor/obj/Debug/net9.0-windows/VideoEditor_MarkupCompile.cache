@@ -10,11 +10,11 @@ none
 false
 TRACE;DEBUG;NET;NET9_0;NETCOREAPP
 C:\Users\roxno\source\repos\1017VideoProj\VideoEditor\VideoEditor\App.xaml
-5881369883
+6-914439436
 1062-1372921910
-2942053063
+31812934790
 2111377793892
-ExportProgressWindow.xaml;MainWindow.xaml;Views\ClipEditorView.xaml;Views\EmotionEditorView.xaml;Views\SpeedEditorView.xaml;
+ExportProgressWindow.xaml;MainWindow.xaml;Views\ClipEditorView.xaml;Views\Controls\WaveformControl.xaml;Views\EmotionEditorView.xaml;Views\SpeedEditorView.xaml;
 
 False
 
