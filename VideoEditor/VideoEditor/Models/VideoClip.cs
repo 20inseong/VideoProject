@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Windows.Media.Imaging;
 using VideoEditor.Common;
+using System.Collections.ObjectModel;
 
 namespace VideoEditor.Models
 {
@@ -17,6 +18,8 @@ namespace VideoEditor.Models
 
         public int SourceWidth { get; set; }
         public int SourceHeight { get; set; }
+
+        public ObservableCollection<TranscriptionSegment> Transcription { get; set; } = new();
 
         public VideoClip() { }
 

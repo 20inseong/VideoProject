@@ -1,4 +1,5 @@
-﻿using System.Windows;
+using System.Collections.ObjectModel;
+using System.Windows;
 using System.Diagnostics;
 using Microsoft.Win32;
 using System.Text;
@@ -31,6 +32,23 @@ namespace VideoEditor.ViewModels
         public EditorHostViewModel EditorHost { get; }
         public string StatusMessage { get; set; } = "준비 완료";
         public IAsyncRelayCommand ExportVideoCommand { get; }
+        public IAsyncRelayCommand TranscribeVideoCommand { get; }
+
+        private bool _isTranscribing;
+        public bool IsTranscribing
+        {
+            get => _isTranscribing;
+            set => SetProperty(ref _isTranscribing, value);
+        }
+
+        private int _transcriptionProgress;
+        public int TranscriptionProgress
+        {
+            get => _transcriptionProgress;
+            set => SetProperty(ref _transcriptionProgress, value);
+        }
+
+        private readonly SpeechToTextService _speechToTextService;
 
         public event EventHandler<ExportStartedEventArgs>? ExportStarted;
         public event EventHandler? ExportFinished;
@@ -152,6 +170,9 @@ namespace VideoEditor.ViewModels
             VideoEditor = new VideoEditorViewModel();
             EditorHost = new EditorHostViewModel(PlayerViewModel, VideoEditor);
 
+            var modelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "ggml-base.bin");
+            _speechToTextService = new SpeechToTextService(modelPath);
+
             VideoEditor.OnClipAdded += MainViewModel_OnClipAdded;
 
             VideoEditor.TimelineClips.CollectionChanged += (s, e) =>
@@ -187,6 +208,7 @@ namespace VideoEditor.ViewModels
             PlayPauseTimelineCommand = new RelayCommand(ExecutePlayPauseTimeline);
             StopTimelineCommand = new RelayCommand(ExecuteStopTimeline);
             ExportVideoCommand = new AsyncRelayCommand(StartExportProcessAsync);
+            TranscribeVideoCommand = new AsyncRelayCommand(TranscribeVideo);
 
             _timelineTimer = new DispatcherTimer(DispatcherPriority.Render)
             {
@@ -195,6 +217,86 @@ namespace VideoEditor.ViewModels
             _timelineTimer.Tick += OnTimelineTimerTick;
 
             UpdateTotalTimelineDuration();
+        }
+
+        private async Task TranscribeVideo()
+        {
+            var selectedClip = VideoEditor.SelectedClip;
+
+            if (selectedClip == null)
+            {
+                MessageBox.Show("타임라인에서 비디오 또는 오디오 클립을 선택해주세요.", "클립 선택 필요", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            string? mediaPath = null;
+            if (selectedClip is VideoClip videoClip)
+            {
+                mediaPath = videoClip.VideoPath;
+            }
+            else if (selectedClip is AudioClip audioClip)
+            {
+                mediaPath = audioClip.AudioPath;
+            }
+            else
+            {
+                MessageBox.Show("선택된 클립은 음성 텍스트 변환을 지원하지 않습니다.", "지원되지 않는 클립", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(mediaPath))
+            {
+                MessageBox.Show("선택된 클립의 미디어 경로를 찾을 수 없습니다.", "경로 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            selectedClip.IsTranscribing = true; // Set IsTranscribing on the clip
+            IsTranscribing = true; // Global IsTranscribing for overlay
+            StatusMessage = "클립 음성 텍스트 변환 중...";
+            OnPropertyChanged(nameof(StatusMessage));
+
+            try
+            {
+                var progress = new Progress<int>(p => TranscriptionProgress = p);
+                var segments = await _speechToTextService.TranscribeAsync(mediaPath, progress);
+
+                // 선택된 클립의 Transcription 속성에 결과 저장
+                ObservableCollection<TranscriptionSegment>? targetTranscription = null;
+                if (selectedClip is VideoClip vc)
+                {
+                    targetTranscription = vc.Transcription;
+                }
+                else if (selectedClip is AudioClip ac)
+                {
+                    targetTranscription = ac.Transcription;
+                }
+
+                if (targetTranscription != null)
+                {
+                    targetTranscription.Clear();
+                    foreach (var segment in segments)
+                    {
+                        targetTranscription.Add(segment);
+                    }
+                    selectedClip.IsTranscribed = true; // Set IsTranscribed on success
+                    selectedClip.ShowTranscription = true; // Show transcription immediately
+                }
+                StatusMessage = "클립 음성 텍스트 변환 완료.";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "클립 음성 텍스트 변환 실패.";
+                MessageBox.Show($"클립 음성 텍스트 변환 중 오류가 발생했습니다: {ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                selectedClip.IsTranscribed = false; // Ensure it's false on error
+            }
+            finally
+            {
+                selectedClip.IsTranscribing = false; // Always set to false in finally
+                IsTranscribing = false;
+                TranscriptionProgress = 0;
+                OnPropertyChanged(nameof(StatusMessage));
+                OnPropertyChanged(nameof(VideoEditor)); // Force UI update for VideoEditor and its properties
+            }
         }
 
         public void UpdateHighlightBorderSize(double playerWidth, double playerHeight)
@@ -726,7 +828,7 @@ namespace VideoEditor.ViewModels
             }
             else
             {
-                // 활성화된 자막이 없으면, 보이지 않도록 설정합니다.
+                // 활성화된 자막이 없으면, 보이지 않도록 설정합니다。
                 IsTextVisible = false;
             }
 

@@ -81,4 +81,25 @@ namespace VideoEditor.Common
             throw new NotImplementedException();
         }
     }
+
+    public class InverseBooleanConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool b)
+            {
+                return !b;
+            }
+            return value; // Return original value if not a boolean
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool b)
+            {
+                return !b;
+            }
+            return value; // Return original value if not a boolean
+        }
+    }
 }
