@@ -1,9 +1,13 @@
-﻿namespace VideoEditor.Models
+﻿using System.Collections.ObjectModel;
+
+namespace VideoEditor.Models
 {
     public class AudioClip : TimelineClipBase
     {
         public string AudioPath { get; set; } = string.Empty;
         public double SourceStartTime { get; set; }
+
+        public ObservableCollection<TranscriptionSegment> Transcription { get; set; } = new();
 
         public override TimelineClipBase Clone()
         {
@@ -16,6 +20,7 @@
                 Duration = this.Duration,
                 Width = this.Width,
                 TrackIndex = this.TrackIndex,
+                Volume = this.Volume,
                 IsSelected = false
             };
             return newClip;

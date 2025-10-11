@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "8QR4DR8EKZo=",
+  "dgSpecHash": "46N8MFKYQU4=",
   "success": true,
   "projectFilePath": "C:\\Users\\94320\\source\\repos\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
   "expectedPackageFiles": [
@@ -72,6 +72,8 @@
     "C:\\Users\\94320\\.nuget\\packages\\system.threading\\4.3.0\\system.threading.4.3.0.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\system.threading.tasks\\4.3.0\\system.threading.tasks.4.3.0.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\videolan.libvlc.windows\\3.0.21\\videolan.libvlc.windows.3.0.21.nupkg.sha512",
+    "C:\\Users\\94320\\.nuget\\packages\\whisper.net\\1.8.1\\whisper.net.1.8.1.nupkg.sha512",
+    "C:\\Users\\94320\\.nuget\\packages\\whisper.net.runtime\\1.8.1\\whisper.net.runtime.1.8.1.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\wpf-ui\\4.0.3\\wpf-ui.4.0.3.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\wpf-ui.abstractions\\4.0.3\\wpf-ui.abstractions.4.0.3.nupkg.sha512"
   ],

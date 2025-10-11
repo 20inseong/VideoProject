@@ -1,34 +1,85 @@
 ﻿using System;
-using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using LibVLCSharp.Shared;
+using System.Windows.Input;
 using VideoEditor.Common;
-using VideoEditor.Models;
-using Wpf.Ui.Input; 
+using Wpf.Ui.Input;
+using WpfMedia = System.Windows.Media;
+using System.Collections.ObjectModel;
+using MediaPlayer = LibVLCSharp.Shared.MediaPlayer;
 
 namespace VideoEditor.ViewModels
 {
     public class PlayerViewModel : ViewModelBase, IDisposable
     {
         internal readonly LibVLC _libVLC;
-        public ObservableCollection<MediaLayerViewModel> Layers { get; }
 
-        private readonly Dictionary<Guid, MediaLayerViewModel> _layerCache = new Dictionary<Guid, MediaLayerViewModel>();
+        public List<MediaPlayer> VideoPlayers { get; }
+        public List<MediaPlayer> AudioOnlyPlayers { get; }
+
+        public ObservableCollection<PlayerStateViewModel> VideoPlayerStates { get; }
+
+        private const int VIDEO_PLAYER_COUNT = 5;
+        private const int AUDIO_PLAYER_COUNT = 5;
+        private bool _isPlaying;
+        public ICommand PlayPauseCommand { get; }
+        public ICommand StopCommand { get; }
+
+        private static readonly WpfMedia.Brush EmptySpaceBackgroundBrush = new WpfMedia.SolidColorBrush(WpfMedia.Colors.Black);
+        private static readonly WpfMedia.Brush DefaultPlayerBackgroundBrush = new WpfMedia.SolidColorBrush((WpfMedia.Color)WpfMedia.ColorConverter.ConvertFromString("#525252"));
+
+        private WpfMedia.Brush _videoViewBackground;
+        public WpfMedia.Brush VideoViewBackground
+        {
+            get => _videoViewBackground;
+            set => SetProperty(ref _videoViewBackground, value);
+        }
+
+        private bool _isControlBarVisible;
+        public bool IsControlBarVisible
+        {
+            get => _isControlBarVisible;
+            set => SetProperty(ref _isControlBarVisible, value);
+        }
+        public bool IsPlaying
+        {
+            get => _isPlaying;
+            set
+            {
+                if (SetProperty(ref _isPlaying, value))
+                {
+                    OnPropertyChanged(nameof(PlayPauseButtonContent));
+                }
+            }
+        }
+
+        public string PlayPauseButtonContent => IsPlaying ? "❚❚" : "▶";
+
+        private long _currentTime;
+        public long CurrentTime
+        {
+            get => _currentTime;
+            set
+            {
+                SetProperty(ref _currentTime, value);
+            }
+        }
+
+        private long _totalDuration;
+        public long TotalDuration
+        {
+            get => _totalDuration;
+            set => SetProperty(ref _totalDuration, value);
+        }
 
         private int _volume = 70;
         public int Volume
         {
             get => _volume;
-            set
-            {
-                if (SetProperty(ref _volume, value))
-                {
-                    foreach (var layer in _layerCache.Values)
-                    {
-                        layer.MediaPlayer.Volume = _volume;
-                    }
-                }
-            }
+            set => SetProperty(ref _volume, value);
         }
 
         private float _playbackRate = 1.0f;
@@ -39,10 +90,8 @@ namespace VideoEditor.ViewModels
             {
                 if (SetProperty(ref _playbackRate, value))
                 {
-                    foreach (var layer in _layerCache.Values)
-                    {
-                        layer.MediaPlayer.SetRate(_playbackRate);
-                    }
+                    foreach (var player in VideoPlayers) player.SetRate(value);
+                    foreach (var player in AudioOnlyPlayers) player.SetRate(value);
                     OnPropertyChanged(nameof(PlaybackRateText));
                 }
             }
@@ -50,148 +99,127 @@ namespace VideoEditor.ViewModels
 
         public string PlaybackRateText => $"{PlaybackRate:F2}x";
 
-        public IRelayCommand<object> SetSpeed05Command { get; }
-        public IRelayCommand<object> SetSpeed075Command { get; }
-        public IRelayCommand<object> SetSpeed1Command { get; }
-        public IRelayCommand<object> SetSpeed125Command { get; }
-        public IRelayCommand<object> SetSpeed15Command { get; }
-        public IRelayCommand<object> SetSpeed2Command { get; }
-        public IRelayCommand<object> SetSpeed5Command { get; }
-        public IRelayCommand<object> SetSpeed10Command { get; }
-        public IRelayCommand<object> SetSpeed25Command { get; }
+        public ICommand SetSpeed05Command { get; }
+        public ICommand SetSpeed075Command { get; }
+        public ICommand SetSpeed1Command { get; }
+        public ICommand SetSpeed125Command { get; }
+        public ICommand SetSpeed15Command { get; }
+        public ICommand SetSpeed2Command { get; }
+        public ICommand SetSpeed5Command { get; }
+        public ICommand SetSpeed10Command { get; }
+        public ICommand SetSpeed25Command { get; }
 
         public PlayerViewModel()
         {
             Core.Initialize();
             _libVLC = new LibVLC();
-            Layers = new ObservableCollection<MediaLayerViewModel>();
 
-            SetSpeed05Command = new RelayCommand<object>(_ => PlaybackRate = 0.5f);
-            SetSpeed075Command = new RelayCommand<object>(_ => PlaybackRate = 0.75f);
-            SetSpeed1Command = new RelayCommand<object>(_ => PlaybackRate = 1.0f);
-            SetSpeed125Command = new RelayCommand<object>(_ => PlaybackRate = 1.25f);
-            SetSpeed15Command = new RelayCommand<object>(_ => PlaybackRate = 1.5f);
-            SetSpeed2Command = new RelayCommand<object>(_ => PlaybackRate = 2.0f);
-            SetSpeed5Command = new RelayCommand<object>(_ => PlaybackRate = 5.0f);
-            SetSpeed10Command = new RelayCommand<object>(_ => PlaybackRate = 10.0f);
-            SetSpeed25Command = new RelayCommand<object>(_ => PlaybackRate = 25.0f);
-        }
+            VideoPlayers = new List<MediaPlayer>();
+            AudioOnlyPlayers = new List<MediaPlayer>();
+            VideoPlayerStates = new ObservableCollection<PlayerStateViewModel>();
 
-        public MediaLayerViewModel GetOrCreateLayer(TimelineClipBase clip)
-        {
-            if (_layerCache.TryGetValue(clip.Id, out var existingLayer))
+            for (int i = 0; i < VIDEO_PLAYER_COUNT; i++)
             {
-                return existingLayer;
+                VideoPlayers.Add(new MediaPlayer(_libVLC));
+                VideoPlayerStates.Add(new PlayerStateViewModel());
             }
 
-            MediaLayerViewModel newLayer;
-            if (clip is VideoClip vc)
+
+            for (int i = 0; i < AUDIO_PLAYER_COUNT; i++)
             {
-                newLayer = new VideoLayerViewModel(_libVLC, vc);
-            }
-            else if (clip is AudioClip ac)
-            {
-                newLayer = new AudioLayerViewModel(_libVLC, ac);
-            }
-            else
-            {
-                // 다른 클립 타입이 추가될 경우를 대비
-                throw new NotSupportedException("지원되지 않는 클립 타입입니다.");
+                var audioPlayer = new MediaPlayer(_libVLC);
+                AudioOnlyPlayers.Add(audioPlayer);
             }
 
-            InitializeLayer(newLayer);
-            _layerCache.Add(clip.Id, newLayer);
-            return newLayer;
-        }
+            SetSpeed05Command = new RelayCommand<object>(_ => SetPlaybackRate(0.5f));
+            SetSpeed075Command = new RelayCommand<object>(_ => SetPlaybackRate(0.75f));
+            SetSpeed1Command = new RelayCommand<object>(_ => SetPlaybackRate(1.0f));
+            SetSpeed125Command = new RelayCommand<object>(_ => SetPlaybackRate(1.25f));
+            SetSpeed15Command = new RelayCommand<object>(_ => SetPlaybackRate(1.5f));
+            SetSpeed2Command = new RelayCommand<object>(_ => SetPlaybackRate(2.0f));
+            SetSpeed5Command = new RelayCommand<object>(_ => SetPlaybackRate(5.0f));
+            SetSpeed10Command = new RelayCommand<object>(_ => SetPlaybackRate(10.0f));
+            SetSpeed25Command = new RelayCommand<object>(_ => SetPlaybackRate(25.0f));
 
-        public void PlayAllActive()
-        {
-            foreach (var layer in Layers) if (layer.MediaPlayer.Media != null && !layer.MediaPlayer.IsPlaying) layer.MediaPlayer.Play();
-        }
+            VideoViewBackground = DefaultPlayerBackgroundBrush;
 
-        public void PauseAllActive()
-        {
-            foreach (var layer in Layers) if (layer.MediaPlayer.IsPlaying) layer.MediaPlayer.Pause();
-        }
+            PlayPauseCommand = new RelayCommand<object>(ExecutePlayPause);
+            StopCommand = new RelayCommand<object>(ExecuteStop);
 
-        public void StopAndResetAll()
-        {
-            Layers.Clear();
-            foreach (var layer in _layerCache.Values) layer.MediaPlayer.Stop();
-        }
-
-        public void RemoveLayerFromCache(Guid clipId)
-        {
-            if (_layerCache.TryGetValue(clipId, out var layerToRemove))
+            var mainUiPlayer = VideoPlayers.FirstOrDefault();
+            if (mainUiPlayer != null)
             {
-                layerToRemove.Dispose();
-                _layerCache.Remove(clipId);
-            }
-        }
-
-        public bool HasLayerForClip(TimelineClipBase clip)
-        {
-            return Layers.Any(l => l.SourceClip.Id == clip.Id);
-        }
-
-        public void AddVideoLayer(VideoClip videoClip)
-        {
-            if (HasLayerForClip(videoClip)) return;
-            var newLayer = new VideoLayerViewModel(_libVLC, videoClip);
-            InitializeLayer(newLayer);
-            Layers.Add(newLayer);
-        }
-
-        public void AddAudioLayer(AudioClip audioClip)
-        {
-            if (HasLayerForClip(audioClip)) return;
-            var newLayer = new AudioLayerViewModel(_libVLC, audioClip);
-            InitializeLayer(newLayer);
-            Layers.Add(newLayer);
-        }
-
-        private void InitializeLayer(MediaLayerViewModel layer)
-        {
-            layer.MediaPlayer.Volume = this.Volume;
-            layer.MediaPlayer.SetRate(this.PlaybackRate);
-        }
-
-        public void RemoveLayerById(Guid clipId)
-        {
-            var layerToRemove = Layers.FirstOrDefault(l => l.SourceClip.Id == clipId);
-            if (layerToRemove != null)
-            {
-                layerToRemove.Dispose();
-                Layers.Remove(layerToRemove);
-            }
-        }
-
-        public void PauseAll()
-        {
-            foreach (var layer in Layers)
-            {
-                if (layer.MediaPlayer.IsPlaying) layer.MediaPlayer.Pause();
-            }
-        }
-
-        public void ResumeAll()
-        {
-            foreach (var layer in Layers)
-            {
-                if (layer.MediaPlayer.Media != null && !layer.MediaPlayer.IsPlaying)
+                mainUiPlayer.Playing += (s, e) => UIDispatcher.Invoke(() => IsPlaying = true);
+                mainUiPlayer.Paused += (s, e) => UIDispatcher.Invoke(() => IsPlaying = false);
+                mainUiPlayer.Stopped += (s, e) => UIDispatcher.Invoke(() =>
                 {
-                    layer.MediaPlayer.Play();
-                }
+                    IsPlaying = false;
+                    CurrentTime = 0;
+                });
+                mainUiPlayer.EndReached += (s, e) => UIDispatcher.Invoke(() => IsPlaying = false);
             }
+        }
+
+        private void ExecutePlayPause(object? obj) { }
+        private void ExecuteStop(object? obj) { }
+
+        public void PauseAllPlayers()
+        {
+            foreach (var player in VideoPlayers.Where(p => p.IsPlaying)) player.Pause();
+            foreach (var player in AudioOnlyPlayers.Where(p => p.IsPlaying)) player.Pause();
+        }
+
+        public void ResumeAllPlayers()
+        {
+            foreach (var player in VideoPlayers.Where(p => p.Media != null && p.CanPause)) player.Play();
+            foreach (var player in AudioOnlyPlayers.Where(p => p.Media != null && !p.IsPlaying)) player.Play();
+        }
+
+        public MediaPlayer? GetAvailableAudioPlayer()
+        {
+            return AudioOnlyPlayers.FirstOrDefault(p => p.Media == null);
+        }
+
+        public void Stop()
+        {
+            foreach (var player in VideoPlayers)
+            {
+                player.Stop();
+                player.Media?.Dispose();
+                player.Media = null;
+            }
+            foreach (var player in AudioOnlyPlayers)
+            {
+                player.Stop();
+                player.Media?.Dispose();
+                player.Media = null;
+            }
+        }
+
+        public Media PrepareMedia(string path, double seekTimeInSeconds, bool audioOnly)
+        {
+            var options = new List<string>
+            {
+                $":start-time={seekTimeInSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+            };
+
+            if (audioOnly)
+            {
+                options.Add(":no-video");
+            }
+
+            return new Media(_libVLC, new Uri(path), options.ToArray());
+        }
+
+        private void SetPlaybackRate(float rate)
+        {
+            PlaybackRate = rate;
         }
 
         public void Dispose()
         {
-            foreach (var layer in _layerCache.Values)
-            {
-                layer.Dispose();
-            }
-            _layerCache.Clear();
+            foreach (var player in VideoPlayers) player?.Dispose();
+            foreach (var player in AudioOnlyPlayers) player?.Dispose();
             _libVLC?.Dispose();
             GC.SuppressFinalize(this);
         }

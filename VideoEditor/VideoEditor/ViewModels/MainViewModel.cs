@@ -1,101 +1,371 @@
-﻿using CommunityToolkit.Mvvm.Input;
-using LibVLCSharp.Shared;
-using Microsoft.Win32;
-using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Media;
 using System.Windows.Threading;
+using CommunityToolkit.Mvvm.Input;
+using LibVLCSharp.Shared;
+using Microsoft.Win32;
 using VideoEditor.Common;
 using VideoEditor.Models;
-using WpfMedia = System.Windows.Media;
+using VlcMediaPlayer = LibVLCSharp.Shared.MediaPlayer;
 
 namespace VideoEditor.ViewModels
 {
+
     public class ExportStartedEventArgs : EventArgs
     {
         public ExportProgressViewModel ProgressViewModel { get; }
-        public ExportStartedEventArgs(ExportProgressViewModel viewModel) { ProgressViewModel = viewModel; }
+        public ExportStartedEventArgs(ExportProgressViewModel viewModel)
+        {
+            ProgressViewModel = viewModel;
+        }
     }
 
-    public class MainViewModel : ViewModelBase, IDisposable
+    public class MainViewModel : ViewModelBase 
     {
         public PlayerViewModel PlayerViewModel { get; }
         public VideoListViewModel VideoList { get; }
         public VideoEditorViewModel VideoEditor { get; }
+        public EditorHostViewModel EditorHost { get; }
         public string StatusMessage { get; set; } = "준비 완료";
         public IAsyncRelayCommand ExportVideoCommand { get; }
+        public IAsyncRelayCommand TranscribeVideoCommand { get; }
+
+        private bool _isTranscribing;
+        public bool IsTranscribing
+        {
+            get => _isTranscribing;
+            set => SetProperty(ref _isTranscribing, value);
+        }
+
+        private int _transcriptionProgress;
+        public int TranscriptionProgress
+        {
+            get => _transcriptionProgress;
+            set => SetProperty(ref _transcriptionProgress, value);
+        }
+
+        private readonly SpeechToTextService _speechToTextService;
 
         public event EventHandler<ExportStartedEventArgs>? ExportStarted;
         public event EventHandler? ExportFinished;
         private Window? _mainWindow;
         private CancellationTokenSource? _exportCts;
 
-        private readonly DispatcherTimer _gapTimer;
-        private DateTime _lastTimerTick;
+        private string _activeDisplayText = string.Empty;
+        private bool _isTextVisible = false;
 
-        private MediaLayerViewModel? _masterClockSource;
+        private double _lastPlayerWidth;
+        private double _lastPlayerHeight;
 
-        public MainViewModel(Window mainWindow) : this() { _mainWindow = mainWindow; }
+        private TimelineClipBase? _highlightedVisualClip;
+        public TimelineClipBase? HighlightedVisualClip
+        {
+            get => _highlightedVisualClip;
+            private set => SetProperty(ref _highlightedVisualClip, value);
+        }
 
-        private WpfMedia.Brush _playerBackground = new WpfMedia.SolidColorBrush((WpfMedia.Color)WpfMedia.ColorConverter.ConvertFromString("#525252"));
-        public WpfMedia.Brush PlayerBackground { get => _playerBackground; set => SetProperty(ref _playerBackground, value); }
-        private bool _isControlBarVisible;
-        public bool IsControlBarVisible { get => _isControlBarVisible; private set => SetProperty(ref _isControlBarVisible, value); }
+        private Thickness _highlightBorderMargin;
+        public Thickness HighlightBorderMargin
+        {
+            get => _highlightBorderMargin;
+            private set => SetProperty(ref _highlightBorderMargin, value);
+        }
+
+        public MainViewModel(Window mainWindow) : this()
+        {
+            _mainWindow = mainWindow;
+        }
+
+        private bool _isExporting;
+        public bool IsExporting
+        {
+            get => _isExporting;
+            set => SetProperty(ref _isExporting, value);
+        }
+
+        private double _exportProgress;
+        public double ExportProgress
+        {
+            get => _exportProgress;
+            set => SetProperty(ref _exportProgress, value);
+        }
+
         private bool _isTimelinePlaying;
-        public bool IsTimelinePlaying { get => _isTimelinePlaying; private set { if (SetProperty(ref _isTimelinePlaying, value)) OnPropertyChanged(nameof(PlayPauseButtonContent)); } }
+        public bool IsTimelinePlaying
+        {
+            get => _isTimelinePlaying;
+            private set
+            {
+                if (SetProperty(ref _isTimelinePlaying, value))
+                {
+                    OnPropertyChanged(nameof(PlayPauseButtonContent));
+                }
+            }
+        }
+
         public string PlayPauseButtonContent => IsTimelinePlaying ? "❚❚" : "▶";
+
         public IRelayCommand PlayPauseTimelineCommand { get; }
         public IRelayCommand StopTimelineCommand { get; }
+
         private double _currentTimelinePosition;
-        public double CurrentTimelinePosition { get; set; }
-        public long CurrentTimelineTimeMs { get => (long)(CurrentTimelinePosition * 1000); set => SeekTimeline(value / 1000.0); }
+        public double CurrentTimelinePosition
+        {
+            get => _currentTimelinePosition;
+            set
+            {
+                if (SetProperty(ref _currentTimelinePosition, value))
+                {
+                    OnPropertyChanged(nameof(CurrentTimelineTimeMs));
+                }
+            }
+        }
+
+        public long CurrentTimelineTimeMs
+        {
+            get => (long)(CurrentTimelinePosition * 1000);
+            set
+            {
+                if (Math.Abs(value - (CurrentTimelinePosition * 1000)) < 100) return;
+
+                SeekTimeline(value / 1000.0);
+            }
+        }
+
+        private bool _isStopRequested;
+
         private long _totalTimelineDurationMs;
-        public long TotalTimelineDurationMs { get => _totalTimelineDurationMs; private set => SetProperty(ref _totalTimelineDurationMs, value); }
-        private bool _isExporting;
-        public bool IsExporting { get => _isExporting; set => SetProperty(ref _isExporting, value); }
-        private double _exportProgress;
-        public double ExportProgress { get => _exportProgress; set => SetProperty(ref _exportProgress, value); }
+        public long TotalTimelineDurationMs
+        {
+            get => _totalTimelineDurationMs;
+            private set => SetProperty(ref _totalTimelineDurationMs, value);
+        }
+        private CancellationTokenSource? _clipUpdateCts;
+
+        private readonly Dictionary<TimelineClipBase, VlcMediaPlayer> _activeVisualClipPlayers = new();
+        private readonly Dictionary<TimelineClipBase, VlcMediaPlayer> _activeAudioPlayers = new();
+
+        private readonly DispatcherTimer _timelineTimer;
+
+        public string ActiveDisplayText
+        {
+            get => _activeDisplayText;
+            set => SetProperty(ref _activeDisplayText, value);
+        }
+
+        public bool IsTextVisible
+        {
+            get => _isTextVisible;
+            set => SetProperty(ref _isTextVisible, value);
+        }
 
         public MainViewModel()
         {
             PlayerViewModel = new PlayerViewModel();
             VideoList = new VideoListViewModel();
             VideoEditor = new VideoEditorViewModel();
+            EditorHost = new EditorHostViewModel(PlayerViewModel, VideoEditor);
+
+            var modelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "ggml-large-v3-turbo-q5_0.bin");
+            _speechToTextService = new SpeechToTextService(modelPath);
+
+            VideoEditor.OnClipAdded += MainViewModel_OnClipAdded;
+            PlayerViewModel.PropertyChanged += PlayerViewModel_PropertyChanged;
 
             VideoEditor.TimelineClips.CollectionChanged += (s, e) =>
             {
-                if (e.Action == NotifyCollectionChangedAction.Remove)
+                UIDispatcher.Invoke(() =>
                 {
-                    foreach (TimelineClipBase item in e.OldItems)
+                    if (e.NewItems != null)
                     {
-                        item.PropertyChanged -= Clip_PropertyChanged;
-                        PlayerViewModel.RemoveLayerFromCache(item.Id);
+                        foreach (TimelineClipBase newClip in e.NewItems)
+                        {
+                            newClip.PropertyChanged += Clip_PropertyChanged;
+                        }
                     }
-                }
-                if (e.NewItems != null)
+                    if (e.OldItems != null)
+                    {
+                        foreach (TimelineClipBase oldClip in e.OldItems)
+                        {
+                            oldClip.PropertyChanged -= Clip_PropertyChanged;
+                        }
+                    }
+                    UpdateTotalTimelineDuration();
+                });
+            };
+
+            VideoEditor.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(VideoEditor.SelectedClip))
                 {
-                    foreach (TimelineClipBase item in e.NewItems) item.PropertyChanged += Clip_PropertyChanged;
+                    UpdateHighlightedVisualClip();
                 }
-                UpdateTotalTimelineDuration();
-                UpdateTimelineState();
             };
 
             PlayPauseTimelineCommand = new RelayCommand(ExecutePlayPauseTimeline);
             StopTimelineCommand = new RelayCommand(ExecuteStopTimeline);
             ExportVideoCommand = new AsyncRelayCommand(StartExportProcessAsync);
+            TranscribeVideoCommand = new AsyncRelayCommand(TranscribeVideo);
 
-            _gapTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(30) };
-            _gapTimer.Tick += OnGapTimerTick;
+            _timelineTimer = new DispatcherTimer(DispatcherPriority.Render)
+            {
+                Interval = TimeSpan.FromMilliseconds(50)
+            };
+            _timelineTimer.Tick += OnTimelineTimerTick;
 
             UpdateTotalTimelineDuration();
+        }
+
+        private async Task TranscribeVideo()
+        {
+            var selectedClip = VideoEditor.SelectedClip;
+
+            if (selectedClip == null)
+            {
+                MessageBox.Show("타임라인에서 비디오 또는 오디오 클립을 선택해주세요.", "클립 선택 필요", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            string? mediaPath = null;
+            if (selectedClip is VideoClip videoClip)
+            {
+                mediaPath = videoClip.VideoPath;
+            }
+            else if (selectedClip is AudioClip audioClip)
+            {
+                mediaPath = audioClip.AudioPath;
+            }
+            else
+            {
+                MessageBox.Show("선택된 클립은 음성 텍스트 변환을 지원하지 않습니다.", "지원되지 않는 클립", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(mediaPath))
+            {
+                MessageBox.Show("선택된 클립의 미디어 경로를 찾을 수 없습니다.", "경로 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            selectedClip.IsTranscribing = true; // Set IsTranscribing on the clip
+            IsTranscribing = true; // Global IsTranscribing for overlay
+            StatusMessage = "클립 음성 텍스트 변환 중...";
+            OnPropertyChanged(nameof(StatusMessage));
+
+            try
+            {
+                var progress = new Progress<int>(p => TranscriptionProgress = p);
+                var segments = await _speechToTextService.TranscribeAsync(mediaPath, progress);
+
+                // 선택된 클립의 Transcription 속성에 결과 저장
+                ObservableCollection<TranscriptionSegment>? targetTranscription = null;
+                if (selectedClip is VideoClip vc)
+                {
+                    targetTranscription = vc.Transcription;
+                }
+                else if (selectedClip is AudioClip ac)
+                {
+                    targetTranscription = ac.Transcription;
+                }
+
+                if (targetTranscription != null)
+                {
+                    targetTranscription.Clear();
+                    foreach (var segment in segments)
+                    {
+                        targetTranscription.Add(segment);
+                    }
+                    selectedClip.IsTranscribed = true; // Set IsTranscribed on success
+                    selectedClip.ShowTranscription = true; // Show transcription immediately
+                }
+                StatusMessage = "클립 음성 텍스트 변환 완료.";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "클립 음성 텍스트 변환 실패.";
+                MessageBox.Show($"클립 음성 텍스트 변환 중 오류가 발생했습니다: {ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                selectedClip.IsTranscribed = false; // Ensure it's false on error
+            }
+            finally
+            {
+                selectedClip.IsTranscribing = false; // Always set to false in finally
+                IsTranscribing = false;
+                TranscriptionProgress = 0;
+                OnPropertyChanged(nameof(StatusMessage));
+                OnPropertyChanged(nameof(VideoEditor)); // Force UI update for VideoEditor and its properties
+            }
+        }
+
+        public void UpdateHighlightBorderSize(double playerWidth, double playerHeight)
+        {
+            // 1. 최신 플레이어 크기를 ViewModel에 저장합니다.
+            _lastPlayerWidth = playerWidth;
+            _lastPlayerHeight = playerHeight;
+
+            // 2. ✨ [핵심 수정] 타임라인의 "모든" 시각 클립을 순회하며
+            //    최신 플레이어 크기를 알려주어 각자의 제한 기준을 업데이트하도록 합니다.
+            foreach (var clip in VideoEditor.TimelineClips.OfType<VisualClipBase>())
+            {
+                clip.UpdateRenderContext(playerWidth, playerHeight);
+            }
+
+            // 3. (기존 로직) 선택된 클립의 하이라이트 테두리 크기를 계산합니다.
+            if (HighlightedVisualClip == null || playerWidth <= 0 || playerHeight <= 0)
+            {
+                HighlightBorderMargin = new Thickness(0);
+                return;
+            }
+
+            var (contentWidth, contentHeight) = (HighlightedVisualClip as VisualClipBase)?.GetContentDimensions() ?? (0, 0);
+
+            if (contentWidth <= 0 || contentHeight <= 0)
+            {
+                HighlightBorderMargin = new Thickness(0);
+                return;
+            }
+
+            double playerAspectRatio = playerWidth / playerHeight;
+            double contentAspectRatio = (double)contentWidth / contentHeight;
+
+            double marginH = 0;
+            double marginV = 0;
+
+            if (contentAspectRatio > playerAspectRatio)
+            {
+                double scaledHeight = playerWidth / contentAspectRatio;
+                marginV = (playerHeight - scaledHeight) / 2.0;
+            }
+            else
+            {
+                double scaledWidth = playerHeight * contentAspectRatio;
+                marginH = (playerWidth - scaledWidth) / 2.0;
+            }
+
+            HighlightBorderMargin = new Thickness(marginH, marginV, marginH, marginV);
+        }
+
+        private void UpdateHighlightedVisualClip()
+        {
+            var selected = VideoEditor.SelectedClip;
+
+            if (selected == null || !(selected is VideoClip || selected is ImageClip || selected is TextClip))
+            {
+                HighlightedVisualClip = null;
+            }
+            else
+            {
+                bool isClipActive = CurrentTimelinePosition >= selected.StartPosition &&
+                                    CurrentTimelinePosition < (selected.StartPosition + selected.Duration);
+
+                HighlightedVisualClip = isClipActive ? selected : null;
+            }
+            UpdateHighlightBorderSize(_lastPlayerWidth, _lastPlayerHeight);
         }
 
         private async Task StartExportProcessAsync()
@@ -148,6 +418,7 @@ namespace VideoEditor.ViewModels
                 _exportCts = null;
             }
         }
+
         private async Task RunExportLogicAsync(string outputPath, ExportProgressViewModel progressViewModel, CancellationToken cancellationToken)
         {
             if (!VideoEditor.TimelineClips.Any())
@@ -159,8 +430,6 @@ namespace VideoEditor.ViewModels
             }
 
             Debug.WriteLine($"[EXPORT] User's desired output path: {outputPath}");
-            //var progressViewModel = new ExportProgressViewModel(() => _exportCts.Cancel());
-            //ExportStarted?.Invoke(this, new ExportStartedEventArgs(progressViewModel));
 
             string tempWorkingDirectory = Path.Combine(Path.GetTempPath(), "VideoEditorExport", Guid.NewGuid().ToString());
             Directory.CreateDirectory(tempWorkingDirectory);
@@ -344,7 +613,7 @@ namespace VideoEditor.ViewModels
 
                                     UIDispatcher.Invoke(() =>
                                     {
-                                        progressViewModel.Progress = Math.Min(100, progress); // 100%를 넘지 않도록 합니다.
+                                        progressViewModel.Progress = Math.Min(100, progress);
                                         progressViewModel.StatusMessage = $"렌더링 중... {progress:F1}%";
                                     });
                                 }
@@ -423,23 +692,23 @@ namespace VideoEditor.ViewModels
             }
         }
 
-        private void OnGapTimerTick(object? sender, EventArgs e)
-        {
-            if (_masterClockSource != null) return; // 마스터 클럭이 있으면 보조 타이머는 쉽니다.
 
-            var now = DateTime.UtcNow;
-            var elapsed = now - _lastTimerTick;
-            _lastTimerTick = now;
-            CurrentTimelinePosition += elapsed.TotalSeconds * PlayerViewModel.PlaybackRate;
-            OnPropertyChanged(nameof(CurrentTimelinePosition));
-            OnPropertyChanged(nameof(CurrentTimelineTimeMs));
+        private void OnTimelineTimerTick(object? sender, EventArgs e)
+        {
+            if (!IsTimelinePlaying)
+            {
+                _timelineTimer.Stop();
+                return;
+            }
+
+            CurrentTimelinePosition += _timelineTimer.Interval.TotalSeconds;
+
+            SyncPlayersToTimeline();
 
             if (CurrentTimelinePosition * 1000 >= TotalTimelineDurationMs)
             {
                 ExecuteStopTimeline();
-                return;
             }
-            UpdateTimelineState(); // 새로운 클립을 만났는지 계속 확인
         }
 
         private void Clip_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -448,141 +717,313 @@ namespace VideoEditor.ViewModels
             {
                 UpdateTotalTimelineDuration();
             }
+            else if (e.PropertyName == nameof(TimelineClipBase.Volume))
+            {
+                if (sender is TimelineClipBase changedClip)
+                {
+                    // Find the active player for this clip and update its volume
+                    if (_activeVisualClipPlayers.TryGetValue(changedClip, out var visualPlayer))
+                    {
+                        visualPlayer.Volume = (int)((changedClip.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
+                    }
+                    if (_activeAudioPlayers.TryGetValue(changedClip, out var audioPlayer))
+                    {
+                        audioPlayer.Volume = (int)((changedClip.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
+                    }
+
+                    switch (e.PropertyName)
+                    {
+                        case nameof(VisualClipBase.PositionX):
+                        case nameof(VisualClipBase.PositionY):
+                        case nameof(VisualClipBase.Scale):
+                            if (!IsTimelinePlaying)
+                            {
+                                SyncPlayersToTimeline();
+                            }
+                            break;
+                    }
+                }
+            }
+        }
+
+        private void PlayerViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(PlayerViewModel.Volume))
+            {
+                // 전역 볼륨이 변경되면 현재 재생 중인 모든 플레이어의 볼륨을 다시 계산합니다.
+                foreach (var (clip, player) in _activeVisualClipPlayers)
+                {
+                    player.Volume = (int)((clip.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
+                }
+                foreach (var (clip, player) in _activeAudioPlayers)
+                {
+                    player.Volume = (int)((clip.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
+                }
+            }
+        }
+
+        private void MainViewModel_OnClipAdded(object? sender, ClipAddedEventArgs e)
+        {
+            var addedClip = VideoEditor.TimelineClips.LastOrDefault();
+
+            if (addedClip is VisualClipBase visualClip && _lastPlayerWidth > 0 && _lastPlayerHeight > 0)
+            {
+                visualClip.UpdateRenderContext(_lastPlayerWidth, _lastPlayerHeight);
+            }
+
+            if (VideoEditor.TimelineClips.Count == 1)
+            {
+                SyncPlayersToTimeline();
+            }
         }
 
         private void ExecutePlayPauseTimeline()
         {
+            //Debug.WriteLine($"[COMMAND] Play/Pause 버튼 클릭. 현재 재생 상태: {IsTimelinePlaying}");
             if (IsTimelinePlaying)
             {
+                _timelineTimer.Stop();
+                PlayerViewModel.PauseAllPlayers();
                 IsTimelinePlaying = false;
-                _gapTimer.Stop();
-                PlayerViewModel.PauseAllActive();
             }
             else
             {
                 IsTimelinePlaying = true;
-                UpdateTimelineState();
+                PlayerViewModel.ResumeAllPlayers();
+                _timelineTimer.Start();
             }
         }
 
         private void ExecuteStopTimeline()
         {
-            IsTimelinePlaying = false;
-            _gapTimer.Stop();
-            SetMasterClockSource(null);
-            PlayerViewModel.StopAndResetAll();
+            Debug.WriteLine("[COMMAND] Stop 버튼 클릭.");
+            _timelineTimer.Stop();
+            PlayerViewModel.Stop(); // 모든 플레이어 정지 및 미디어 해제
+            _activeVisualClipPlayers.Clear();
+            _activeAudioPlayers.Clear();
+
             CurrentTimelinePosition = 0;
-            OnPropertyChanged(nameof(CurrentTimelinePosition));
-            OnPropertyChanged(nameof(CurrentTimelineTimeMs));
-            UpdateTimelineState();
+            IsTimelinePlaying = false;
         }
 
         public void SeekTimeline(double timeSec)
         {
+            Debug.WriteLine($"[SEEK] 타임라인 {timeSec:F2}초로 이동.");
+
             bool wasPlaying = IsTimelinePlaying;
-            if (wasPlaying) IsTimelinePlaying = false;
+            if (wasPlaying)
+            {
+                _timelineTimer.Stop();
+                IsTimelinePlaying = false;
+            }
 
-            CurrentTimelinePosition = Math.Clamp(timeSec, 0, TotalTimelineDurationMs / 1000.0);
-            OnPropertyChanged(nameof(CurrentTimelinePosition));
-            OnPropertyChanged(nameof(CurrentTimelineTimeMs));
+            PlayerViewModel.Stop();
+            _activeVisualClipPlayers.Clear();
+            _activeAudioPlayers.Clear();
 
-            UpdateTimelineState();
+            CurrentTimelinePosition = timeSec;
 
-            if (wasPlaying) IsTimelinePlaying = true;
+            SyncPlayersToTimeline();
 
-            if (IsTimelinePlaying) UpdateTimelineState();
+            if (wasPlaying)
+            {
+                IsTimelinePlaying = true;
+                PlayerViewModel.ResumeAllPlayers();
+                _timelineTimer.Start();
+            }
         }
 
-        private void UpdateTimelineState()
+        private void SyncPlayersToTimeline()
         {
+            bool hasClips = VideoEditor.TimelineClips.Any();
+            PlayerViewModel.IsControlBarVisible = hasClips;
+            if (hasClips)
+            {
+                PlayerViewModel.VideoViewBackground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Black);
+            }
+            else
+            {
+                PlayerViewModel.VideoViewBackground = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#525252"));
+            }
+
             var activeClips = VideoEditor.TimelineClips
                 .Where(c => c.StartPosition <= CurrentTimelinePosition && (c.StartPosition + c.Duration) > CurrentTimelinePosition)
                 .ToList();
 
-            var activeClipIds = activeClips.Select(c => c.Id).ToHashSet();
-            var layersToRemove = PlayerViewModel.Layers.Where(l => !activeClipIds.Contains(l.SourceClip.Id)).ToList();
+            var activeVisualClips = activeClips
+                .Where(c => c is VideoClip || c is ImageClip)
+                .OrderBy(c => c.TrackIndex)
+                .ToList();
 
-            foreach (var layer in layersToRemove) PlayerViewModel.Layers.Remove(layer);
-            foreach (var clip in activeClips)
+            var activeAudioClips = activeClips.OfType<AudioClip>().ToList();
+
+            var activeTextClip = activeClips
+                .OfType<TextClip>()
+                .OrderByDescending(c => c.TrackIndex)
+                .FirstOrDefault();
+
+            if (activeTextClip != null)
             {
-                var layer = PlayerViewModel.GetOrCreateLayer(clip);
-                if (!PlayerViewModel.Layers.Contains(layer)) PlayerViewModel.Layers.Add(layer);
+                // 활성화된 자막이 있으면, 내용을 업데이트하고 보이도록 설정합니다.
+                ActiveDisplayText = activeTextClip.Text;
+                IsTextVisible = true;
+            }
+            else
+            {
+                // 활성화된 자막이 없으면, 보이지 않도록 설정합니다。
+                IsTextVisible = false;
             }
 
-            foreach (var layer in PlayerViewModel.Layers)
+            var visualClipsToDeactivate = _activeVisualClipPlayers.Keys.Except(activeVisualClips).ToList();
+            foreach (var clip in visualClipsToDeactivate)
             {
-                layer.Sync(CurrentTimelinePosition, IsTimelinePlaying);
+                if (_activeVisualClipPlayers.TryGetValue(clip, out var player))
+                {
+                    player.Stop();
+                    player.Media?.Dispose();
+                    player.Media = null;
+                    _activeVisualClipPlayers.Remove(clip);
+                }
             }
 
-            var newMasterClip = activeClips.OfType<VideoClip>().OrderByDescending(c => c.TrackIndex).FirstOrDefault()
-                              ?? (TimelineClipBase?)activeClips.OfType<AudioClip>().OrderByDescending(c => c.TrackIndex).FirstOrDefault();
+            for (int trackIndex = 0; trackIndex < PlayerViewModel.VideoPlayers.Count; trackIndex++)
+            {
+                var player = PlayerViewModel.VideoPlayers[trackIndex];
+                var playerState = PlayerViewModel.VideoPlayerStates[trackIndex];
+                var clipForThisTrack = activeVisualClips
+                                        .OfType<VisualClipBase>()
+                                        .FirstOrDefault(c => c.TrackIndex == trackIndex);
 
-            SetMasterClockSource(newMasterClip != null ? PlayerViewModel.GetOrCreateLayer(newMasterClip) : null);
+                if (clipForThisTrack != null)
+                {
+                    var transformGroup = new TransformGroup();
+                    transformGroup.Children.Add(new ScaleTransform(clipForThisTrack.Scale, clipForThisTrack.Scale));
+                    transformGroup.Children.Add(new TranslateTransform(clipForThisTrack.PositionX, clipForThisTrack.PositionY));
+                    transformGroup.Freeze();
+
+                    playerState.Transform = transformGroup;
+
+                    if (!_activeVisualClipPlayers.ContainsKey(clipForThisTrack))
+                    {
+                        _activeVisualClipPlayers[clipForThisTrack] = player;
+
+                        double timeWithinClip = CurrentTimelinePosition - clipForThisTrack.StartPosition;
+                        double seekTimeInSource = 0; // 이미지 클립의 SourceStartTime은 0으로 간주
+                        string mediaPath = string.Empty;
+
+                        if (clipForThisTrack is VideoClip videoClip)
+                        {
+                            seekTimeInSource = videoClip.SourceStartTime + timeWithinClip;
+                            mediaPath = videoClip.VideoPath;
+                        }
+                        else if (clipForThisTrack is ImageClip imageClip)
+                        {
+                            mediaPath = imageClip.ImagePath;
+                            seekTimeInSource = 0; // 이미지는 시작 시간이 0으로 고정되어 있다고 가정 (LibVLC 이미지 재생)
+                        }
+                        // TextClip도 시각적 클립이지만, LibVLC MediaPlayer로 직접 표시하지 않습니다.
+                        // 따라서 여기서는 VideoClip과 ImageClip만 처리합니다.
+
+                        if (!string.IsNullOrEmpty(mediaPath))
+                        {
+                            player.Media = PlayerViewModel.PrepareMedia(mediaPath, seekTimeInSource, false);
+                            player.Volume = (int)((clipForThisTrack.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
+                            if (IsTimelinePlaying) player.Play();
+                        }
+                    }
+                    // (선택 사항) 이미 재생 중인 클립이더라도, 타임라인을 수동으로 탐색했을 때 정확한 위치로 이동시키려면
+                    // player.SetTime((long)(seekTimeInSource * 1000)); 와 같은 로직을 추가할 수 있습니다.
+                    // 하지만 현재는 ClipAdded/Stop/SeekTimeline에서 플레이어를 재설정하므로
+                    // 여기서는 필요하지 않을 수 있습니다.
+                }
+                else
+                {
+                    if (playerState.Transform != Transform.Identity)
+                        playerState.Transform = Transform.Identity;
+
+                    if (player.Media != null)
+                    {
+                        player.Stop();
+                        player.Media.Dispose();
+                        player.Media = null;
+                    }
+                }
+            }
+            var desiredAudioSources = new List<TimelineClipBase>();
+            desiredAudioSources.AddRange(activeAudioClips);
+
+            var audioToDeactivate = _activeAudioPlayers.Keys.Except(desiredAudioSources).ToList();
+            foreach (var clip in audioToDeactivate)
+            {
+                if (_activeAudioPlayers.TryGetValue(clip, out var player))
+                {
+                    player.Stop();
+                    player.Media?.Dispose();
+                    player.Media = null;
+                    _activeAudioPlayers.Remove(clip);
+                }
+            }
+
+            foreach (var clip in desiredAudioSources)
+            {
+                if (_activeAudioPlayers.ContainsKey(clip)) continue;
+
+                var player = PlayerViewModel.GetAvailableAudioPlayer();
+                if (player == null) continue;
+
+                _activeAudioPlayers.Add(clip, player);
+
+                var audioClip = (AudioClip)clip;
+                string path = audioClip.AudioPath;
+                double sourceStartTime = audioClip.SourceStartTime;
+
+                double timeWithinClip = CurrentTimelinePosition - clip.StartPosition;
+                double seekTimeInSource = sourceStartTime + timeWithinClip;
+
+                player.Media = PlayerViewModel.PrepareMedia(path, seekTimeInSource, true);
+                player.Volume = (int)((clip.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
+                if (IsTimelinePlaying) player.Play();
+            }
+            UpdateHighlightedVisualClip();
+        }
+
+        private async void OnClipFinished(object? sender, EventArgs e)
+        {
+            if (VideoEditor.CurrentlyPlayingClip != null)
+            {
+                Debug.WriteLine($"'{VideoEditor.CurrentlyPlayingClip.Name}' 클립 재생 완료. 마스터 루프가 계속 진행합니다.");
+            }
         }
 
         private void UpdateTotalTimelineDuration()
         {
-            bool hasClips = VideoEditor.TimelineClips.Any();
-            if (hasClips)
+            long newTotalDurationMs;
+             
+            if (VideoEditor.TimelineClips.Any())
             {
                 double maxEndTimeSec = VideoEditor.TimelineClips.Max(c => c.StartPosition + c.Duration);
-                TotalTimelineDurationMs = (long)(maxEndTimeSec * 1000);
-                PlayerBackground = new WpfMedia.SolidColorBrush(WpfMedia.Colors.Black);
+                newTotalDurationMs = (long)(maxEndTimeSec * 1000);
             }
             else
             {
-                TotalTimelineDurationMs = 300 * 1000;
-                PlayerBackground = new WpfMedia.SolidColorBrush((WpfMedia.Color)WpfMedia.ColorConverter.ConvertFromString("#525252"));
+                newTotalDurationMs = 300 * 1000;
             }
-            IsControlBarVisible = hasClips;
-        }
 
-        private void SetMasterClockSource(MediaLayerViewModel? newMaster)
-        {
-            if (_masterClockSource == newMaster) return;
-            if (_masterClockSource != null) _masterClockSource.MediaPlayer.TimeChanged -= MasterClock_TimeChanged;
+            TotalTimelineDurationMs = newTotalDurationMs;
+            PlayerViewModel.TotalDuration = newTotalDurationMs;
 
-            _masterClockSource = newMaster;
-
-            if (_masterClockSource != null)
-            {
-                _gapTimer.Stop(); // 왕이 있으니 보조는 멈춘다.
-                _masterClockSource.MediaPlayer.TimeChanged += MasterClock_TimeChanged;
-            }
-            else if (IsTimelinePlaying)
-            {
-                _lastTimerTick = DateTime.UtcNow;
-                _gapTimer.Start(); // 왕이 없으니 보조가 나선다.
-            }
-        }
-
-        private void MasterClock_TimeChanged(object? sender, MediaPlayerTimeChangedEventArgs e)
-        {
-            if (!IsTimelinePlaying || _masterClockSource == null) return;
-
-            double timeWithinClip = e.Time / 1000.0;
-            double sourceStartTime = 0;
-            if (_masterClockSource.SourceClip is VideoClip vc) sourceStartTime = vc.SourceStartTime;
-            else if (_masterClockSource.SourceClip is AudioClip ac) sourceStartTime = ac.SourceStartTime;
-            double newPosition = (_masterClockSource.SourceClip.StartPosition + timeWithinClip) - sourceStartTime;
-
-            UIDispatcher.Invoke(() =>
-            {
-                CurrentTimelinePosition = newPosition;
-                OnPropertyChanged(nameof(CurrentTimelinePosition));
-                OnPropertyChanged(nameof(CurrentTimelineTimeMs));
-
-                UpdateTimelineState();
-            });
+            //Debug.WriteLine($"[Timeline Duration] 총 타임라인 길이 업데이트: {TotalTimelineDurationMs / 1000.0:F2}초");
         }
 
         public void Dispose()
         {
-            _gapTimer.Stop();
-            _exportCts?.Cancel();
-            _exportCts?.Dispose();
             PlayerViewModel?.Dispose();
             VideoEditor?.Dispose();
+
+            if (VideoEditor != null)
+            {
+                VideoEditor.OnClipAdded -= MainViewModel_OnClipAdded;
+            }
         }
     }
 }

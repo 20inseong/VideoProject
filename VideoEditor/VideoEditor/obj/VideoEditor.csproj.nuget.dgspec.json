@@ -82,6 +82,14 @@
             "WPF-UI": {
               "target": "Package",
               "version": "[4.0.3, )"
+            },
+            "Whisper.net": {
+              "target": "Package",
+              "version": "[1.8.1, )"
+            },
+            "Whisper.net.Runtime": {
+              "target": "Package",
+              "version": "[1.8.1, )"
             }
           },
           "imports": [

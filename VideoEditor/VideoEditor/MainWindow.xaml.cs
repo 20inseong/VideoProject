@@ -23,8 +23,9 @@ namespace VideoEditor
         private ExportProgressWindow? _progressWindow;
         private Myvideo _draggedVideo = null;
         private Point _dragStartPoint;
-        //private Line _playheadLine;
+        private Line _playheadLine;
         private double _currentTimelineDurationSec = 300;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -36,24 +37,43 @@ namespace VideoEditor
             _mainViewModel.ExportStarted += MainViewModel_ExportStarted;
             _mainViewModel.ExportFinished += MainViewModel_ExportFinished;
 
-            //videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MainVideoPlayer;
+            InitializeVideoViews();
 
-            //this.Loaded += MainWindow_Loaded;
+            this.Loaded += MainWindow_Loaded;
             _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
 
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
-
-            //_mainViewModel.PlayerViewModel.MainVideoPlayer.LengthChanged += MediaPlayer_LengthChanged;
-            //_mainViewModel.PlayerViewModel.MainVideoPlayer.Stopped += MediaPlayer_Stopped;
 
             TimelineScrollViewer.ScrollChanged += (s, e) =>
             {
                 RulerScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset);
             };
 
-            DrawTimelineRuler();
+            TimelineCanvas.PreviewMouseMove += TimelineCanvas_PreviewMouseMove;
+            TimelineCanvas.PreviewMouseLeftButtonUp += TimelineCanvas_PreviewMouseLeftButtonUp;
 
-            //InitializeNewViewModel();
+            DrawTimelineRuler();
+        }
+
+        private void InitializeVideoViews()
+        {
+            var playerViewModel = _mainViewModel.PlayerViewModel;
+            if (playerViewModel.VideoPlayers.Count >= 5)
+            {
+                videoView0.MediaPlayer = playerViewModel.VideoPlayers[0];
+                videoView1.MediaPlayer = playerViewModel.VideoPlayers[1];
+                videoView2.MediaPlayer = playerViewModel.VideoPlayers[2];
+                videoView3.MediaPlayer = playerViewModel.VideoPlayers[3];
+                videoView4.MediaPlayer = playerViewModel.VideoPlayers[4];
+            }
+        }
+
+        private void VideoPlayerHost_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (DataContext is MainViewModel vm)
+            {
+                vm.UpdateHighlightBorderSize(e.NewSize.Width, e.NewSize.Height);
+            }
         }
 
         private void NewProject_Click(object sender, RoutedEventArgs e)
@@ -96,6 +116,7 @@ namespace VideoEditor
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
 
             //videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MainVideoPlayer;
+            InitializeVideoViews();
             DrawTimelineRuler();
             System.Diagnostics.Debug.WriteLine("[Project] A new ViewModel has been initialized.");
         }
@@ -189,7 +210,7 @@ namespace VideoEditor
                 if (openFileDialog.FileNames.Any())
                 {
                     _mainViewModel.VideoList.SelectedVideoItem = _mainViewModel.VideoList.MyVideoes.LastOrDefault();
-                    StatusTextBlock.Text = $"{openFileDialog.FileNames.Length}개의 미디어가 목록에 추가되었습니다.";
+                    //StatusTextBlock.Text = $"{openFileDialog.FileNames.Length}개의 미디어가 목록에 추가되었습니다.";
                 }
             }
         }
@@ -287,35 +308,35 @@ namespace VideoEditor
             }
         }
 
-        //private void MainWindow_Loaded(object sender, RoutedEventArgs e)
-        //{
-        //    InitializePlayhead();
-        //    DrawTimelineRuler();
-        //}
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            InitializePlayhead();
+            DrawTimelineRuler();
+        }
 
-        //private void InitializePlayhead()
-        //{
-        //    _playheadLine = new Line
-        //    {
-        //        Stroke = Brushes.Red,
-        //        StrokeThickness = 2,
-        //        Y1 = 0,
-        //        Y2 = PlayheadCanvas.ActualHeight > 0 ? PlayheadCanvas.ActualHeight : 300
-        //    };
-        //    PlayheadCanvas.Children.Add(_playheadLine);
-        //}
+        private void InitializePlayhead()
+        {
+            _playheadLine = new Line
+            {
+                Stroke = Brushes.Red,
+                StrokeThickness = 2,
+                Y1 = 0,
+                Y2 = PlayheadCanvas.ActualHeight > 0 ? PlayheadCanvas.ActualHeight : 300
+            };
+            PlayheadCanvas.Children.Add(_playheadLine);
+        }
 
-        //private void MediaPlayer_LengthChanged(object sender, LibVLCSharp.Shared.MediaPlayerLengthChangedEventArgs e)
-        //{
-        //    Dispatcher.Invoke(() =>
-        //    {
-        //        double videoDurationSec = e.Length / 1000.0;
+        private void MediaPlayer_LengthChanged(object sender, LibVLCSharp.Shared.MediaPlayerLengthChangedEventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                double videoDurationSec = e.Length / 1000.0;
 
-        //        _currentTimelineDurationSec = Math.Max(300.0, videoDurationSec);
+                _currentTimelineDurationSec = Math.Max(300.0, videoDurationSec);
 
-        //        DrawTimelineRuler();
-        //    });
-        //}
+                DrawTimelineRuler();
+            });
+        }
 
         private void MainViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
@@ -329,31 +350,31 @@ namespace VideoEditor
                     System.Diagnostics.Debug.WriteLine($"[UI Event] Ruler updated to: {_currentTimelineDurationSec:F2} seconds.");
                 });
             }
-            //if (e.PropertyName == nameof(MainViewModel.CurrentTimelinePosition))
-            //{
-            //    Dispatcher.Invoke(() =>
-            //    {
-            //        if (_playheadLine != null)
-            //        {
-            //            double newX = _mainViewModel.CurrentTimelinePosition * _mainViewModel.VideoEditor.PixelsPerSecond;
+            if (e.PropertyName == nameof(MainViewModel.CurrentTimelinePosition))
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    if (_playheadLine != null)
+                    {
+                        double newX = _mainViewModel.CurrentTimelinePosition * _mainViewModel.VideoEditor.PixelsPerSecond;
 
-            //            _playheadLine.X1 = newX;
-            //            _playheadLine.X2 = newX;
-            //        }
-            //    });
-            //}
+                        _playheadLine.X1 = newX;
+                        _playheadLine.X2 = newX;
+                    }
+                });
+            }
         }
-        //private void MediaPlayer_Stopped(object? sender, EventArgs e)
-        //{
-        //    Dispatcher.Invoke(() =>
-        //    {
-        //        if (_mainViewModel.IsTimelinePlaying == false)
-        //        {
-        //            _playheadLine.X1 = 0;
-        //            _playheadLine.X2 = 0;
-        //        }
-        //    });
-        //}
+        private void MediaPlayer_Stopped(object? sender, EventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (_mainViewModel.IsTimelinePlaying == false)
+                {
+                    _playheadLine.X1 = 0;
+                    _playheadLine.X2 = 0;
+                }
+            });
+        }
         private void PlayheadCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (e.Source is Canvas canvas)
@@ -363,39 +384,41 @@ namespace VideoEditor
 
                 _mainViewModel.SeekTimeline(clickedTimeSec);
 
-                //_playheadLine.X1 = position.X;
-                //_playheadLine.X2 = position.X;
+                _playheadLine.X1 = position.X;
+                _playheadLine.X2 = position.X;
             }
         }
 
-        private void ApplySpeedButton_Click(object sender, RoutedEventArgs e)
+        private void ResizeHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (float.TryParse(SpeedTextBox.Text, out float speed))
+            var handle = sender as FrameworkElement;
+            var clip = handle?.DataContext as TimelineClipBase;
+            if (handle == null || clip == null) return;
+
+            TimelineCanvas.CaptureMouse();
+
+            _mainViewModel.VideoEditor.StartClipResize(clip, e.GetPosition(TimelineCanvas));
+
+            e.Handled = true;
+        }
+
+        private void TimelineCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (_mainViewModel.VideoEditor.IsResizing)
             {
-                speed = Math.Max(0.1f, Math.Min(25.0f, speed));
-                _mainViewModel.PlayerViewModel.PlaybackRate = speed;
-                SpeedTextBox.Text = speed.ToString("F2");
-            }
-            else
-            {
-                MessageBox.Show("올바른 배속 값을 입력해주세요. (0.1 ~ 25.0)", "배속 설정 오류", MessageBoxButton.OK, MessageBoxImage.Warning);
-                SpeedTextBox.Text = _mainViewModel.PlayerViewModel.PlaybackRate.ToString("F2");
+                _mainViewModel.VideoEditor.UpdateClipResize(e.GetPosition(TimelineCanvas));
             }
         }
 
-        private void SpeedMenuItem_Click(object sender, RoutedEventArgs e)
+        private void TimelineCanvas_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            if (SpeedControlPanel.Visibility == Visibility.Visible)
+            if (_mainViewModel.VideoEditor.IsResizing)
             {
-                SpeedControlPanel.Visibility = Visibility.Collapsed;
-                VideoInfoPanel.Visibility = Visibility.Visible;
-                VideoInfoPanel.Margin = new Thickness(10, 40, 10, 10);
-            }
-            else
-            {
-                SpeedControlPanel.Visibility = Visibility.Visible;
-                VideoInfoPanel.Visibility = Visibility.Collapsed;
-                SpeedControlPanel.Margin = new Thickness(10, 40, 10, 10);
+                _mainViewModel.VideoEditor.EndClipResize();
+
+                (sender as UIElement)?.ReleaseMouseCapture();
+
+                e.Handled = true;
             }
         }
 

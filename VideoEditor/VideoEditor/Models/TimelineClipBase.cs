@@ -1,5 +1,6 @@
 ﻿using VideoEditor.Common;
 using System.Runtime.CompilerServices;
+using CommunityToolkit.Mvvm.Input;
 
 namespace VideoEditor.Models
 {
@@ -11,6 +12,7 @@ namespace VideoEditor.Models
         private double _width;
         private int _trackIndex;
         private bool _isSelected;
+        private int _volume = 100;
 
         public Guid Id { get; } = Guid.NewGuid();
 
@@ -20,6 +22,51 @@ namespace VideoEditor.Models
         public double Width { get => _width; set => SetProperty(ref _width, value); }
         public int TrackIndex { get => _trackIndex; set => SetProperty(ref _trackIndex, value); }
         public bool IsSelected { get => _isSelected; set => SetProperty(ref _isSelected, value); }
+        public int Volume { get => _volume; set => SetProperty(ref _volume, value); }
+
+        private bool _isTranscribing;
+        public bool IsTranscribing
+        {
+            get => _isTranscribing;
+            set => SetProperty(ref _isTranscribing, value);
+        }
+
+        private bool _isTranscribed;
+        public bool IsTranscribed
+        {
+            get => _isTranscribed;
+            set => SetProperty(ref _isTranscribed, value);
+        }
+
+        private bool _showTranscription;
+        public bool ShowTranscription
+        {
+            get => _showTranscription;
+            set => SetProperty(ref _showTranscription, value);
+        }
+
+        private bool _isGeneratingWaveform;
+        public bool IsGeneratingWaveform
+        {
+            get => _isGeneratingWaveform;
+            set => SetProperty(ref _isGeneratingWaveform, value);
+        }
+
+        private System.Collections.Generic.List<System.Windows.Point> _waveformData = new System.Collections.Generic.List<System.Windows.Point>();
+        public System.Collections.Generic.List<System.Windows.Point> WaveformData
+        {
+            get => _waveformData;
+            set => SetProperty(ref _waveformData, value);
+        }
+
+        public IRelayCommand ShowTranscriptionCommand { get; }
+        public IRelayCommand HideTranscriptionCommand { get; }
+
+        public TimelineClipBase()
+        {
+            ShowTranscriptionCommand = new RelayCommand(() => ShowTranscription = true);
+            HideTranscriptionCommand = new RelayCommand(() => ShowTranscription = false);
+        }
 
         public abstract TimelineClipBase Clone();
 

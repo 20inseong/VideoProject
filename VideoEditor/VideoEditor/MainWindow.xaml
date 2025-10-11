@@ -7,6 +7,10 @@
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
         xmlns:Common="clr-namespace:VideoEditor.Common"
+        xmlns:models="clr-namespace:VideoEditor.Models" 
+        xmlns:views="clr-namespace:VideoEditor.Views"
+        xmlns:controls="clr-namespace:VideoEditor.Views.Controls"
+        xmlns:viewmodels="clr-namespace:VideoEditor.ViewModels"
         xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
         mc:Ignorable="d"
         Title="MainWindow" Height="800" Width="1500"
@@ -25,11 +29,10 @@
 
     <Window.Resources>
         <Common:TimelineClipTemplateSelector x:Key="ClipTemplateSelector">
-
             <!-- 1. VideoClip을 위한 템플릿 (기존 템플릿과 동일) -->
             <Common:TimelineClipTemplateSelector.VideoClipTemplate>
                 <DataTemplate>
-                    <Border Width="{Binding Width}" Height="50" BorderBrush="Black" BorderThickness="1" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                    <Border Width="{Binding Width}" Height="50" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="BorderBrush" Value="Black"/>
@@ -50,21 +53,36 @@
                                 <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
                             </b:EventTrigger>
                         </b:Interaction.Triggers>
-                        <Border.Background>
-                            <ImageBrush ImageSource="{Binding Thumbnail}" TileMode="Tile" Stretch="UniformToFill" ViewportUnits="Absolute" Viewport="0,0,80,50" />
-                        </Border.Background>
                         <Grid>
-                            <Rectangle Fill="#60000000" />
-                            <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Top Part: Thumbnails and Name -->
+                            <Grid Grid.Row="0">
+                                <Grid.Background>
+                                    <ImageBrush ImageSource="{Binding Thumbnail}" TileMode="Tile" Stretch="UniformToFill" ViewportUnits="Absolute" Viewport="0,0,80,50" />
+                                </Grid.Background>
+                                <Rectangle Fill="#60000000" />
+                                <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                            </Grid>
+
+                            <!-- Bottom Part: Waveform -->
+                            <Grid Grid.Row="1">
+                                <controls:WaveformControl WaveformData="{Binding WaveformData}" />
+                                <ProgressBar IsIndeterminate="True" Height="10" VerticalAlignment="Center" Margin="5"
+                                             Visibility="{Binding IsGeneratingWaveform, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            </Grid>
                         </Grid>
                     </Border>
                 </DataTemplate>
             </Common:TimelineClipTemplateSelector.VideoClipTemplate>
 
-            <!-- 2. AudioClip을 위한 템플릿 (요청하신 파란색 배경) -->
+            <!-- 2. AudioClip을 위한 템플릿 -->
             <Common:TimelineClipTemplateSelector.AudioClipTemplate>
                 <DataTemplate>
-                    <Border Width="{Binding Width}" Height="50" Background="#2A5D84" BorderBrush="Black" BorderThickness="1" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                    <Border Width="{Binding Width}" Height="50" Background="#2A5D84" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="BorderBrush" Value="Black"/>
@@ -85,7 +103,12 @@
                                 <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
                             </b:EventTrigger>
                         </b:Interaction.Triggers>
-                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                        <Grid>
+                            <controls:WaveformControl WaveformData="{Binding WaveformData}" />
+                            <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                            <ProgressBar IsIndeterminate="True" Height="10" VerticalAlignment="Bottom" Margin="5"
+                                         Visibility="{Binding IsGeneratingWaveform, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        </Grid>
                     </Border>
                 </DataTemplate>
             </Common:TimelineClipTemplateSelector.AudioClipTemplate>
@@ -93,7 +116,7 @@
             <!-- 3. ImageClip을 위한 템플릿 (요청하신 초록색 배경) -->
             <Common:TimelineClipTemplateSelector.ImageClipTemplate>
                 <DataTemplate>
-                    <Border Width="{Binding Width}" Height="50" Background="#3E8948" BorderBrush="Black" BorderThickness="1" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                    <Border Width="{Binding Width}" Height="50" Background="#3E8948" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="BorderBrush" Value="Black"/>
@@ -106,15 +129,21 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <b:Interaction.Triggers>
-                            <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
-                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseDownCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
-                            </b:EventTrigger>
-                            <b:EventTrigger EventName="PreviewMouseMove">
-                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
-                            </b:EventTrigger>
-                        </b:Interaction.Triggers>
-                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                        <Grid>
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
+                                    <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseDownCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                                </b:EventTrigger>
+                                <b:EventTrigger EventName="PreviewMouseMove">
+                                    <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+
+                            <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" Cursor="Hand" />
+
+                            <Rectangle Fill="Transparent" Width="8" HorizontalAlignment="Right" Cursor="SizeWE" Tag="ResizeHandle"
+                                       PreviewMouseLeftButtonDown="ResizeHandle_PreviewMouseLeftButtonDown" />
+                        </Grid>
                     </Border>
                 </DataTemplate>
             </Common:TimelineClipTemplateSelector.ImageClipTemplate>
@@ -122,7 +151,7 @@
             <!-- 4. TextClip을 위한 템플릿 (기본 회색 배경) -->
             <Common:TimelineClipTemplateSelector.TextClipTemplate>
                 <DataTemplate>
-                    <Border Width="{Binding Width}" Height="50" Background="#6E6E6E" BorderBrush="Black" BorderThickness="1" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                    <Border Width="{Binding Width}" Height="50" Background="#6E6E6E" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="BorderBrush" Value="Black"/>
@@ -135,15 +164,21 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <b:Interaction.Triggers>
-                            <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
-                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseDownCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
-                            </b:EventTrigger>
-                            <b:EventTrigger EventName="PreviewMouseMove">
-                                <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
-                            </b:EventTrigger>
-                        </b:Interaction.Triggers>
-                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                        <Grid>
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger EventName="PreviewMouseLeftButtonDown">
+                                    <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseDownCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                                </b:EventTrigger>
+                                <b:EventTrigger EventName="PreviewMouseMove">
+                                    <b:InvokeCommandAction Command="{Binding DataContext.VideoEditor.ClipMouseMoveCommand, RelativeSource={RelativeSource AncestorType=Window}}" PassEventArgsToCommand="True" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+
+                            <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" Cursor="Hand" />
+
+                            <Rectangle Fill="Transparent" Width="8" HorizontalAlignment="Right" Cursor="SizeWE" Tag="ResizeHandle"
+                                       PreviewMouseLeftButtonDown="ResizeHandle_PreviewMouseLeftButtonDown" />
+                        </Grid>
                     </Border>
                 </DataTemplate>
             </Common:TimelineClipTemplateSelector.TextClipTemplate>
@@ -154,6 +189,17 @@
         <Common:TimeConverter x:Key="Converter" />
         <Common:TimeToPixelConverter x:Key="TimeToPixelConverter" />
         <Common:TrackToPositionConverter x:Key="TrackToPositionConverter" />
+        <Common:TypeToBoolConverter x:Key="TypeToBoolConverter" />
+
+        <DataTemplate DataType="{x:Type viewmodels:PlayerViewModel}">
+            <views:SpeedEditorView/>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type models:TimelineClipBase}">
+            <views:ClipEditorView/>
+        </DataTemplate>
+
+
     </Window.Resources>
 
     <WindowChrome.WindowChrome>
@@ -173,6 +219,15 @@
                          ShowMaximize="True"
                          ShowMinimize="True"
                          ShowClose="True" HorizontalAlignment="Stretch" Width="1500" />
+        </Grid>
+
+        <!-- Transcription Progress Overlay -->
+        <Grid Grid.Row="1" Background="#80000000" Visibility="{Binding IsTranscribing, Converter={StaticResource BooleanToVisibilityConverter}}" Panel.ZIndex="100">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="음성 텍스트 변환 중..." Foreground="White" FontSize="20" HorizontalAlignment="Center"/>
+                <ProgressBar Value="{Binding TranscriptionProgress}" Width="300" Height="20" Margin="0,10,0,0"/>
+                <TextBlock Text="{Binding TranscriptionProgress, StringFormat={}{0}%}" Foreground="White" FontSize="16" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+            </StackPanel>
         </Grid>
 
         <!-- 화면의 콘텐츠를 넣는 공간 -->
@@ -229,9 +284,9 @@
                     <MenuItem Header="오디오">
                         <MenuItem Header="오디오 분리" />
                         <MenuItem Header="뮤트" />
-                        <MenuItem Header="음성 텍스트 변환" />
+                        <MenuItem Header="음성 텍스트 변환" Command="{Binding TranscribeVideoCommand}" />
                     </MenuItem>
-                    <MenuItem Header="배속" x:Name="SpeedMenuItem" Click="SpeedMenuItem_Click"/>
+                    <MenuItem Header="배속" Command="{Binding EditorHost.ShowSpeedEditorCommand}"/>
                     <MenuItem Header="자막">
                         <MenuItem Header="자막 생성" 
                                   Command="{Binding VideoEditor.AddTextClipCommand}"
@@ -303,151 +358,143 @@
                             <!-- 영상 조작 UI (StackPanel) -->
                         </Grid.RowDefinitions>
 
-                        <!-- (2) 중앙 영역: vlcplayer로 프레임을 표시 -->
-                        <Grid Grid.Row="0" Margin="5,5,5,5" Grid.ColumnSpan="2" Background="{Binding PlayerBackground}" ClipToBounds="True">
-                            <Viewbox Stretch="Uniform">
-                                <ItemsControl ItemsSource="{Binding PlayerViewModel.Layers}" Width="1920" Height="1080">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <Canvas />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
+                        <Grid Grid.Row="0">
 
-                                    <ItemsControl.ItemContainerStyle>
-                                        <Style TargetType="ContentPresenter">
-                                            <Setter Property="Canvas.Left" Value="{Binding Left}"/>
-                                            <Setter Property="Canvas.Top" Value="{Binding Top}"/>
-                                            <Setter Property="Panel.ZIndex" Value="{Binding ZIndex}"/>
-                                        </Style>
-                                    </ItemsControl.ItemContainerStyle>
+                            <Border Margin="5" Background="{Binding PlayerViewModel.VideoViewBackground}" />
 
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <ContentControl>
-                                                <ContentControl.Style>
-                                                    <Style TargetType="ContentControl">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding}" Value="{x:Null}">
-                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding IsVisible}" Value="True">
-                                                                <Setter Property="Visibility" Value="Visible"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </ContentControl.Style>
-                                                <vlc:VideoView MediaPlayer="{Binding MediaPlayer}" 
-                                       Width="{Binding Width}" 
-                                       Height="{Binding Height}" />
-                                            </ContentControl>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </Viewbox>
+                            <!-- 1. 비디오 플레이어 뷰  -->
+                            <Grid Margin="5" x:Name="VideoPlayerHost" SizeChanged="VideoPlayerHost_SizeChanged">
+                                <vlc:VideoView x:Name="videoView0"
+                                               RenderTransformOrigin="0.5,0.5"
+                                               RenderTransform="{Binding PlayerViewModel.VideoPlayerStates[0].Transform}"/>
+                                <vlc:VideoView x:Name="videoView1"
+                                               RenderTransformOrigin="0.5,0.5"
+                                               RenderTransform="{Binding PlayerViewModel.VideoPlayerStates[1].Transform}"/>
+                                <vlc:VideoView x:Name="videoView2"
+                                               RenderTransformOrigin="0.5,0.5"
+                                               RenderTransform="{Binding PlayerViewModel.VideoPlayerStates[2].Transform}"/>
+                                <vlc:VideoView x:Name="videoView3"
+                                               RenderTransformOrigin="0.5,0.5"
+                                               RenderTransform="{Binding PlayerViewModel.VideoPlayerStates[3].Transform}"/>
+                                <vlc:VideoView x:Name="videoView4"
+                                               RenderTransformOrigin="0.5,0.5"
+                                               RenderTransform="{Binding PlayerViewModel.VideoPlayerStates[4].Transform}"/>
+                            </Grid>
+
+                            <Border x:Name="PreviewHighlightBorder" 
+                                    Margin="{Binding HighlightBorderMargin}"
+                                    BorderBrush="#FFD700" 
+                                    BorderThickness="4" 
+                                    CornerRadius="3"
+                                    SnapsToDevicePixels="True">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <!-- 기본 상태는 보이지 않음 -->
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Setter Property="Effect">
+                                            <Setter.Value>
+                                                <DropShadowEffect ShadowDepth="0" Color="#FFD700" Opacity="0.9" BlurRadius="15" />
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <!-- HighlightedVisualClip이 VideoClip일 때 보이도록 설정 -->
+                                            <DataTrigger Binding="{Binding HighlightedVisualClip, Converter={StaticResource TypeToBoolConverter}, ConverterParameter={x:Type models:VideoClip}}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                            <!-- HighlightedVisualClip이 ImageClip일 때 보이도록 설정 -->
+                                            <DataTrigger Binding="{Binding HighlightedVisualClip, Converter={StaticResource TypeToBoolConverter}, ConverterParameter={x:Type models:ImageClip}}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+
+                            <!-- ✨ [결정적인 수정] 자막을 Popup 컨트롤 안에 배치 -->
+                            <Popup x:Name="SubtitlePopup"
+                                   IsOpen="{Binding IsTextVisible, Mode=OneWay}"
+                                   PlacementTarget="{Binding ElementName=VideoPlayerHost}"
+                                   Placement="Relative"
+                                   AllowsTransparency="True">
+
+                                <!-- Popup 내부의 Grid가 비디오 영역과 동일한 크기를 갖도록 설정 -->
+                                <Grid Width="{Binding ElementName=VideoPlayerHost, Path=ActualWidth}"
+                                      Height="{Binding ElementName=VideoPlayerHost, Path=ActualHeight}">
+
+                                    <Border Margin="10" Padding="10,5" CornerRadius="5"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Bottom"
+                                            Background="#80000000">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <!-- 기본 상태: 투명한 테두리, 효과 없음 -->
+                                                <Setter Property="BorderBrush" Value="Transparent"/>
+                                                <Setter Property="BorderThickness" Value="2"/>
+                                                <Setter Property="Effect" Value="{x:Null}"/>
+                                                <Style.Triggers>
+                                                    <!-- 
+                        MainWindow의 DataContext(MainViewModel)에 있는 HighlightedVisualClip이 TextClip일 때
+                        이 트리거가 활성화됩니다.
+                        -->
+                                                    <DataTrigger Binding="{Binding DataContext.HighlightedVisualClip, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TypeToBoolConverter}, ConverterParameter={x:Type models:TextClip}}" Value="True">
+                                                        <Setter Property="BorderBrush" Value="#FFD700"/>
+                                                        <Setter Property="Effect">
+                                                            <Setter.Value>
+                                                                <DropShadowEffect ShadowDepth="0" Color="#FFD700" Opacity="0.9" BlurRadius="10" />
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+
+                                        <TextBlock Text="{Binding ActiveDisplayText}"
+                                                   Foreground="White"
+                                                   FontSize="24"
+                                                   FontWeight="Bold"
+                                                   TextAlignment="Center"/>
+                                    </Border>
+                                </Grid>
+                            </Popup>
+
                         </Grid>
 
+                        <!-- 기존 컨트롤 바 (변경 없음) -->
                         <StackPanel x:Name="show_VideoBar" 
                                     Orientation="Horizontal" 
                                     Grid.Row="1" 
                                     Margin="10,0,10,10" 
-                                    Visibility="{Binding IsControlBarVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Visibility="{Binding PlayerViewModel.IsControlBarVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
                                     VerticalAlignment="Bottom" 
                                     Grid.ColumnSpan="2">
-                            <Button Content="{Binding PlayPauseButtonContent}"
-                                    Command="{Binding PlayPauseTimelineCommand}"
-                                    Width="40"/>
 
-                            <Button x:Name="btnStop" Content="■" Width="40" Margin="5,0,0,0"
-                                    Command="{Binding StopTimelineCommand}"/>
+                                    <Button Content="{Binding PlayPauseButtonContent}"
+                                            Command="{Binding PlayPauseTimelineCommand}"
+                                            Width="40"/>
 
-                            <TextBlock Text="{Binding CurrentTimelineTimeMs, Converter={StaticResource Converter}}"
-                                       VerticalAlignment="Center" Margin="5,0"/>
+                                    <Button x:Name="btnStop" Content="■" Width="40" Margin="5,0,0,0"
+                                            Command="{Binding StopTimelineCommand}"/>
 
-                            <Slider Width="300" Minimum="0"
-                                    Value="{Binding CurrentTimelineTimeMs, Mode=TwoWay}"
-                                    Maximum="{Binding TotalTimelineDurationMs}"
-                                    IsSnapToTickEnabled="True" TickFrequency="1000" />
-                            <TextBlock Text="{Binding TotalTimelineDurationMs, Converter={StaticResource Converter}}"
-                                       Margin="10,0,10,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding CurrentTimelineTimeMs, Converter={StaticResource Converter}}"
+                                               VerticalAlignment="Center" Margin="5,0"/>
 
-                            <TextBlock Text="볼륨" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                                    <Slider Width="300" Minimum="0"
+                                            Value="{Binding CurrentTimelineTimeMs, Mode=TwoWay}"
+                                            Maximum="{Binding PlayerViewModel.TotalDuration}"
+                                            IsSnapToTickEnabled="True" TickFrequency="1000" />
+                                    <TextBlock Text="{Binding TotalTimelineDurationMs, Converter={StaticResource Converter}}"
+                                               Margin="10,0,10,0" VerticalAlignment="Center"/>
+
+                                    <TextBlock Text="볼륨" VerticalAlignment="Center" Margin="10,0,5,0"/>
                             <Slider Width="100" Minimum="0" Maximum="100" VerticalAlignment="Center"
                                     Value="{Binding PlayerViewModel.Volume, Mode=TwoWay}"/>
                         </StackPanel>
                     </Grid>
                 </Border>
 
-                <!--- 영상 설정 -->
+                <!-- Right Panel: Properties and Subtitles -->
                 <Border Grid.Column="2" Grid.Row="0" Background="#36443d" BorderBrush="Black" BorderThickness="1">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Text="상태 표시" x:Name="StatusTextBlock" Foreground="White" 
-                                   VerticalAlignment="Top" HorizontalAlignment="Left" Margin="10,10,0,0" Grid.Row="0" />
-
-                        <!-- 배속 컨트롤 패널 -->
-                        <StackPanel x:Name="SpeedControlPanel" Grid.Row="1" Visibility="Collapsed" Margin="10,40,10,10">
-                            <TextBlock Text="배속 설정" FontWeight="Bold" Foreground="White" Margin="0,0,0,10" />
-
-                            <StackPanel Orientation="Horizontal" Margin="0,5,0,5">
-                                <TextBlock Text="배속:" Foreground="White" VerticalAlignment="Center" Width="80" />
-                                <TextBox x:Name="SpeedTextBox" Width="70" Text="{Binding PlayerViewModel.PlaybackRate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"/>
-                                <Button x:Name="ApplySpeedButton" Content="적용" Width="50" Margin="5,0,0,0" Click="ApplySpeedButton_Click"/>
-                            </StackPanel>
-
-                            <TextBlock Text="프리셋:" Foreground="White" Margin="0,10,0,5" />
-                            <UniformGrid Columns="3" Rows="3">
-                                <Button Content="0.5x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed05Command}"/>
-                                <Button Content="0.75x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed075Command}"/>
-                                <Button Content="1.0x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed1Command}"/>
-                                <Button Content="1.25x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed125Command}"/>
-                                <Button Content="1.5x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed15Command}"/>
-                                <Button Content="2.0x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed2Command}"/>
-                                <Button Content="5.0x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed5Command}"/>
-                                <Button Content="10.0x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed10Command}"/>
-                                <Button Content="25.0x" Margin="2" Command="{Binding PlayerViewModel.SetSpeed25Command}"/>
-                            </UniformGrid>
-
-                            <TextBlock Text="슬라이더:" Foreground="White" Margin="0,10,0,5" />
-                            <Slider x:Name="SpeedSlider" Minimum="0.25" Maximum="25.0" Value="{Binding PlayerViewModel.PlaybackRate, Mode=TwoWay}" 
-                                    TickFrequency="0.25" IsSnapToTickEnabled="True" />
-                            <TextBlock x:Name="SpeedValueText" Text="{Binding PlayerViewModel.PlaybackRateText}" Foreground="White" 
-                                       HorizontalAlignment="Center" Margin="0,5,0,0" />
-                        </StackPanel>
-
-                        <!-- 영상 정보 표시 패널 -->
-                        <StackPanel x:Name="VideoInfoPanel" Grid.Row="1" Margin="10,40,10,10" Visibility="Visible">
-                            <TextBlock Text="영상 정보" FontWeight="Bold" Foreground="White" Margin="0,0,0,10" />
-
-                            <StackPanel Margin="0,5,0,10">
-                                <TextBlock Text="파일명:" Foreground="White" FontWeight="Bold" />
-                                <TextBlock x:Name="txtFileName" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,5" />
-
-                                <TextBlock Text="경로:" Foreground="White" FontWeight="Bold" />
-                                <TextBlock x:Name="txtFilePath" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,5" />
-
-                                <TextBlock Text="재생 길이:" Foreground="White" FontWeight="Bold" />
-                                <TextBlock x:Name="txtDuration" Foreground="White" Margin="0,0,0,5" />
-                            </StackPanel>
-
-                            <TextBlock Text="카테고리:" Foreground="White" FontWeight="Bold" Margin="0,10,0,5" />
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                                <ComboBox x:Name="cmbCategory" Width="150" IsEditable="True" >
-                                    <ComboBoxItem Content="미분류" />
-                                    <ComboBoxItem Content="감정1" />
-                                    <ComboBoxItem Content="감정2" />
-                                    <ComboBoxItem Content="감정3" />
-                                    <ComboBoxItem Content="감정4" />
-                                    <ComboBoxItem Content="감정5" />
-                                </ComboBox>
-                                <Button x:Name="btnAddCategory" Content="추가" Width="50" Margin="5,0,0,0"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Grid>
+                    <ContentControl Content="{Binding EditorHost.CurrentEditor}"/>
                 </Border>
 
                 <Border Grid.Column="1" Grid.Row="1" Grid.ColumnSpan="2"
@@ -500,9 +547,10 @@
                                       Background="Transparent">
 
                             <!-- 모든 타임라인 요소를 담을 Grid -->
-                            <Grid x:Name="TimelineCanvas" Height="300" Background="Transparent"
-                                          AllowDrop="True"
-                                          DragOver="Timeline_DragOver">
+                            <Grid x:Name="TimelineCanvas" Height="300" 
+                                  Background="Transparent"
+                                  AllowDrop="True"
+                                  DragOver="Timeline_DragOver">
                                 <b:Interaction.Triggers>
                                     <b:EventTrigger EventName="Drop">
                                         <b:InvokeCommandAction Command="{Binding VideoEditor.DropOnTimelineCommand}"
@@ -511,18 +559,9 @@
                                 </b:Interaction.Triggers>
 
                                 <Canvas x:Name="PlayheadCanvas"
-                                        Height="{Binding ActualHeight, ElementName=TimelineCanvas}"
-                                        IsHitTestVisible="True"
-                                        Panel.ZIndex="20"
-                                        MouseLeftButtonDown="PlayheadCanvas_MouseLeftButtonDown">
-
-                                    <Line Stroke="Red"
-                                          StrokeThickness="2"
-                                          Y1="0"
-                                          Y2="{Binding ActualHeight, ElementName=PlayheadCanvas}"
-                                          X1="{Binding CurrentTimelinePosition, Converter={StaticResource TimeToPixelConverter}}"
-                                          X2="{Binding CurrentTimelinePosition, Converter={StaticResource TimeToPixelConverter}}" />
-                                </Canvas>
+                                        Height="300"
+                                        IsHitTestVisible="False"
+                                        Panel.ZIndex="20"/>
 
                                 <ItemsControl x:Name="ClipsItemsControl" 
                                               ItemsSource="{Binding VideoEditor.TimelineClips}"

@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Windows.Media.Imaging;
 using VideoEditor.Common;
+using System.Collections.ObjectModel;
 
 namespace VideoEditor.Models
 {
-    public class VideoClip : TimelineClipBase
+    public class VideoClip : VisualClipBase
     {
         private double _sourceStartTime;
         private string _videoPath = string.Empty;
@@ -14,6 +15,11 @@ namespace VideoEditor.Models
         public string VideoPath { get => _videoPath; set => SetProperty(ref _videoPath, value); }
         public BitmapImage? Thumbnail { get => _thumbnail; set => SetProperty(ref _thumbnail, value); }
         public string Category { get; set; } = "미분류";
+
+        public int SourceWidth { get; set; }
+        public int SourceHeight { get; set; }
+
+        public ObservableCollection<TranscriptionSegment> Transcription { get; set; } = new();
 
         public VideoClip() { }
 
@@ -30,13 +36,24 @@ namespace VideoEditor.Models
             this.VideoPath = original.VideoPath;
             this.Thumbnail = original.Thumbnail;
             this.Category = original.Category;
+
+            this.SourceWidth = original.SourceWidth;
+            this.SourceHeight = original.SourceHeight;
+            this.Volume = original.Volume;
+        }
+        public override (int Width, int Height) GetContentDimensions()
+        {
+            return (SourceWidth, SourceHeight);
         }
 
         public override TimelineClipBase Clone()
         {
             return new VideoClip(this)
             {
-                Name = this.Name + " (복사본)"
+                Name = this.Name + " (복사본)",
+                PositionX = this.PositionX,
+                PositionY = this.PositionY,
+                Scale = this.Scale,
             };
         }
     }
