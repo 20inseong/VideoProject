@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "dsG+Rpg/HM0=",
+  "dgSpecHash": "kZf4z1X+uRo=",
   "success": true,
   "projectFilePath": "C:\\Users\\roxno\\source\\repos\\1017VideoProj\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
   "expectedPackageFiles": [
@@ -74,6 +74,9 @@
     "C:\\Users\\roxno\\.nuget\\packages\\videolan.libvlc.windows\\3.0.21\\videolan.libvlc.windows.3.0.21.nupkg.sha512",
     "C:\\Users\\roxno\\.nuget\\packages\\whisper.net\\1.8.1\\whisper.net.1.8.1.nupkg.sha512",
     "C:\\Users\\roxno\\.nuget\\packages\\whisper.net.runtime\\1.8.1\\whisper.net.runtime.1.8.1.nupkg.sha512",
+    "C:\\Users\\roxno\\.nuget\\packages\\whisper.net.runtime.cuda.windows\\1.8.1\\whisper.net.runtime.cuda.windows.1.8.1.nupkg.sha512",
+    "C:\\Users\\roxno\\.nuget\\packages\\whisper.net.runtime.openvino\\1.8.1\\whisper.net.runtime.openvino.1.8.1.nupkg.sha512",
+    "C:\\Users\\roxno\\.nuget\\packages\\whisper.net.runtime.vulkan\\1.8.1\\whisper.net.runtime.vulkan.1.8.1.nupkg.sha512",
     "C:\\Users\\roxno\\.nuget\\packages\\wpf-ui\\4.0.3\\wpf-ui.4.0.3.nupkg.sha512",
     "C:\\Users\\roxno\\.nuget\\packages\\wpf-ui.abstractions\\4.0.3\\wpf-ui.abstractions.4.0.3.nupkg.sha512"
   ],

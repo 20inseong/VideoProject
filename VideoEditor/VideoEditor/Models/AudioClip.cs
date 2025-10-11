@@ -20,6 +20,7 @@ namespace VideoEditor.Models
                 Duration = this.Duration,
                 Width = this.Width,
                 TrackIndex = this.TrackIndex,
+                Volume = this.Volume,
                 IsSelected = false
             };
             return newClip;

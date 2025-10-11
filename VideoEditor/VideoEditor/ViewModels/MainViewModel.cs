@@ -170,10 +170,12 @@ namespace VideoEditor.ViewModels
             VideoEditor = new VideoEditorViewModel();
             EditorHost = new EditorHostViewModel(PlayerViewModel, VideoEditor);
 
-            var modelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "ggml-base.bin");
+            var modelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "ggml-large-v3-turbo-q5_0.bin");
             _speechToTextService = new SpeechToTextService(modelPath);
 
             VideoEditor.OnClipAdded += MainViewModel_OnClipAdded;
+
+            PlayerViewModel.PropertyChanged += PlayerViewModel_PropertyChanged;
 
             VideoEditor.TimelineClips.CollectionChanged += (s, e) =>
             {
@@ -721,9 +723,40 @@ namespace VideoEditor.ViewModels
 
         private void Clip_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(TimelineClipBase.StartPosition) || e.PropertyName == nameof(VideoClip.Duration))
+            if (e.PropertyName == nameof(TimelineClipBase.StartPosition) || e.PropertyName == nameof(TimelineClipBase.Duration))
             {
                 UpdateTotalTimelineDuration();
+            }
+            else if (e.PropertyName == nameof(TimelineClipBase.Volume))
+            {
+                if (sender is TimelineClipBase changedClip)
+                {
+                    // Find the active player for this clip and update its volume
+                    if (_activeVisualClipPlayers.TryGetValue(changedClip, out var visualPlayer))
+                    {
+                        visualPlayer.Volume = (int)((changedClip.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
+                    }
+                    if (_activeAudioPlayers.TryGetValue(changedClip, out var audioPlayer))
+                    {
+                        audioPlayer.Volume = (int)((changedClip.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
+                    }
+                }
+            }
+        }
+
+        private void PlayerViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(PlayerViewModel.Volume))
+            {
+                // 전역 볼륨이 변경되면 현재 재생 중인 모든 플레이어의 볼륨을 다시 계산합니다.
+                foreach (var (clip, player) in _activeVisualClipPlayers)
+                {
+                    player.Volume = (int)((clip.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
+                }
+                foreach (var (clip, player) in _activeAudioPlayers)
+                {
+                    player.Volume = (int)((clip.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
+                }
             }
         }
 
@@ -875,6 +908,8 @@ namespace VideoEditor.ViewModels
                         if (!string.IsNullOrEmpty(mediaPath))
                         {
                             player.Media = PlayerViewModel.PrepareMedia(mediaPath, seekTimeInSource, false);
+                            // ✨ 클립별 볼륨과 전역 볼륨을 조합하여 최종 볼륨 설정
+                            player.Volume = (int)((clipForThisTrack.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
                             if (IsTimelinePlaying) player.Play();
                         }
                     }
@@ -925,6 +960,8 @@ namespace VideoEditor.ViewModels
                 double seekTimeInSource = sourceStartTime + timeWithinClip;
 
                 player.Media = PlayerViewModel.PrepareMedia(path, seekTimeInSource, true);
+                // ✨ 클립별 볼륨과 전역 볼륨을 조합하여 최종 볼륨 설정
+                player.Volume = (int)((clip.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
                 if (IsTimelinePlaying) player.Play();
             }
             UpdateHighlightedVisualClip();

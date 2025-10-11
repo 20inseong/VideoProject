@@ -75,11 +75,7 @@ namespace VideoEditor.ViewModels
         public int Volume
         {
             get => _volume;
-            set
-            {
-                foreach (var player in VideoPlayers) player.Volume = value;
-                foreach (var player in AudioOnlyPlayers) player.Volume = value;
-            }
+            set => SetProperty(ref _volume, value);
         }
 
         private float _playbackRate = 1.0f;

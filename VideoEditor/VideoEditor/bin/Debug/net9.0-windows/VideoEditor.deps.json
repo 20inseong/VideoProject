@@ -17,7 +17,10 @@
           "VideoLAN.LibVLC.Windows": "3.0.21",
           "WPF-UI": "4.0.3",
           "Whisper.net": "1.8.1",
-          "Whisper.net.Runtime": "1.8.1"
+          "Whisper.net.Runtime": "1.8.1",
+          "Whisper.net.Runtime.Cuda.Windows": "1.8.1",
+          "Whisper.net.Runtime.OpenVino": "1.8.1",
+          "Whisper.net.Runtime.Vulkan": "1.8.1"
         },
         "runtime": {
           "VideoEditor.dll": {}
@@ -706,6 +709,9 @@
         }
       },
       "Whisper.net.Runtime/1.8.1": {},
+      "Whisper.net.Runtime.Cuda.Windows/1.8.1": {},
+      "Whisper.net.Runtime.OpenVino/1.8.1": {},
+      "Whisper.net.Runtime.Vulkan/1.8.1": {},
       "WPF-UI/4.0.3": {
         "dependencies": {
           "WPF-UI.Abstractions": "4.0.3"
@@ -1222,6 +1228,27 @@
       "sha512": "sha512-DW2JhlBbt0W5W+cIP8Uevt5+7XnjPIsG9b5FyAdeB9taNk9w1WFw9W7TYSNaqgyEbEHHPNOXA6hl+yrmBwOfsQ==",
       "path": "whisper.net.runtime/1.8.1",
       "hashPath": "whisper.net.runtime.1.8.1.nupkg.sha512"
+    },
+    "Whisper.net.Runtime.Cuda.Windows/1.8.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-3ZeuzZw5EUyFf1579LxFtzUQb6/uPhNt+fmWOe9gKYNJnCN1XKHNt2NtMVzrN6WZWaqT35ut+gywG8Gz8rIlbQ==",
+      "path": "whisper.net.runtime.cuda.windows/1.8.1",
+      "hashPath": "whisper.net.runtime.cuda.windows.1.8.1.nupkg.sha512"
+    },
+    "Whisper.net.Runtime.OpenVino/1.8.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-CrewKf9Vv94crvBTQZZw7IDxZqdZC49IQfhC52IzKHPe2vxKDyubwUS2xhQeTIhLChSADa9wRG3OVuEWr7XqrA==",
+      "path": "whisper.net.runtime.openvino/1.8.1",
+      "hashPath": "whisper.net.runtime.openvino.1.8.1.nupkg.sha512"
+    },
+    "Whisper.net.Runtime.Vulkan/1.8.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-hZmqxZZ6foU3WVmrewuFguIrodMkfb/7uyitBBPrZipo55jK16t/xxKUsWMLETYgEgGVwkZ33YNu8i3+4Kbjpg==",
+      "path": "whisper.net.runtime.vulkan/1.8.1",
+      "hashPath": "whisper.net.runtime.vulkan.1.8.1.nupkg.sha512"
     },
     "WPF-UI/4.0.3": {
       "type": "package",

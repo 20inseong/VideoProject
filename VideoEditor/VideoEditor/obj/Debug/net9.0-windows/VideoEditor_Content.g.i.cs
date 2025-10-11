@@ -54,6 +54,7 @@
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("ffmpeg/doc/platform.html")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("ffmpeg/doc/style.min.css")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("ffmpeg/ggml-base.bin")]
+[assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("ffmpeg/ggml-large-v3-turbo-q5_0.bin")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("ffmpeg/include/libavcodec/ac3_parser.h")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("ffmpeg/include/libavcodec/adts_parser.h")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("ffmpeg/include/libavcodec/avcodec.h")]

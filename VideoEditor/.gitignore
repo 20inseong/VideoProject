@@ -8,3 +8,4 @@
 
 # Whisper model
 **/ggml-base.bin
+**/ggml-large-v3-turbo-q5_0

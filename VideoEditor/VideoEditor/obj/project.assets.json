@@ -1222,6 +1222,24 @@
           "build/Whisper.net.Runtime.targets": {}
         }
       },
+      "Whisper.net.Runtime.Cuda.Windows/1.8.1": {
+        "type": "package",
+        "build": {
+          "build/Whisper.net.Runtime.Cuda.Windows.targets": {}
+        }
+      },
+      "Whisper.net.Runtime.OpenVino/1.8.1": {
+        "type": "package",
+        "build": {
+          "build/Whisper.net.Runtime.OpenVino.targets": {}
+        }
+      },
+      "Whisper.net.Runtime.Vulkan/1.8.1": {
+        "type": "package",
+        "build": {
+          "build/Whisper.net.Runtime.Vulkan.targets": {}
+        }
+      },
       "WPF-UI/4.0.3": {
         "type": "package",
         "dependencies": {
@@ -5112,6 +5130,68 @@
         "whisper.net.runtime.nuspec"
       ]
     },
+    "Whisper.net.Runtime.Cuda.Windows/1.8.1": {
+      "sha512": "3ZeuzZw5EUyFf1579LxFtzUQb6/uPhNt+fmWOe9gKYNJnCN1XKHNt2NtMVzrN6WZWaqT35ut+gywG8Gz8rIlbQ==",
+      "type": "package",
+      "path": "whisper.net.runtime.cuda.windows/1.8.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "build/Whisper.net.Runtime.Cuda.Windows.targets",
+        "build/win-x64/ggml-base-whisper.dll",
+        "build/win-x64/ggml-cpu-whisper.dll",
+        "build/win-x64/ggml-cuda-whisper.dll",
+        "build/win-x64/ggml-whisper.dll",
+        "build/win-x64/whisper.dll",
+        "content/readme.md",
+        "whisper.net.runtime.cuda.windows.1.8.1.nupkg.sha512",
+        "whisper.net.runtime.cuda.windows.nuspec"
+      ]
+    },
+    "Whisper.net.Runtime.OpenVino/1.8.1": {
+      "sha512": "CrewKf9Vv94crvBTQZZw7IDxZqdZC49IQfhC52IzKHPe2vxKDyubwUS2xhQeTIhLChSADa9wRG3OVuEWr7XqrA==",
+      "type": "package",
+      "path": "whisper.net.runtime.openvino/1.8.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "build/Whisper.net.Runtime.OpenVino.targets",
+        "build/linux-x64/libggml-base-whisper.so",
+        "build/linux-x64/libggml-cpu-whisper.so",
+        "build/linux-x64/libggml-whisper.so",
+        "build/linux-x64/libwhisper.so",
+        "build/win-x64/ggml-base-whisper.dll",
+        "build/win-x64/ggml-cpu-whisper.dll",
+        "build/win-x64/ggml-whisper.dll",
+        "build/win-x64/whisper.dll",
+        "content/readme.md",
+        "whisper.net.runtime.openvino.1.8.1.nupkg.sha512",
+        "whisper.net.runtime.openvino.nuspec"
+      ]
+    },
+    "Whisper.net.Runtime.Vulkan/1.8.1": {
+      "sha512": "hZmqxZZ6foU3WVmrewuFguIrodMkfb/7uyitBBPrZipo55jK16t/xxKUsWMLETYgEgGVwkZ33YNu8i3+4Kbjpg==",
+      "type": "package",
+      "path": "whisper.net.runtime.vulkan/1.8.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "build/Whisper.net.Runtime.Vulkan.targets",
+        "build/linux-x64/libggml-base-whisper.so",
+        "build/linux-x64/libggml-cpu-whisper.so",
+        "build/linux-x64/libggml-vulkan-whisper.so",
+        "build/linux-x64/libggml-whisper.so",
+        "build/linux-x64/libwhisper.so",
+        "build/win-x64/ggml-base-whisper.dll",
+        "build/win-x64/ggml-cpu-whisper.dll",
+        "build/win-x64/ggml-vulkan-whisper.dll",
+        "build/win-x64/ggml-whisper.dll",
+        "build/win-x64/whisper.dll",
+        "content/readme.md",
+        "whisper.net.runtime.vulkan.1.8.1.nupkg.sha512",
+        "whisper.net.runtime.vulkan.nuspec"
+      ]
+    },
     "WPF-UI/4.0.3": {
       "sha512": "izkG9uL33gYDkZkirpamlvk6v9ru5QL+97Dgqhr0rkGcwuJZOPd5zkhEUwlDOZ25OFX3Hbp2O/jpHILCYPNfiQ==",
       "type": "package",
@@ -5195,7 +5275,10 @@
       "VideoLAN.LibVLC.Windows >= 3.0.21",
       "WPF-UI >= 4.0.3",
       "Whisper.net >= 1.8.1",
-      "Whisper.net.Runtime >= 1.8.1"
+      "Whisper.net.Runtime >= 1.8.1",
+      "Whisper.net.Runtime.Cuda.Windows >= 1.8.1",
+      "Whisper.net.Runtime.OpenVino >= 1.8.1",
+      "Whisper.net.Runtime.Vulkan >= 1.8.1"
     ]
   },
   "packageFolders": {
@@ -5285,6 +5368,18 @@
             "version": "[1.8.1, )"
           },
           "Whisper.net.Runtime": {
+            "target": "Package",
+            "version": "[1.8.1, )"
+          },
+          "Whisper.net.Runtime.Cuda.Windows": {
+            "target": "Package",
+            "version": "[1.8.1, )"
+          },
+          "Whisper.net.Runtime.OpenVino": {
+            "target": "Package",
+            "version": "[1.8.1, )"
+          },
+          "Whisper.net.Runtime.Vulkan": {
             "target": "Package",
             "version": "[1.8.1, )"
           }

@@ -18,6 +18,9 @@
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" />
     <PackageReference Include="Whisper.net" Version="1.8.1" />
     <PackageReference Include="Whisper.net.Runtime" Version="1.8.1" />
+    <PackageReference Include="Whisper.net.Runtime.Cuda.Windows" Version="1.8.1" />
+    <PackageReference Include="Whisper.net.Runtime.OpenVino" Version="1.8.1" />
+    <PackageReference Include="Whisper.net.Runtime.Vulkan" Version="1.8.1" />
     <PackageReference Include="WPF-UI" Version="4.0.3" />
   </ItemGroup>
 
@@ -25,10 +28,6 @@
     <Content Include="ffmpeg\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Remove="ffmpeg\ggml-large-v3-turbo-q5_0.bin" />
   </ItemGroup>
 
   <ItemGroup>

@@ -12,6 +12,7 @@ namespace VideoEditor.Models
         private double _width;
         private int _trackIndex;
         private bool _isSelected;
+        private int _volume = 100;
 
         public Guid Id { get; } = Guid.NewGuid();
 
@@ -21,6 +22,7 @@ namespace VideoEditor.Models
         public double Width { get => _width; set => SetProperty(ref _width, value); }
         public int TrackIndex { get => _trackIndex; set => SetProperty(ref _trackIndex, value); }
         public bool IsSelected { get => _isSelected; set => SetProperty(ref _isSelected, value); }
+        public int Volume { get => _volume; set => SetProperty(ref _volume, value); }
 
         private bool _isTranscribing;
         public bool IsTranscribing

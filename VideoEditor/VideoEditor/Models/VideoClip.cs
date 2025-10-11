@@ -39,6 +39,7 @@ namespace VideoEditor.Models
 
             this.SourceWidth = original.SourceWidth;
             this.SourceHeight = original.SourceHeight;
+            this.Volume = original.Volume;
         }
 
         public override TimelineClipBase Clone()
