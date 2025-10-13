@@ -165,6 +165,8 @@ namespace VideoEditor.ViewModels
             set => SetProperty(ref _isTextVisible, value);
         }
 
+        public bool IsScrubbing { get; set; }
+
         public MainViewModel()
         {
             PlayerViewModel = new PlayerViewModel();
@@ -191,6 +193,8 @@ namespace VideoEditor.ViewModels
             _flatEqIndex = flatPresetIndex;
 
             VideoEditor.OnClipAdded += MainViewModel_OnClipAdded;
+            VideoEditor.ClipInteractionStarted += StopPlayback;
+            VideoEditor.ClipInteractionEnded += ResumePlaybackIfNeeded;
 
             PlayerViewModel.PropertyChanged += PlayerViewModel_PropertyChanged;
 
@@ -810,6 +814,29 @@ namespace VideoEditor.ViewModels
             }
         }
 
+        private bool _wasPlayingBeforeInteraction = false;
+
+        public void ResumePlaybackIfNeeded()
+        {
+            if (_wasPlayingBeforeInteraction)
+            {
+                IsTimelinePlaying = true;
+                _timelineTimer.Start();
+                _wasPlayingBeforeInteraction = false; // Reset the flag
+            }
+        }
+
+        public void StopPlayback()
+        {
+            _wasPlayingBeforeInteraction = IsTimelinePlaying;
+            if (IsTimelinePlaying)
+            {
+                _timelineTimer.Stop();
+                PlayerViewModel.PauseAllPlayers();
+                IsTimelinePlaying = false;
+            }
+        }
+
         private void ExecutePlayPauseTimeline()
         {
             if (IsTimelinePlaying)
@@ -838,31 +865,36 @@ namespace VideoEditor.ViewModels
             IsTimelinePlaying = false;
         }
 
-        public void SeekTimeline(double timeSec)
+        public void SeekTimeline(double timeSec, bool isScrubbing = false)
         {
-            Debug.WriteLine($"[SEEK] 타임라인 {timeSec:F2}초로 이동.");
+            Debug.WriteLine($"[SEEK] 타임라인 {timeSec:F2}초로 이동. Scrubbing: {isScrubbing}");
 
             bool wasPlaying = IsTimelinePlaying;
-            if (wasPlaying)
-            {
-                _timelineTimer.Stop();
-                IsTimelinePlaying = false; // Temporarily set to false
-            }
 
-            PlayerViewModel.Stop();
-            _activeVisualClipPlayers.Clear();
-            _activeAudioPlayers.Clear();
+            // 스크러빙 중이 아닐 때만 플레이어를 완전히 멈추고 재설정합니다.
+            if (!isScrubbing)
+            {
+                if (wasPlaying)
+                {
+                    _timelineTimer.Stop();
+                    IsTimelinePlaying = false; // Temporarily set to false
+                }
+
+                PlayerViewModel.Stop();
+                _activeVisualClipPlayers.Clear();
+                _activeAudioPlayers.Clear();
+            }
 
             CurrentTimelinePosition = timeSec;
 
-            if (wasPlaying)
+            if (wasPlaying && !isScrubbing)
             {
                 IsTimelinePlaying = true; // Set back to true before syncing
             }
 
-            SyncPlayersToTimeline(); // Now this will call Play() if IsTimelinePlaying is true
+            SyncPlayersToTimeline();
 
-            if (wasPlaying)
+            if (wasPlaying && !isScrubbing)
             {
                 _timelineTimer.Start();
             }
@@ -905,20 +937,75 @@ namespace VideoEditor.ViewModels
                 }
             }
 
-            // --- DEACTIVATION LOGIC ---
-            var activeVisualClips = activeClips.Where(c => c is VideoClip || c is ImageClip).ToList();
-            var visualClipsToDeactivate = _activeVisualClipPlayers.Keys.Except(activeVisualClips).ToList();
-            foreach (var clip in visualClipsToDeactivate)
-            {
-                if (_activeVisualClipPlayers.Remove(clip, out var player))
-                {
-                    player.Stop();
-                    player.Media?.Dispose();
-                    player.Media = null;
-                }
-            }
-
+                        var activeVisualClips = activeClips.OfType<VideoClip>().Concat<TimelineClipBase>(activeClips.OfType<ImageClip>()).ToList();
+            
+                        // 1. Determine which players should be active.
+                        var playersToKeepActive = new HashSet<MediaPlayer>();
+                        foreach (var clip in activeVisualClips)
+                        {
+                            if (clip.TrackIndex < PlayerViewModel.VideoPlayers.Count)
+                            {
+                                playersToKeepActive.Add(PlayerViewModel.VideoPlayers[clip.TrackIndex]);
+                            }
+                        }
+            
+                        // 2. Deactivate any players that are no longer needed.
+                        foreach (var player in PlayerViewModel.VideoPlayers)
+                        {
+                            if (!playersToKeepActive.Contains(player) && player.Media != null)
+                            {
+                                player.Stop();
+                                player.Media.Dispose();
+                                player.Media = null;
+                            }
+                        }
+            
+                        // 3. Deactivate clips in the dictionary that are no longer active.
+                        var clipsToDeactivate = _activeVisualClipPlayers.Keys.Except(activeVisualClips).ToList();
+                        foreach (var clip in clipsToDeactivate)
+                        {
+                            _activeVisualClipPlayers.Remove(clip);
+                        }
+            
+                        // 4. Activate or update players for currently active clips.
+                        foreach (var clip in activeVisualClips)
+                        {
+                            var player = PlayerViewModel.VideoPlayers[clip.TrackIndex];
+                            double timeWithinClip = CurrentTimelinePosition - clip.StartPosition;
+            
+                            // If clip is new or has moved to this player, set up the media.
+                            if (!_activeVisualClipPlayers.ContainsKey(clip) || _activeVisualClipPlayers[clip] != player)
+                            {
+                                _activeVisualClipPlayers[clip] = player;
+                                string mediaPath = (clip is VideoClip vc) ? vc.VideoPath : (clip as ImageClip)?.ImagePath ?? string.Empty;
+                                bool isVideo = clip is VideoClip;
+            
+                                if (!string.IsNullOrEmpty(mediaPath))
+                                {
+                                    player.Media = PlayerViewModel.PrepareMedia(mediaPath, timeWithinClip, videoOnly: isVideo, audioOnly: false);
+                                }
+                            }
+            
+                            // Always apply state (scrubbing, playing, paused)
+                            if (IsScrubbing || VideoEditor.IsDraggingClip)
+                            {
+                                player.Time = (long)(timeWithinClip * 1000);
+                                player.Play();
+                                player.SetPause(true);
+                            }
+                            else if (IsTimelinePlaying && !player.IsPlaying)
+                            {
+                                player.Play();
+                            }
+                            else if (!IsTimelinePlaying && player.IsPlaying)
+                            {
+                                player.SetPause(true);
+                            }
+                        }
+            
             var activeAudioSourceClips = activeClips.Where(c => c is VideoClip || c is AudioClip).ToList();
+
+            // Deactivate audio players for clips that are no longer active.
             var audioClipsToDeactivate = _activeAudioPlayers.Keys.Except(activeAudioSourceClips).ToList();
             foreach (var clip in audioClipsToDeactivate)
             {
@@ -930,74 +1017,49 @@ namespace VideoEditor.ViewModels
                 }
             }
 
-            // --- ACTIVATION LOGIC ---
-            for (int trackIndex = 0; trackIndex < PlayerViewModel.VideoPlayers.Count; trackIndex++)
-            {
-                var player = PlayerViewModel.VideoPlayers[trackIndex];
-                var clipForThisTrack = activeVisualClips.FirstOrDefault(c => c.TrackIndex == trackIndex);
-
-                if (clipForThisTrack != null)
-                {
-                    if (!_activeVisualClipPlayers.ContainsKey(clipForThisTrack))
-                    {
-                        _activeVisualClipPlayers[clipForThisTrack] = player;
-                        double timeWithinClip = CurrentTimelinePosition - clipForThisTrack.StartPosition;
-                        string mediaPath = (clipForThisTrack is VideoClip vc) ? vc.VideoPath : (clipForThisTrack as ImageClip)?.ImagePath ?? string.Empty;
-                        bool isVideo = clipForThisTrack is VideoClip;
-
-                        if (!string.IsNullOrEmpty(mediaPath))
-                        {
-                            player.Media = PlayerViewModel.PrepareMedia(mediaPath, timeWithinClip, videoOnly: isVideo, audioOnly: false);
-                            if (IsTimelinePlaying)
-                            {
-                                player.Play();
-                            }
-                            else
-                            {
-                                player.Play();
-                                player.SetPause(true);
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    if (player.Media != null) { player.Stop(); player.Media.Dispose(); player.Media = null; }
-                }
-            }
-
+            // Activate or update audio players.
             foreach (var clip in activeAudioSourceClips)
             {
-                if (_activeAudioPlayers.ContainsKey(clip)) continue;
-
-                var player = PlayerViewModel.GetAvailableAudioPlayer();
-                if (player == null) { Debug.WriteLine("[WARNING] No available audio player."); continue; }
-
-                _activeAudioPlayers.Add(clip, player);
-
+                MediaPlayer? player;
                 double timeWithinClip = CurrentTimelinePosition - clip.StartPosition;
                 double sourceStartTime = (clip is VideoClip vc) ? vc.SourceStartTime : (clip as AudioClip)?.SourceStartTime ?? 0;
-                string mediaPath = (clip is VideoClip v) ? v.VideoPath : (clip as AudioClip)?.AudioPath ?? string.Empty;
+                double seekTimeInSource = sourceStartTime + timeWithinClip;
 
-                if (!string.IsNullOrEmpty(mediaPath))
+                if (!_activeAudioPlayers.TryGetValue(clip, out player))
                 {
-                    using var equalizer = new Equalizer(_flatEqIndex);
-                    
-                    int combinedVolume = (int)((clip.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
-                    equalizer.SetPreamp(ConvertVolumeToDb(combinedVolume));
-                    
-                    player.SetEqualizer(equalizer);
+                    // This is a new active audio clip, find a player for it.
+                    player = PlayerViewModel.GetAvailableAudioPlayer();
+                    if (player == null) { Debug.WriteLine("[WARNING] No available audio player."); continue; }
+                    _activeAudioPlayers.Add(clip, player);
 
-                    double seekTimeInSource = sourceStartTime + timeWithinClip;
-                    player.Media = PlayerViewModel.PrepareMedia(mediaPath, seekTimeInSource, videoOnly: false, audioOnly: true);
-                    
-                    if (IsTimelinePlaying)
+                    string mediaPath = (clip is VideoClip v) ? v.VideoPath : (clip as AudioClip)?.AudioPath ?? string.Empty;
+                    if (!string.IsNullOrEmpty(mediaPath))
                     {
+                        using var equalizer = new Equalizer(_flatEqIndex);
+                        int combinedVolume = (int)((clip.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
+                        equalizer.SetPreamp(ConvertVolumeToDb(combinedVolume));
+                        player.SetEqualizer(equalizer);
+
+                        player.Media = PlayerViewModel.PrepareMedia(mediaPath, seekTimeInSource, videoOnly: false, audioOnly: true);
+                    }
+                }
+
+                // Always apply state
+                if (player != null)
+                {
+                    if (IsScrubbing || VideoEditor.IsDraggingClip)
+                    {
+                        player.Time = (long)(seekTimeInSource * 1000);
+                        player.Play();
+                        player.SetPause(true);
+                    }
+                    else if (IsTimelinePlaying && !player.IsPlaying)
+                    {
+                        player.Time = (long)(seekTimeInSource * 1000);
                         player.Play();
                     }
-                    else
+                    else if (!IsTimelinePlaying && player.IsPlaying)
                     {
-                        player.Play();
                         player.SetPause(true);
                     }
                 }

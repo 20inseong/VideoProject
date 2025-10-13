@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "KDjWP4FMrR0=",
+  "dgSpecHash": "TjTjZJDTCKQ=",
   "success": true,
-  "projectFilePath": "C:\\Users\\roxno\\source\\repos\\1017VideoProj\\1017VideoProj\\1017VideoProj\\1017VideoProj\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
+  "projectFilePath": "C:\\Users\\roxno\\source\\repos\\비디오스크러빙1017VideoProj\\1017VideoProj\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\roxno\\.nuget\\packages\\communitytoolkit.mvvm\\8.4.0\\communitytoolkit.mvvm.8.4.0.nupkg.sha512",
     "C:\\Users\\roxno\\.nuget\\packages\\emgu.cv\\4.11.0.5746\\emgu.cv.4.11.0.5746.nupkg.sha512",
