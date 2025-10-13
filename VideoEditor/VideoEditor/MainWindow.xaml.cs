@@ -25,6 +25,9 @@ namespace VideoEditor
         private Point _dragStartPoint;
         private Line _playheadLine;
         private double _currentTimelineDurationSec = 300;
+        private DateTime _lastDragUpdateTime = DateTime.MinValue;
+        private const int DRAG_UPDATE_THROTTLE_MS = 50; // 50ms 간격으로 업데이트
+
 
         public MainWindow()
         {
@@ -49,6 +52,7 @@ namespace VideoEditor
                 RulerScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset);
             };
 
+            TimelineRulerCanvas.PreviewMouseLeftButtonDown += TimelineRulerCanvas_PreviewMouseLeftButtonDown;
             TimelineCanvas.PreviewMouseMove += TimelineCanvas_PreviewMouseMove;
             TimelineCanvas.PreviewMouseLeftButtonUp += TimelineCanvas_PreviewMouseLeftButtonUp;
 
@@ -217,6 +221,13 @@ namespace VideoEditor
 
         private void Timeline_DragOver(object sender, DragEventArgs e)
         {
+            if ((DateTime.Now - _lastDragUpdateTime).TotalMilliseconds < DRAG_UPDATE_THROTTLE_MS)
+            {
+                e.Handled = true;
+                return;
+            }
+            _lastDragUpdateTime = DateTime.Now;
+
             if (e.Data.GetDataPresent("TimelineClip"))
             {
                 e.Effects = DragDropEffects.Move;
@@ -400,45 +411,164 @@ namespace VideoEditor
                 Point position = e.GetPosition(canvas);
                 double clickedTimeSec = position.X / _mainViewModel.VideoEditor.PixelsPerSecond;
 
-                _mainViewModel.SeekTimeline(clickedTimeSec);
+                _mainViewModel.SeekTimeline(clickedTimeSec, isScrubbing: false);
 
                 _playheadLine.X1 = position.X;
                 _playheadLine.X2 = position.X;
             }
         }
 
-        private void ResizeHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            var handle = sender as FrameworkElement;
-            var clip = handle?.DataContext as TimelineClipBase;
-            if (handle == null || clip == null) return;
+                private void TimelineRulerCanvas_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
 
-            TimelineCanvas.CaptureMouse();
+                {
 
-            _mainViewModel.VideoEditor.StartClipResize(clip, e.GetPosition(TimelineCanvas));
+                    _mainViewModel.StopPlayback(); // 재생 중이었다면 멈추고 상태 저장
 
-            e.Handled = true;
-        }
+                    _mainViewModel.IsScrubbing = true;
 
-        private void TimelineCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
-        {
-            if (_mainViewModel.VideoEditor.IsResizing)
-            {
-                _mainViewModel.VideoEditor.UpdateClipResize(e.GetPosition(TimelineCanvas));
-            }
-        }
+                    (sender as UIElement)?.CaptureMouse();
 
-        private void TimelineCanvas_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        {
-            if (_mainViewModel.VideoEditor.IsResizing)
-            {
-                _mainViewModel.VideoEditor.EndClipResize();
+                    UpdatePlayheadFromMouseEvent(e);
 
-                (sender as UIElement)?.ReleaseMouseCapture();
+                    e.Handled = true;
 
-                e.Handled = true;
-            }
-        }
+                }
+
+        
+
+                        private void UpdatePlayheadFromMouseEvent(MouseEventArgs e)
+
+        
+
+                        {
+
+        
+
+                            if ((DateTime.Now - _lastDragUpdateTime).TotalMilliseconds < DRAG_UPDATE_THROTTLE_MS)
+
+        
+
+                            {
+
+        
+
+                                return;
+
+        
+
+                            }
+
+        
+
+                            _lastDragUpdateTime = DateTime.Now;
+
+        
+
+                
+
+        
+
+                            Point position = e.GetPosition(TimelineRulerCanvas);
+
+        
+
+                            double clickedTimeSec = position.X / _mainViewModel.VideoEditor.PixelsPerSecond;
+
+        
+
+                            _mainViewModel.SeekTimeline(clickedTimeSec, isScrubbing: true);
+
+        
+
+                        }
+
+        
+
+                private void ResizeHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+
+                {
+
+                    var handle = sender as FrameworkElement;
+
+                    var clip = handle?.DataContext as TimelineClipBase;
+
+                    if (handle == null || clip == null) return;
+
+        
+
+                    TimelineCanvas.CaptureMouse();
+
+        
+
+                    _mainViewModel.VideoEditor.StartClipResize(clip, e.GetPosition(TimelineCanvas));
+
+        
+
+                    e.Handled = true;
+
+                }
+
+        
+
+                private void TimelineCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
+
+                {
+
+                    if (_mainViewModel.IsScrubbing)
+
+                    {
+
+                        UpdatePlayheadFromMouseEvent(e);
+
+                    }
+
+                    else if (_mainViewModel.VideoEditor.IsResizing)
+
+                    {
+
+                        _mainViewModel.VideoEditor.UpdateClipResize(e.GetPosition(TimelineCanvas));
+
+                    }
+
+                }
+
+        
+
+                private void TimelineCanvas_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+
+                {
+
+                    if (_mainViewModel.IsScrubbing)
+
+                    {
+
+                        _mainViewModel.IsScrubbing = false;
+
+                        (sender as UIElement)?.ReleaseMouseCapture();
+
+                        _mainViewModel.ResumePlaybackIfNeeded(); // 재생 재개
+
+                        e.Handled = true;
+
+                    }
+
+                    else if (_mainViewModel.VideoEditor.IsResizing)
+
+                    {
+
+                        _mainViewModel.VideoEditor.EndClipResize();
+
+        
+
+                        (sender as UIElement)?.ReleaseMouseCapture();
+
+        
+
+                        e.Handled = true;
+
+                    }
+
+                }
 
     }
 }

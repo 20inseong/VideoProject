@@ -34,6 +34,8 @@ namespace VideoEditor.ViewModels
         private LibVLC _libVLC;
         private readonly WaveformService _waveformService;
         public event EventHandler<ClipAddedEventArgs>? OnClipAdded;
+        public event Action? ClipInteractionStarted;
+        public event Action? ClipInteractionEnded;
         public TimelineClipBase? DraggedClip { get; private set; }
         private TimelineClipBase? _selectedClip;
         private TimelineClipBase? _copiedClip;
@@ -46,6 +48,13 @@ namespace VideoEditor.ViewModels
         public Point DragStartPoint { get; private set; }
         public double OriginalClipStartPosition { get; private set; }
         public int OriginalClipTrackIndex { get; private set; }
+
+        public bool IsDraggingClip
+        {
+            get => _isDraggingClip;
+            private set => SetProperty(ref _isDraggingClip, value);
+        }
+        private bool _isDraggingClip;
 
         public double ZoomPercentage => PixelsPerSecond * 10.0;
 
@@ -554,6 +563,8 @@ namespace VideoEditor.ViewModels
 
         private void ExecuteClipMouseDown(MouseButtonEventArgs? e)
         {
+            ClipInteractionStarted?.Invoke();
+
             if (e == null) return;
 
             if ((e.OriginalSource as FrameworkElement)?.Tag is "ResizeHandle")
@@ -585,6 +596,7 @@ namespace VideoEditor.ViewModels
                 {
                     DragStartPoint = e.GetPosition(itemsControl);
                 }
+                IsDraggingClip = true;
             }
         }
 
@@ -596,6 +608,8 @@ namespace VideoEditor.ViewModels
             DragDrop.DoDragDrop((DependencyObject)e.Source, dragData, DragDropEffects.Move);
 
             DraggedClip = null;
+            IsDraggingClip = false;
+            ClipInteractionEnded?.Invoke();
         }
 
         public void StartClipResize(TimelineClipBase clip, Point startPoint)
