@@ -215,11 +215,29 @@ namespace VideoEditor
             }
         }
 
-        private void Timeline_DragOver(object sender, DragEventArgs e) 
+        private void Timeline_DragOver(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent("TimelineClip"))
             {
                 e.Effects = DragDropEffects.Move;
+
+                var vm = DataContext as MainViewModel;
+                if (vm?.VideoEditor.DraggedClip == null) return;
+
+                Point position = e.GetPosition(TimelineCanvas);
+                double deltaX = position.X - vm.VideoEditor.DragStartPoint.X;
+                double deltaTime = deltaX / vm.VideoEditor.PixelsPerSecond;
+                double newStartPosition = vm.VideoEditor.OriginalClipStartPosition + deltaTime;
+
+                int deltaTrack = (int)Math.Round((position.Y - vm.VideoEditor.DragStartPoint.Y) / 60.0);
+                int newTrackIndex = Math.Clamp(vm.VideoEditor.OriginalClipTrackIndex + deltaTrack, 0, 4);
+
+                // Temporarily update the model for preview
+                vm.VideoEditor.DraggedClip.StartPosition = Math.Max(0, newStartPosition);
+                vm.VideoEditor.DraggedClip.TrackIndex = newTrackIndex;
+
+                // Refresh the player visuals without changing the main timeline state
+                vm.SyncPlayersToTimeline();
             }
             else if (e.Data.GetDataPresent("Myvideo"))
             {

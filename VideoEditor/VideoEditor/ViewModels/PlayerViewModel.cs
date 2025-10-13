@@ -13,7 +13,7 @@ namespace VideoEditor.ViewModels
 {
     public class PlayerViewModel : ViewModelBase, IDisposable
     {
-        internal readonly LibVLC _libVLC;
+        public readonly LibVLC _libVLC;
 
         public List<MediaPlayer> VideoPlayers { get; }
         public List<MediaPlayer> AudioOnlyPlayers { get; }
@@ -188,12 +188,17 @@ namespace VideoEditor.ViewModels
             }
         }
 
-        public Media PrepareMedia(string path, double seekTimeInSeconds, bool audioOnly)
+        public Media PrepareMedia(string path, double seekTimeInSeconds, bool videoOnly, bool audioOnly)
         {
             var options = new List<string>
             {
                 $":start-time={seekTimeInSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
             };
+
+            if (videoOnly)
+            {
+                options.Add(":no-audio");
+            }
 
             if (audioOnly)
             {

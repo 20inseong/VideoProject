@@ -34,7 +34,7 @@ namespace VideoEditor.ViewModels
         private LibVLC _libVLC;
         private readonly WaveformService _waveformService;
         public event EventHandler<ClipAddedEventArgs>? OnClipAdded;
-        private TimelineClipBase? _draggedClip;
+        public TimelineClipBase? DraggedClip { get; private set; }
         private TimelineClipBase? _selectedClip;
         private TimelineClipBase? _copiedClip;
 
@@ -43,9 +43,9 @@ namespace VideoEditor.ViewModels
         private Point _resizeStartPoint;
         private double _originalClipDuration;
 
-        private Point _dragStartPoint;
-        private double _originalClipStartPosition;
-        private int _originalClipTrackIndex;
+        public Point DragStartPoint { get; private set; }
+        public double OriginalClipStartPosition { get; private set; }
+        public int OriginalClipTrackIndex { get; private set; }
 
         public double ZoomPercentage => PixelsPerSecond * 10.0;
 
@@ -324,13 +324,13 @@ namespace VideoEditor.ViewModels
                 {
                     Point finalDropPosition = e.GetPosition(dropTarget);
 
-                    double deltaX = finalDropPosition.X - _dragStartPoint.X;
+                    double deltaX = finalDropPosition.X - DragStartPoint.X;
                     double deltaTime = deltaX / this.PixelsPerSecond;
 
-                    int deltaTrack = (int)Math.Round((finalDropPosition.Y - _dragStartPoint.Y) / 60.0);
+                    int deltaTrack = (int)Math.Round((finalDropPosition.Y - DragStartPoint.Y) / 60.0);
 
-                    double desiredStartPosition = _originalClipStartPosition + deltaTime;
-                    int newTrackIndex = Math.Clamp(_originalClipTrackIndex + deltaTrack, 0, 4);
+                    double desiredStartPosition = OriginalClipStartPosition + deltaTime;
+                    int newTrackIndex = Math.Clamp(OriginalClipTrackIndex + deltaTrack, 0, 4);
 
                     double adjustedStartPosition = AdjustClipPosition(droppedClip, desiredStartPosition, newTrackIndex);
 
@@ -577,25 +577,25 @@ namespace VideoEditor.ViewModels
                 clickedClip.IsSelected = true;
                 SelectedClip = clickedClip;
 
-                _draggedClip = clickedClip;
-                _originalClipStartPosition = clickedClip.StartPosition;
-                _originalClipTrackIndex = clickedClip.TrackIndex;
+                DraggedClip = clickedClip;
+                OriginalClipStartPosition = clickedClip.StartPosition;
+                OriginalClipTrackIndex = clickedClip.TrackIndex;
 
                 if (itemsControl != null)
                 {
-                    _dragStartPoint = e.GetPosition(itemsControl);
+                    DragStartPoint = e.GetPosition(itemsControl);
                 }
             }
         }
 
         private void ExecuteClipMouseMove(MouseEventArgs? e)
         {
-            if (_isResizing || e == null || _draggedClip == null || e.LeftButton != MouseButtonState.Pressed) return;
+            if (_isResizing || e == null || DraggedClip == null || e.LeftButton != MouseButtonState.Pressed) return;
 
-            DataObject dragData = new DataObject("TimelineClip", _draggedClip);
+            DataObject dragData = new DataObject("TimelineClip", DraggedClip);
             DragDrop.DoDragDrop((DependencyObject)e.Source, dragData, DragDropEffects.Move);
 
-            _draggedClip = null;
+            DraggedClip = null;
         }
 
         public void StartClipResize(TimelineClipBase clip, Point startPoint)

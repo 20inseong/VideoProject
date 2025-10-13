@@ -236,6 +236,105 @@
           }
         }
       },
+      "Microsoft.ML.OnnxRuntime/1.23.1": {
+        "dependencies": {
+          "Microsoft.ML.OnnxRuntime.Managed": "1.23.1"
+        },
+        "runtimeTargets": {
+          "runtimes/android/native/onnxruntime.aar": {
+            "rid": "android",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/ios/native/onnxruntime.xcframework.zip": {
+            "rid": "ios",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-arm64/native/libonnxruntime.so": {
+            "rid": "linux-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-arm64/native/libonnxruntime_providers_shared.so": {
+            "rid": "linux-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-x64/native/libonnxruntime.so": {
+            "rid": "linux-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-x64/native/libonnxruntime_providers_shared.so": {
+            "rid": "linux-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-arm64/native/libonnxruntime.dylib": {
+            "rid": "osx-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libonnxruntime.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-arm64/native/onnxruntime.dll": {
+            "rid": "win-arm64",
+            "assetType": "native",
+            "fileVersion": "1.23.25.1002"
+          },
+          "runtimes/win-arm64/native/onnxruntime.lib": {
+            "rid": "win-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-arm64/native/onnxruntime_providers_shared.dll": {
+            "rid": "win-arm64",
+            "assetType": "native",
+            "fileVersion": "1.23.25.1002"
+          },
+          "runtimes/win-arm64/native/onnxruntime_providers_shared.lib": {
+            "rid": "win-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/onnxruntime.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "1.23.25.1002"
+          },
+          "runtimes/win-x64/native/onnxruntime.lib": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/onnxruntime_providers_shared.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "1.23.25.1002"
+          },
+          "runtimes/win-x64/native/onnxruntime_providers_shared.lib": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "Microsoft.ML.OnnxRuntime.Managed/1.23.1": {
+        "dependencies": {
+          "System.Memory": "4.5.5",
+          "System.Numerics.Tensors": "9.0.0"
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.ML.OnnxRuntime.dll": {
+            "assemblyVersion": "1.23.1.0",
+            "fileVersion": "1.23.1.0"
+          }
+        }
+      },
       "Microsoft.NETCore.Platforms/1.1.1": {},
       "Microsoft.NETCore.Targets/1.1.3": {},
       "Microsoft.Win32.SystemEvents/9.0.0": {
@@ -561,6 +660,7 @@
           }
         }
       },
+      "System.Memory/4.5.5": {},
       "System.Net.Http/4.3.4": {
         "dependencies": {
           "Microsoft.NETCore.Platforms": "1.1.1",
@@ -611,6 +711,14 @@
           "Microsoft.NETCore.Targets": "1.1.3",
           "System.Runtime": "4.3.1",
           "System.Runtime.Handles": "4.3.0"
+        }
+      },
+      "System.Numerics.Tensors/9.0.0": {
+        "runtime": {
+          "lib/net9.0/System.Numerics.Tensors.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.24.52809"
+          }
         }
       },
       "System.Private.Uri/4.3.2": {
@@ -1001,6 +1109,9 @@
         }
       },
       "Whisper.net.Runtime/1.8.1": {},
+      "Whisper.net.Runtime.Cuda.Windows/1.8.1": {},
+      "Whisper.net.Runtime.OpenVino/1.8.1": {},
+      "Whisper.net.Runtime.Vulkan/1.8.1": {},
       "WPF-UI/4.0.3": {
         "dependencies": {
           "WPF-UI.Abstractions": "4.0.3"
@@ -1085,6 +1196,20 @@
       "sha512": "sha512-mU575rJM02MtTXqZG1sYiJF5DpPO6HRFKIYGFK0R9m0BRQKNvbYgIk6FkJPt6OC1Y04WAz+JykYz/MBBJfdpSw==",
       "path": "libvlcsharp.wpf/3.9.4",
       "hashPath": "libvlcsharp.wpf.3.9.4.nupkg.sha512"
+    },
+    "Microsoft.ML.OnnxRuntime/1.23.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-K4tCbI9VP3Z6ecWnqsGNkkUcVL8GHdhImcwSTDIXkfLqRTPc4xXoBIykIgYqTK+iYKXtn7WJMchx48ImJe/M8g==",
+      "path": "microsoft.ml.onnxruntime/1.23.1",
+      "hashPath": "microsoft.ml.onnxruntime.1.23.1.nupkg.sha512"
+    },
+    "Microsoft.ML.OnnxRuntime.Managed/1.23.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-7lcdyCY6pkynuFMnO+iJtCBOvATA2kWAPWVB6DwrVpZJGacdW2mE5ragLChX5s5sFalyqJ2geo1UjRaV2w/gNg==",
+      "path": "microsoft.ml.onnxruntime.managed/1.23.1",
+      "hashPath": "microsoft.ml.onnxruntime.managed.1.23.1.nupkg.sha512"
     },
     "Microsoft.NETCore.Platforms/1.1.1": {
       "type": "package",
@@ -1317,6 +1442,13 @@
       "path": "system.linq/4.3.0",
       "hashPath": "system.linq.4.3.0.nupkg.sha512"
     },
+    "System.Memory/4.5.5": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-XIWiDvKPXaTveaB7HVganDlOCRoj03l+jrwNvcge/t8vhGYKvqV+dMv6G4SAX2NoNmN0wZfVPTAlFwZcZvVOUw==",
+      "path": "system.memory/4.5.5",
+      "hashPath": "system.memory.4.5.5.nupkg.sha512"
+    },
     "System.Net.Http/4.3.4": {
       "type": "package",
       "serviceable": true,
@@ -1330,6 +1462,13 @@
       "sha512": "sha512-qOu+hDwFwoZPbzPvwut2qATe3ygjeQBDQj91xlsaqGFQUI5i4ZnZb8yyQuLGpDGivEPIt8EJkd1BVzVoP31FXA==",
       "path": "system.net.primitives/4.3.0",
       "hashPath": "system.net.primitives.4.3.0.nupkg.sha512"
+    },
+    "System.Numerics.Tensors/9.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-hyJB4UlpAi19Xr9AXzu2NuagKC4lPfHObNMEAA0HmqFz2rX7wKgzeYzO/jM/eBHDhnUGFFEjk5cOoJaxqg5J4A==",
+      "path": "system.numerics.tensors/9.0.0",
+      "hashPath": "system.numerics.tensors.9.0.0.nupkg.sha512"
     },
     "System.Private.Uri/4.3.2": {
       "type": "package",
@@ -1512,6 +1651,27 @@
       "sha512": "sha512-DW2JhlBbt0W5W+cIP8Uevt5+7XnjPIsG9b5FyAdeB9taNk9w1WFw9W7TYSNaqgyEbEHHPNOXA6hl+yrmBwOfsQ==",
       "path": "whisper.net.runtime/1.8.1",
       "hashPath": "whisper.net.runtime.1.8.1.nupkg.sha512"
+    },
+    "Whisper.net.Runtime.Cuda.Windows/1.8.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-3ZeuzZw5EUyFf1579LxFtzUQb6/uPhNt+fmWOe9gKYNJnCN1XKHNt2NtMVzrN6WZWaqT35ut+gywG8Gz8rIlbQ==",
+      "path": "whisper.net.runtime.cuda.windows/1.8.1",
+      "hashPath": "whisper.net.runtime.cuda.windows.1.8.1.nupkg.sha512"
+    },
+    "Whisper.net.Runtime.OpenVino/1.8.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-CrewKf9Vv94crvBTQZZw7IDxZqdZC49IQfhC52IzKHPe2vxKDyubwUS2xhQeTIhLChSADa9wRG3OVuEWr7XqrA==",
+      "path": "whisper.net.runtime.openvino/1.8.1",
+      "hashPath": "whisper.net.runtime.openvino.1.8.1.nupkg.sha512"
+    },
+    "Whisper.net.Runtime.Vulkan/1.8.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-hZmqxZZ6foU3WVmrewuFguIrodMkfb/7uyitBBPrZipo55jK16t/xxKUsWMLETYgEgGVwkZ33YNu8i3+4Kbjpg==",
+      "path": "whisper.net.runtime.vulkan/1.8.1",
+      "hashPath": "whisper.net.runtime.vulkan.1.8.1.nupkg.sha512"
     },
     "WPF-UI/4.0.3": {
       "type": "package",
