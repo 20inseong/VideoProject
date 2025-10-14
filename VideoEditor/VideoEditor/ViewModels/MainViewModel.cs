@@ -769,6 +769,18 @@ namespace VideoEditor.ViewModels
             if (e.PropertyName == nameof(TimelineClipBase.StartPosition) || e.PropertyName == nameof(TimelineClipBase.Duration))
             {
                 UpdateTotalTimelineDuration();
+                // If StartPosition changes, and the clip is currently active,
+                // we need to re-sync players to ensure correct media loading/seeking.
+                if (sender is TimelineClipBase changedClip)
+                {
+                    // Check if the changed clip is currently active
+                    if (CurrentTimelinePosition >= changedClip.StartPosition &&
+                        CurrentTimelinePosition < (changedClip.StartPosition + changedClip.Duration))
+                    {
+                        // Force a re-sync to ensure player.Media is re-created with new StartPosition
+                        SyncPlayersToTimeline();
+                    }
+                }
             }
             else if (e.PropertyName == nameof(TimelineClipBase.Volume))
             {
@@ -783,6 +795,68 @@ namespace VideoEditor.ViewModels
                         using var newEqualizer = new Equalizer(_flatEqIndex);
                         newEqualizer.SetPreamp(preampDb);
                         player.SetEqualizer(newEqualizer);
+                    }
+                }
+            }
+            else if (e.PropertyName == nameof(TimelineClipBase.SpeedRatio))
+            {
+                if (sender is TimelineClipBase changedClip)
+                {
+                    // Check if the changed clip is the currently active clip and if timeline is playing
+                    if (IsTimelinePlaying && CurrentTimelinePosition >= changedClip.StartPosition &&
+                        CurrentTimelinePosition < (changedClip.StartPosition + changedClip.Duration))
+                    {
+                        MediaPlayer? player = null;
+                        if (changedClip is VideoClip || changedClip is ImageClip)
+                        {
+                            _activeVisualClipPlayers.TryGetValue(changedClip, out player);
+                        }
+                        else if (changedClip is AudioClip)
+                        {
+                            _activeAudioPlayers.TryGetValue(changedClip, out player);
+                        }
+
+                        if (player != null)
+                        {
+                            double timeInOriginalMediaMs = player.Time; // Time in original media (ms)
+                            double timeInOriginalMediaSec = timeInOriginalMediaMs / 1000.0;
+
+                            // Calculate the new time within the clip on the timeline
+                            double newTimeWithinClipSec = timeInOriginalMediaSec / changedClip.SpeedRatio;
+
+                            // Adjust CurrentTimelinePosition
+                            double newCurrentTimelinePosition = changedClip.StartPosition + newTimeWithinClipSec;
+
+                            // Ensure CurrentTimelinePosition doesn't go beyond the new clip duration
+                            double newClipEndTime = changedClip.StartPosition + changedClip.Duration;
+                            if (newCurrentTimelinePosition > newClipEndTime)
+                            {
+                                newCurrentTimelinePosition = newClipEndTime;
+                            }
+                            if (newCurrentTimelinePosition < changedClip.StartPosition)
+                            {
+                                newCurrentTimelinePosition = changedClip.StartPosition;
+                            }
+
+                            // Only update if there's a significant change to avoid unnecessary seeks
+                            if (Math.Abs(CurrentTimelinePosition - newCurrentTimelinePosition) > 0.01)
+                            {
+                                CurrentTimelinePosition = newCurrentTimelinePosition;
+                                SyncPlayersToTimeline(); // Re-sync players to the adjusted position
+                            }
+                        }
+                    }
+
+                    // Update total duration regardless, as other clips might be affected or the overall length changes
+                    UpdateTotalTimelineDuration();
+
+                    if (_activeVisualClipPlayers.TryGetValue(changedClip, out var visualPlayer))
+                    {
+                        visualPlayer.SetRate((float)changedClip.SpeedRatio);
+                    }
+                    if (_activeAudioPlayers.TryGetValue(changedClip, out var audioPlayer))
+                    {
+                        audioPlayer.SetRate((float)changedClip.SpeedRatio);
                     }
                 }
             }
@@ -918,7 +992,7 @@ namespace VideoEditor.ViewModels
                 if (activeDraggedClip != null)
                 {
                     double timeWithinClip = CurrentTimelinePosition - activeDraggedClip.StartPosition;
-                    long newTimeMs = (long)(timeWithinClip * 1000);
+                    long newTimeMs = (long)(timeWithinClip * activeDraggedClip.SpeedRatio * 1000);
 
                     if (_activeVisualClipPlayers.TryGetValue(activeDraggedClip, out var visualPlayer))
                     {
@@ -982,14 +1056,15 @@ namespace VideoEditor.ViewModels
             
                                 if (!string.IsNullOrEmpty(mediaPath))
                                 {
-                                    player.Media = PlayerViewModel.PrepareMedia(mediaPath, timeWithinClip, videoOnly: isVideo, audioOnly: false);
+                                    player.Media = PlayerViewModel.PrepareMedia(mediaPath, timeWithinClip * clip.SpeedRatio, videoOnly: isVideo, audioOnly: false);
+                                    player.SetRate((float)clip.SpeedRatio);
                                 }
                             }
             
                             // Always apply state (scrubbing, playing, paused)
                             if (IsScrubbing || VideoEditor.IsDraggingClip)
                             {
-                                player.Time = (long)(timeWithinClip * 1000);
+                                player.Time = (long)(timeWithinClip * clip.SpeedRatio * 1000);
                                 player.Play();
                                 player.SetPause(true);
                             }
@@ -1040,7 +1115,8 @@ namespace VideoEditor.ViewModels
                         equalizer.SetPreamp(ConvertVolumeToDb(combinedVolume));
                         player.SetEqualizer(equalizer);
 
-                        player.Media = PlayerViewModel.PrepareMedia(mediaPath, seekTimeInSource, videoOnly: false, audioOnly: true);
+                    player.Media = PlayerViewModel.PrepareMedia(mediaPath, sourceStartTime + (timeWithinClip * clip.SpeedRatio), videoOnly: false, audioOnly: true);
+                        player.SetRate((float)clip.SpeedRatio);
                     }
                 }
 
@@ -1049,13 +1125,13 @@ namespace VideoEditor.ViewModels
                 {
                     if (IsScrubbing || VideoEditor.IsDraggingClip)
                     {
-                        player.Time = (long)(seekTimeInSource * 1000);
+                        player.Time = (long)((sourceStartTime + (timeWithinClip * clip.SpeedRatio)) * 1000);
                         player.Play();
                         player.SetPause(true);
                     }
                     else if (IsTimelinePlaying && !player.IsPlaying)
                     {
-                        player.Time = (long)(seekTimeInSource * 1000);
+                        player.Time = (long)((sourceStartTime + (timeWithinClip * clip.SpeedRatio)) * 1000);
                         player.Play();
                     }
                     else if (!IsTimelinePlaying && player.IsPlaying)

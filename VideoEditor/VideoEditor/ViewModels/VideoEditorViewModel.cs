@@ -119,6 +119,24 @@ namespace VideoEditor.ViewModels
         public VideoEditorViewModel()
         {
             TimelineClips = new ObservableCollection<TimelineClipBase>();
+            TimelineClips.CollectionChanged += (s, e) =>
+            {
+                if (e.NewItems != null)
+                {
+                    foreach (TimelineClipBase newClip in e.NewItems)
+                    {
+                        newClip.PropertyChanged += OnClipPropertyChanged;
+                        newClip.UpdateWidth(PixelsPerSecond);
+                    }
+                }
+                if (e.OldItems != null)
+                {
+                    foreach (TimelineClipBase oldClip in e.OldItems)
+                    {
+                        oldClip.PropertyChanged -= OnClipPropertyChanged;
+                    }
+                }
+            };
             Core.Initialize();
             _libVLC = new LibVLC();
             _waveformService = new WaveformService();
@@ -677,6 +695,17 @@ namespace VideoEditor.ViewModels
             }
 
             return Math.Max(0, newStartPosition);
+        }
+
+        private void OnClipPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(TimelineClipBase.Duration))
+            {
+                if (sender is TimelineClipBase clip)
+                {
+                    clip.UpdateWidth(PixelsPerSecond);
+                }
+            }
         }
 
         public void Dispose()

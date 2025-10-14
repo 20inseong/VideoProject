@@ -9,6 +9,8 @@ namespace VideoEditor.Models
         private string _name = string.Empty;
         private double _startPosition;
         private double _duration;
+        private double _originalDuration;
+        private double _speedRatio = 1.0;
         private double _width;
         private int _trackIndex;
         private bool _isSelected;
@@ -18,7 +20,32 @@ namespace VideoEditor.Models
 
         public string Name { get => _name; set => SetProperty(ref _name, value); }
         public double StartPosition { get => _startPosition; set => SetProperty(ref _startPosition, value); }
-        public double Duration { get => _duration; set => SetProperty(ref _duration, value); }
+        public double Duration
+        {
+            get => _duration;
+            set
+            {
+                if (SetProperty(ref _duration, value))
+                {
+                    // If Duration is set directly, assume it's the original duration at 1x speed.
+                    SetProperty(ref _originalDuration, value, nameof(OriginalDuration));
+                }
+            }
+        }
+        public double OriginalDuration { get => _originalDuration; private set => SetProperty(ref _originalDuration, value); }
+        public double SpeedRatio
+        {
+            get => _speedRatio;
+            set
+            {
+                double clampedValue = Math.Max(0.1, Math.Min(value, 32.0));
+                if (SetProperty(ref _speedRatio, clampedValue))
+                {
+                    // Recalculate the timeline duration when speed changes.
+                    SetProperty(ref _duration, OriginalDuration / _speedRatio, nameof(Duration));
+                }
+            }
+        }
         public double Width { get => _width; set => SetProperty(ref _width, value); }
         public int TrackIndex { get => _trackIndex; set => SetProperty(ref _trackIndex, value); }
         public bool IsSelected { get => _isSelected; set => SetProperty(ref _isSelected, value); }
