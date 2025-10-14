@@ -545,13 +545,13 @@ namespace VideoEditor.ViewModels
         {
             try
             {
-                // 1. 이미지 파일을 로드하여 BitmapImage 객체를 생성합니다.
+                //  이미지 파일을 로드하여 BitmapImage 객체 생성
                 var thumbnail = new BitmapImage();
                 thumbnail.BeginInit();
                 thumbnail.UriSource = new Uri(image.FullPath);
                 thumbnail.CacheOption = BitmapCacheOption.OnLoad;
-                thumbnail.EndInit(); // 이 시점에 이미지 로드가 완료되고, 크기 정보를 알 수 있습니다.
-                thumbnail.Freeze(); // 다른 스레드에서 접근할 수 있도록 동결합니다.
+                thumbnail.EndInit(); // 이미지 로드가 완료 및 정보확인 가능
+                thumbnail.Freeze(); // 다른 스레드에서 접근할 수 있도록 프리즈
 
                 const double defaultDuration = 5.0; // 이미지 클립의 기본 길이
 
@@ -564,7 +564,7 @@ namespace VideoEditor.ViewModels
                     TrackIndex = track,
                     Duration = defaultDuration,
 
-                    // ✨ [핵심] 로드된 BitmapImage에서 직접 픽셀 너비와 높이를 읽어와 저장합니다.
+                    // 로드된 BitmapImage에서 직접 픽셀 너비와 높이를 읽어와 저장.
                     SourceWidth = thumbnail.PixelWidth,
                     SourceHeight = thumbnail.PixelHeight,
                 };

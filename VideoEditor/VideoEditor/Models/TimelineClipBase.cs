@@ -27,7 +27,7 @@ namespace VideoEditor.Models
             {
                 if (SetProperty(ref _duration, value))
                 {
-                    // If Duration is set directly, assume it's the original duration at 1x speed.
+                        // Duration이 직접 설정된 경우, 1x 속도에서의 원래 지속 시간
                     SetProperty(ref _originalDuration, value, nameof(OriginalDuration));
                 }
             }
@@ -41,7 +41,7 @@ namespace VideoEditor.Models
                 double clampedValue = Math.Max(0.1, Math.Min(value, 32.0));
                 if (SetProperty(ref _speedRatio, clampedValue))
                 {
-                    // Recalculate the timeline duration when speed changes.
+                            // 속도 변경 시 타임라인 지속 시간을 재계산
                     SetProperty(ref _duration, OriginalDuration / _speedRatio, nameof(Duration));
                 }
             }

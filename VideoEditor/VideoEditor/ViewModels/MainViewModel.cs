@@ -177,7 +177,6 @@ namespace VideoEditor.ViewModels
             var modelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "ggml-large-v3-turbo-q5_0.bin");
             _speechToTextService = new SpeechToTextService(modelPath);
 
-            // Find the index for the "Flat" equalizer preset.
             uint flatPresetIndex = 0;
             using (var eq = new Equalizer())
             {
@@ -294,8 +293,8 @@ namespace VideoEditor.ViewModels
 
             _transcriptionProgressWindow.Show();
 
-            selectedClip.IsTranscribing = true; // Set IsTranscribing on the clip
-            IsTranscribing = true; // Global IsTranscribing for overlay
+            selectedClip.IsTranscribing = true; 
+            IsTranscribing = true; 
             StatusMessage = "클립 음성 텍스트 변환 중...";
             OnPropertyChanged(nameof(StatusMessage));
 
@@ -322,8 +321,8 @@ namespace VideoEditor.ViewModels
                     {
                         targetTranscription.Add(segment);
                     }
-                    selectedClip.IsTranscribed = true; // Set IsTranscribed on success
-                    selectedClip.ShowTranscription = true; // Show transcription immediately
+                    selectedClip.IsTranscribed = true; 
+                    selectedClip.ShowTranscription = true; 
                 }
                 StatusMessage = "클립 음성 텍스트 변환 완료.";
             }
@@ -331,15 +330,15 @@ namespace VideoEditor.ViewModels
             {
                 StatusMessage = "클립 음성 텍스트 변환 실패.";
                 MessageBox.Show($"클립 음성 텍스트 변환 중 오류가 발생했습니다: {ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
-                selectedClip.IsTranscribed = false; // Ensure it's false on error
+                selectedClip.IsTranscribed = false; 
             }
             finally
             {
-                selectedClip.IsTranscribing = false; // Always set to false in finally
+                selectedClip.IsTranscribing = false; 
                 IsTranscribing = false;
                 TranscriptionProgress = 0;
                 OnPropertyChanged(nameof(StatusMessage));
-                OnPropertyChanged(nameof(VideoEditor)); // Force UI update for VideoEditor and its properties
+                OnPropertyChanged(nameof(VideoEditor)); 
 
                 if (_mainWindow != null)
                 {
@@ -769,15 +768,15 @@ namespace VideoEditor.ViewModels
             if (e.PropertyName == nameof(TimelineClipBase.StartPosition) || e.PropertyName == nameof(TimelineClipBase.Duration))
             {
                 UpdateTotalTimelineDuration();
-                // If StartPosition changes, and the clip is currently active,
-                // we need to re-sync players to ensure correct media loading/seeking.
+                    // StartPosition이 변경되고, 클립이 현재 활성 상태인 경우,
+                    // 올바른 미디어 로딩/탐색을 보장하기 위해 플레이어를 다시 동기화해야함.
                 if (sender is TimelineClipBase changedClip)
                 {
-                    // Check if the changed clip is currently active
+                        // 변경된 클립이 현재 활성 상태인지 확인.
                     if (CurrentTimelinePosition >= changedClip.StartPosition &&
                         CurrentTimelinePosition < (changedClip.StartPosition + changedClip.Duration))
                     {
-                        // Force a re-sync to ensure player.Media is re-created with new StartPosition
+                                // player.Media가 새 StartPosition으로 재생성되도록 보장하기 위해 강제 재동기화
                         SyncPlayersToTimeline();
                     }
                 }
@@ -802,7 +801,7 @@ namespace VideoEditor.ViewModels
             {
                 if (sender is TimelineClipBase changedClip)
                 {
-                    // Check if the changed clip is the currently active clip and if timeline is playing
+                    // 변경된 클립이 현재 활성 클립인지와 타임라인이 재생 중인지 확인
                     if (IsTimelinePlaying && CurrentTimelinePosition >= changedClip.StartPosition &&
                         CurrentTimelinePosition < (changedClip.StartPosition + changedClip.Duration))
                     {
@@ -818,16 +817,15 @@ namespace VideoEditor.ViewModels
 
                         if (player != null)
                         {
-                            double timeInOriginalMediaMs = player.Time; // Time in original media (ms)
+                            double timeInOriginalMediaMs = player.Time; // original media 시간(ms)
                             double timeInOriginalMediaSec = timeInOriginalMediaMs / 1000.0;
 
-                            // Calculate the new time within the clip on the timeline
+                                        // 타임라인에서 클립 내의 새로운 시간을 계산
                             double newTimeWithinClipSec = timeInOriginalMediaSec / changedClip.SpeedRatio;
 
-                            // Adjust CurrentTimelinePosition
                             double newCurrentTimelinePosition = changedClip.StartPosition + newTimeWithinClipSec;
 
-                            // Ensure CurrentTimelinePosition doesn't go beyond the new clip duration
+                                        // CurrentTimelinePosition이 새 클립 지속 시간을 초과하지 않도록 보장
                             double newClipEndTime = changedClip.StartPosition + changedClip.Duration;
                             if (newCurrentTimelinePosition > newClipEndTime)
                             {
@@ -838,16 +836,16 @@ namespace VideoEditor.ViewModels
                                 newCurrentTimelinePosition = changedClip.StartPosition;
                             }
 
-                            // Only update if there's a significant change to avoid unnecessary seeks
+                                        // 쓰로틀링: 너무 작은 변화는 무시
                             if (Math.Abs(CurrentTimelinePosition - newCurrentTimelinePosition) > 0.01)
                             {
                                 CurrentTimelinePosition = newCurrentTimelinePosition;
-                                SyncPlayersToTimeline(); // Re-sync players to the adjusted position
+                                SyncPlayersToTimeline(); // 조정된 위치로 플레이어를 재동기화
                             }
                         }
                     }
 
-                    // Update total duration regardless, as other clips might be affected or the overall length changes
+                    // 다른 클립에 영향을 줄 수 있거나 전체 길이가 변경될 수 있으므로 무조건 전체 지속 시간을 업데이트
                     UpdateTotalTimelineDuration();
 
                     if (_activeVisualClipPlayers.TryGetValue(changedClip, out var visualPlayer))
@@ -896,7 +894,7 @@ namespace VideoEditor.ViewModels
             {
                 IsTimelinePlaying = true;
                 _timelineTimer.Start();
-                _wasPlayingBeforeInteraction = false; // Reset the flag
+                _wasPlayingBeforeInteraction = false; 
             }
         }
 
@@ -921,8 +919,8 @@ namespace VideoEditor.ViewModels
             }
             else
             {
-                IsTimelinePlaying = true; // Set the desired state
-                SeekTimeline(CurrentTimelinePosition); // Re-sync and start playback
+                IsTimelinePlaying = true; 
+                SeekTimeline(CurrentTimelinePosition); 
             }
         }
 
@@ -945,13 +943,13 @@ namespace VideoEditor.ViewModels
 
             bool wasPlaying = IsTimelinePlaying;
 
-            // 스크러빙 중이 아닐 때만 플레이어를 완전히 멈추고 재설정합니다.
+            // 스크러빙 중이 아닐 때만 플레이어를 완전히 멈추고 재설정.
             if (!isScrubbing)
             {
                 if (wasPlaying)
                 {
                     _timelineTimer.Stop();
-                    IsTimelinePlaying = false; // Temporarily set to false
+                    IsTimelinePlaying = false; 
                 }
 
                 PlayerViewModel.Stop();
@@ -963,7 +961,7 @@ namespace VideoEditor.ViewModels
 
             if (wasPlaying && !isScrubbing)
             {
-                IsTimelinePlaying = true; // Set back to true before syncing
+                IsTimelinePlaying = true; // 동기화 전에 true로 되돌리기
             }
 
             SyncPlayersToTimeline();
@@ -984,7 +982,7 @@ namespace VideoEditor.ViewModels
                 .Where(c => c.StartPosition <= CurrentTimelinePosition && (c.StartPosition + c.Duration) > CurrentTimelinePosition)
                 .ToList();
 
-            // Handle live seeking of a dragged clip during playback
+                    // 재생 중 드래그된 클립의 실시간 탐색 처리
             var draggedClip = this.VideoEditor.DraggedClip;
             if (draggedClip != null && IsTimelinePlaying)
             {
@@ -1012,8 +1010,8 @@ namespace VideoEditor.ViewModels
             }
 
                         var activeVisualClips = activeClips.OfType<VideoClip>().Concat<TimelineClipBase>(activeClips.OfType<ImageClip>()).ToList();
-            
-                        // 1. Determine which players should be active.
+
+                                    //  어떤 플레이어가 활성화되어야 하는지 결정
                         var playersToKeepActive = new HashSet<MediaPlayer>();
                         foreach (var clip in activeVisualClips)
                         {
@@ -1022,8 +1020,8 @@ namespace VideoEditor.ViewModels
                                 playersToKeepActive.Add(PlayerViewModel.VideoPlayers[clip.TrackIndex]);
                             }
                         }
-            
-                        // 2. Deactivate any players that are no longer needed.
+
+                                    // 더 이상 필요하지 않은 플레이어 비활성화
                         foreach (var player in PlayerViewModel.VideoPlayers)
                         {
                             if (!playersToKeepActive.Contains(player) && player.Media != null)
@@ -1033,21 +1031,21 @@ namespace VideoEditor.ViewModels
                                 player.Media = null;
                             }
                         }
-            
-                        // 3. Deactivate clips in the dictionary that are no longer active.
+
+                                    // 더 이상 활성 상태가 아닌 딕셔너리의 클립 비활성화
                         var clipsToDeactivate = _activeVisualClipPlayers.Keys.Except(activeVisualClips).ToList();
                         foreach (var clip in clipsToDeactivate)
                         {
                             _activeVisualClipPlayers.Remove(clip);
                         }
-            
-                        // 4. Activate or update players for currently active clips.
+
+                                    // 현재 활성 클립에 대한 플레이어 활성화 또는 업데이트
                         foreach (var clip in activeVisualClips)
                         {
                             var player = PlayerViewModel.VideoPlayers[clip.TrackIndex];
                             double timeWithinClip = CurrentTimelinePosition - clip.StartPosition;
-            
-                            // If clip is new or has moved to this player, set up the media.
+
+                                        // 클립이 새롭거나 이 플레이어로 이동한 경우, 미디어 설정
                             if (!_activeVisualClipPlayers.ContainsKey(clip) || _activeVisualClipPlayers[clip] != player)
                             {
                                 _activeVisualClipPlayers[clip] = player;
@@ -1061,7 +1059,6 @@ namespace VideoEditor.ViewModels
                                 }
                             }
             
-                            // Always apply state (scrubbing, playing, paused)
                             if (IsScrubbing || VideoEditor.IsDraggingClip)
                             {
                                 player.Time = (long)(timeWithinClip * clip.SpeedRatio * 1000);
@@ -1080,7 +1077,7 @@ namespace VideoEditor.ViewModels
             
             var activeAudioSourceClips = activeClips.Where(c => c is VideoClip || c is AudioClip).ToList();
 
-            // Deactivate audio players for clips that are no longer active.
+                   // 더 이상 활성 상태가 아닌 클립의 오디오 플레이어 비활성화.
             var audioClipsToDeactivate = _activeAudioPlayers.Keys.Except(activeAudioSourceClips).ToList();
             foreach (var clip in audioClipsToDeactivate)
             {
@@ -1092,7 +1089,7 @@ namespace VideoEditor.ViewModels
                 }
             }
 
-            // Activate or update audio players.
+                    // 오디오 플레이어 활성화 또는 업데이트
             foreach (var clip in activeAudioSourceClips)
             {
                 MediaPlayer? player;
@@ -1102,7 +1099,6 @@ namespace VideoEditor.ViewModels
 
                 if (!_activeAudioPlayers.TryGetValue(clip, out player))
                 {
-                    // This is a new active audio clip, find a player for it.
                     player = PlayerViewModel.GetAvailableAudioPlayer();
                     if (player == null) { Debug.WriteLine("[WARNING] No available audio player."); continue; }
                     _activeAudioPlayers.Add(clip, player);
@@ -1120,7 +1116,6 @@ namespace VideoEditor.ViewModels
                     }
                 }
 
-                // Always apply state
                 if (player != null)
                 {
                     if (IsScrubbing || VideoEditor.IsDraggingClip)
@@ -1149,13 +1144,12 @@ namespace VideoEditor.ViewModels
 
         private float ConvertVolumeToDb(int volume)
         {
-            if (volume <= 0) return -20.0f; // Mute
-            if (volume >= 100) return 0.0f; // Full volume (no gain)
+            if (volume <= 0) return -20.0f; 
+            if (volume >= 100) return 0.0f; 
 
             double linearValue = volume / 100.0;
             float db = (float)(20 * Math.Log10(linearValue));
 
-            // Clamp the value to the typical LibVLC range
             return Math.Max(-20.0f, db);
         }
 
@@ -1163,7 +1157,7 @@ namespace VideoEditor.ViewModels
         {
             if (VideoEditor.CurrentlyPlayingClip != null)
             {
-                Debug.WriteLine($"'{VideoEditor.CurrentlyPlayingClip.Name}' 클립 재생 완료. 마스터 루프가 계속 진행합니다.");
+                Debug.WriteLine($"'{VideoEditor.CurrentlyPlayingClip.Name}' 클립 재생 완료. 마스터 루프가 계속 진행");
             }
         }
 

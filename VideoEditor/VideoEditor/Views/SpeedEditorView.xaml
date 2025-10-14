@@ -11,7 +11,7 @@
         <StackPanel Orientation="Horizontal" Margin="0,5,0,5">
             <TextBlock Text="배속:" Foreground="White" VerticalAlignment="Center" Width="80" />
             <TextBox Width="70" Text="{Binding PlaybackRate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" GotFocus="TextBox_GotFocus" PreviewMouseLeftButtonDown="TextBox_PreviewMouseLeftButtonDown"/>
-            <!-- 적용 버튼은 TextBox의 UpdateSourceTrigger로 인해 불필요해졌습니다. -->
+            <!-- 적용 버튼은 TextBox의 UpdateSourceTrigger로 인해 불필요 -->
         </StackPanel>
         <TextBlock Text="프리셋:" Foreground="White" Margin="0,10,0,5" />
         <UniformGrid Columns="3" Rows="3">

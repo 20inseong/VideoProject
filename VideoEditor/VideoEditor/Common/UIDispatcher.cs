@@ -10,7 +10,7 @@ namespace VideoEditor.Common
         // 앱 시작 시 딱 한 번만 호출될 초기화 메서드
         public static void Initialize()
         {
-            // 현재(UI) 스레드의 Dispatcher를 저장합니다.
+            // 현재(UI) 스레드의 Dispatcher를 저장
             _dispatcher = Dispatcher.CurrentDispatcher;
         }
 
