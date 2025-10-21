@@ -37,7 +37,7 @@ namespace VideoEditor.Common
                     .WithProgressHandler(p => progress.Report(p))
                     .Build();
 
-                // Retry logic for opening the file
+                        // 파일 불러오기 재시도 
                 FileStream? fileStream = null;
                 const int maxRetries = 5;
                 const int delayOnRetry = 300; // milliseconds
@@ -46,19 +46,19 @@ namespace VideoEditor.Common
                     try
                     {
                         fileStream = new FileStream(audioPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                        break; // Success
+                        break; 
                     }
                     catch (IOException ex)
                     {
                         Debug.WriteLine($"Attempt {i + 1} to open {audioPath} failed: {ex.Message}");
-                        if (i == maxRetries - 1) throw; // Last attempt, re-throw the exception. 
+                        if (i == maxRetries - 1) throw; 
                         await Task.Delay(delayOnRetry);
                     }
                 }
                 
                 if (fileStream == null) throw new InvalidOperationException("Could not open file stream.");
 
-                using (fileStream) // Ensure stream is disposed after processing
+                using (fileStream) 
                 {
                                     await foreach (var result in processor.ProcessAsync(fileStream))
                                     {
@@ -73,7 +73,6 @@ namespace VideoEditor.Common
             }
             finally
             {
-                // The file should be deleted after we're done.
                 if (File.Exists(audioPath))
                 {
                     try

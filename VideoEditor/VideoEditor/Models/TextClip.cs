@@ -14,10 +14,12 @@ namespace VideoEditor.Models
             get => _text;
             set => SetProperty(ref _text, value);
         }
+
         public override (int Width, int Height) GetContentDimensions()
         {
             return (0, 0);
         }
+
         public override TimelineClipBase Clone()
         {
             var newClip = new TextClip
@@ -28,10 +30,7 @@ namespace VideoEditor.Models
                 Duration = this.Duration,
                 Width = this.Width,
                 TrackIndex = this.TrackIndex,
-                IsSelected = false,
-                PositionX = this.PositionX,
-                PositionY = this.PositionY,
-                Scale = this.Scale,
+                IsSelected = false
             };
             return newClip;
         }

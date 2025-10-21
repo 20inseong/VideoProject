@@ -8,10 +8,12 @@ namespace VideoEditor.Models
         public BitmapImage? Thumbnail { get; set; }
         public int SourceWidth { get; set; }
         public int SourceHeight { get; set; }
+
         public override (int Width, int Height) GetContentDimensions()
         {
             return (SourceWidth, SourceHeight);
         }
+
         public override TimelineClipBase Clone()
         {
             var newClip = new ImageClip
@@ -25,10 +27,7 @@ namespace VideoEditor.Models
                 TrackIndex = this.TrackIndex,
                 IsSelected = false,
                 SourceWidth = this.SourceWidth,
-                SourceHeight = this.SourceHeight,
-                PositionX = this.PositionX,
-                PositionY = this.PositionY,
-                Scale = this.Scale,
+                SourceHeight = this.SourceHeight
             };
             return newClip;
         }

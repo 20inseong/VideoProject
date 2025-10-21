@@ -71,6 +71,10 @@
               "target": "Package",
               "version": "[3.9.4, )"
             },
+            "Microsoft.ML.OnnxRuntime": {
+              "target": "Package",
+              "version": "[1.23.1, )"
+            },
             "Microsoft.Xaml.Behaviors.Wpf": {
               "target": "Package",
               "version": "[1.1.135, )"
@@ -88,6 +92,18 @@
               "version": "[1.8.1, )"
             },
             "Whisper.net.Runtime": {
+              "target": "Package",
+              "version": "[1.8.1, )"
+            },
+            "Whisper.net.Runtime.Cuda.Windows": {
+              "target": "Package",
+              "version": "[1.8.1, )"
+            },
+            "Whisper.net.Runtime.OpenVino": {
+              "target": "Package",
+              "version": "[1.8.1, )"
+            },
+            "Whisper.net.Runtime.Vulkan": {
               "target": "Package",
               "version": "[1.8.1, )"
             }

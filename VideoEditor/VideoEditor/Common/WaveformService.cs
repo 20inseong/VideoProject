@@ -45,7 +45,7 @@ namespace VideoEditor.Common
                         if (sample > max) max = sample;
                     }
 
-                    // Normalize to [-1.0, 1.0]
+                    //  [-1.0, 1.0]로 정규화 
                     waveformData.Add(new Point(min / 32768.0, max / 32768.0));
                 }
             }

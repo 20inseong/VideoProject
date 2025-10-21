@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "46N8MFKYQU4=",
+  "dgSpecHash": "Lt5R4h9DfXA=",
   "success": true,
   "projectFilePath": "C:\\Users\\94320\\source\\repos\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
   "expectedPackageFiles": [
@@ -13,6 +13,8 @@
     "C:\\Users\\94320\\.nuget\\packages\\emgu.runtime.windows.msvc.rt.x86\\19.44.35207.1\\emgu.runtime.windows.msvc.rt.x86.19.44.35207.1.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\libvlcsharp\\3.9.4\\libvlcsharp.3.9.4.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\libvlcsharp.wpf\\3.9.4\\libvlcsharp.wpf.3.9.4.nupkg.sha512",
+    "C:\\Users\\94320\\.nuget\\packages\\microsoft.ml.onnxruntime\\1.23.1\\microsoft.ml.onnxruntime.1.23.1.nupkg.sha512",
+    "C:\\Users\\94320\\.nuget\\packages\\microsoft.ml.onnxruntime.managed\\1.23.1\\microsoft.ml.onnxruntime.managed.1.23.1.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\microsoft.netcore.platforms\\1.1.1\\microsoft.netcore.platforms.1.1.1.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\microsoft.netcore.targets\\1.1.3\\microsoft.netcore.targets.1.1.3.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\microsoft.win32.systemevents\\9.0.0\\microsoft.win32.systemevents.9.0.0.nupkg.sha512",
@@ -46,8 +48,10 @@
     "C:\\Users\\94320\\.nuget\\packages\\system.io.filesystem\\4.3.0\\system.io.filesystem.4.3.0.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\system.io.filesystem.primitives\\4.3.0\\system.io.filesystem.primitives.4.3.0.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\system.linq\\4.3.0\\system.linq.4.3.0.nupkg.sha512",
+    "C:\\Users\\94320\\.nuget\\packages\\system.memory\\4.5.5\\system.memory.4.5.5.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\system.net.http\\4.3.4\\system.net.http.4.3.4.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\system.net.primitives\\4.3.0\\system.net.primitives.4.3.0.nupkg.sha512",
+    "C:\\Users\\94320\\.nuget\\packages\\system.numerics.tensors\\9.0.0\\system.numerics.tensors.9.0.0.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\system.private.uri\\4.3.2\\system.private.uri.4.3.2.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\system.reflection\\4.3.0\\system.reflection.4.3.0.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\system.reflection.extensions\\4.3.0\\system.reflection.extensions.4.3.0.nupkg.sha512",
@@ -74,6 +78,9 @@
     "C:\\Users\\94320\\.nuget\\packages\\videolan.libvlc.windows\\3.0.21\\videolan.libvlc.windows.3.0.21.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\whisper.net\\1.8.1\\whisper.net.1.8.1.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\whisper.net.runtime\\1.8.1\\whisper.net.runtime.1.8.1.nupkg.sha512",
+    "C:\\Users\\94320\\.nuget\\packages\\whisper.net.runtime.cuda.windows\\1.8.1\\whisper.net.runtime.cuda.windows.1.8.1.nupkg.sha512",
+    "C:\\Users\\94320\\.nuget\\packages\\whisper.net.runtime.openvino\\1.8.1\\whisper.net.runtime.openvino.1.8.1.nupkg.sha512",
+    "C:\\Users\\94320\\.nuget\\packages\\whisper.net.runtime.vulkan\\1.8.1\\whisper.net.runtime.vulkan.1.8.1.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\wpf-ui\\4.0.3\\wpf-ui.4.0.3.nupkg.sha512",
     "C:\\Users\\94320\\.nuget\\packages\\wpf-ui.abstractions\\4.0.3\\wpf-ui.abstractions.4.0.3.nupkg.sha512"
   ],

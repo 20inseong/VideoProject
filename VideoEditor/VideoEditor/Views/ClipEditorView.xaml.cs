@@ -21,5 +21,22 @@ namespace VideoEditor.Views
         {
             InitializeComponent();
         }
+
+        private void TextBox_GotFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is TextBox textBox)
+            {
+                textBox.SelectAll();
+            }
+        }
+
+        private void TextBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is TextBox textBox && !textBox.IsKeyboardFocusWithin)
+            {
+                textBox.Focus();
+                e.Handled = true;
+            }
+        }
     }
 }

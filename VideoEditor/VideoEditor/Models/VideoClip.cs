@@ -41,6 +41,7 @@ namespace VideoEditor.Models
             this.SourceHeight = original.SourceHeight;
             this.Volume = original.Volume;
         }
+
         public override (int Width, int Height) GetContentDimensions()
         {
             return (SourceWidth, SourceHeight);
@@ -50,10 +51,7 @@ namespace VideoEditor.Models
         {
             return new VideoClip(this)
             {
-                Name = this.Name + " (복사본)",
-                PositionX = this.PositionX,
-                PositionY = this.PositionY,
-                Scale = this.Scale,
+                Name = this.Name + " (복사본)"
             };
         }
     }

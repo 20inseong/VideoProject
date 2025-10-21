@@ -14,6 +14,7 @@ using Microsoft.Win32;
 using VideoEditor.Common;
 using VideoEditor.Models;
 using VideoEditor.ViewModels;
+using System.Diagnostics;
 
 namespace VideoEditor
 {
@@ -25,6 +26,9 @@ namespace VideoEditor
         private Point _dragStartPoint;
         private Line _playheadLine;
         private double _currentTimelineDurationSec = 300;
+        private DateTime _lastDragUpdateTime = DateTime.MinValue;
+        private const int DRAG_UPDATE_THROTTLE_MS = 50; // 50ms 간격으로 업데이트
+
 
         public MainWindow()
         {
@@ -49,6 +53,7 @@ namespace VideoEditor
                 RulerScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset);
             };
 
+            TimelineRulerCanvas.PreviewMouseLeftButtonDown += TimelineRulerCanvas_PreviewMouseLeftButtonDown;
             TimelineCanvas.PreviewMouseMove += TimelineCanvas_PreviewMouseMove;
             TimelineCanvas.PreviewMouseLeftButtonUp += TimelineCanvas_PreviewMouseLeftButtonUp;
 
@@ -215,11 +220,31 @@ namespace VideoEditor
             }
         }
 
-        private void Timeline_DragOver(object sender, DragEventArgs e) 
+        private void Timeline_DragOver(object sender, DragEventArgs e)
         {
-            if (e.Data.GetDataPresent("TimelineClip"))
+            if (e.Data.GetDataPresent("TimelineClips"))
             {
                 e.Effects = DragDropEffects.Move;
+
+                var vm = DataContext as MainViewModel;
+                if (vm == null || !vm.VideoEditor.DraggedClipsOriginalState.Any()) return;
+
+                Point position = e.GetPosition(TimelineCanvas);
+
+                double deltaX = position.X - vm.VideoEditor.DragStartPoint.X;
+                double deltaTime = deltaX / vm.VideoEditor.PixelsPerSecond;
+                int deltaTrack = (int)Math.Round((position.Y - vm.VideoEditor.DragStartPoint.Y) / 60.0);
+
+                foreach (var clip in vm.VideoEditor.DraggedClipsOriginalState.Keys)
+                {
+                    var originalState = vm.VideoEditor.DraggedClipsOriginalState[clip];
+
+                    double newStartPosition = originalState.OriginalStart + deltaTime;
+                    int newTrackIndex = Math.Clamp(originalState.OriginalTrack + deltaTrack, 0, 4);
+
+                    clip.StartPosition = Math.Max(0, newStartPosition);
+                    clip.TrackIndex = newTrackIndex;
+                }
             }
             else if (e.Data.GetDataPresent("Myvideo"))
             {
@@ -382,11 +407,32 @@ namespace VideoEditor
                 Point position = e.GetPosition(canvas);
                 double clickedTimeSec = position.X / _mainViewModel.VideoEditor.PixelsPerSecond;
 
-                _mainViewModel.SeekTimeline(clickedTimeSec);
+                _mainViewModel.SeekTimeline(clickedTimeSec, isScrubbing: false);
 
                 _playheadLine.X1 = position.X;
                 _playheadLine.X2 = position.X;
             }
+        }
+
+        private void TimelineRulerCanvas_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _mainViewModel.StopPlayback(); // 재생 중이었다면 멈추고 상태 저장
+            _mainViewModel.IsScrubbing = true;
+            (sender as UIElement)?.CaptureMouse();
+            UpdatePlayheadFromMouseEvent(e);
+            e.Handled = true;
+        }
+
+        private void UpdatePlayheadFromMouseEvent(MouseEventArgs e)
+        {
+            if ((DateTime.Now - _lastDragUpdateTime).TotalMilliseconds < DRAG_UPDATE_THROTTLE_MS)
+            {
+                return;
+            }
+            _lastDragUpdateTime = DateTime.Now;
+            Point position = e.GetPosition(TimelineRulerCanvas);
+            double clickedTimeSec = position.X / _mainViewModel.VideoEditor.PixelsPerSecond;
+            _mainViewModel.SeekTimeline(clickedTimeSec, isScrubbing: true);
         }
 
         private void ResizeHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -394,17 +440,21 @@ namespace VideoEditor
             var handle = sender as FrameworkElement;
             var clip = handle?.DataContext as TimelineClipBase;
             if (handle == null || clip == null) return;
-
             TimelineCanvas.CaptureMouse();
-
             _mainViewModel.VideoEditor.StartClipResize(clip, e.GetPosition(TimelineCanvas));
-
             e.Handled = true;
         }
 
+        
+
         private void TimelineCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
         {
-            if (_mainViewModel.VideoEditor.IsResizing)
+            if (_mainViewModel.IsScrubbing)
+            {
+                UpdatePlayheadFromMouseEvent(e);
+            }
+
+            else if (_mainViewModel.VideoEditor.IsResizing)
             {
                 _mainViewModel.VideoEditor.UpdateClipResize(e.GetPosition(TimelineCanvas));
             }
@@ -412,12 +462,18 @@ namespace VideoEditor
 
         private void TimelineCanvas_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            if (_mainViewModel.VideoEditor.IsResizing)
+            if (_mainViewModel.IsScrubbing)
             {
-                _mainViewModel.VideoEditor.EndClipResize();
-
+                _mainViewModel.IsScrubbing = false;
                 (sender as UIElement)?.ReleaseMouseCapture();
+                _mainViewModel.ResumePlaybackIfNeeded(); // 재생 재개
+                e.Handled = true;
+            }
 
+            else if (_mainViewModel.VideoEditor.IsResizing)
+            {
+                _mainViewModel.VideoEditor.EndClipResize();   
+                (sender as UIElement)?.ReleaseMouseCapture();       
                 e.Handled = true;
             }
         }

@@ -1,9 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
 <Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ImportGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
+    <Import Project="$(NuGetPackageRoot)whisper.net.runtime.vulkan\1.8.1\build\Whisper.net.Runtime.Vulkan.targets" Condition="Exists('$(NuGetPackageRoot)whisper.net.runtime.vulkan\1.8.1\build\Whisper.net.Runtime.Vulkan.targets')" />
+    <Import Project="$(NuGetPackageRoot)whisper.net.runtime.openvino\1.8.1\build\Whisper.net.Runtime.OpenVino.targets" Condition="Exists('$(NuGetPackageRoot)whisper.net.runtime.openvino\1.8.1\build\Whisper.net.Runtime.OpenVino.targets')" />
+    <Import Project="$(NuGetPackageRoot)whisper.net.runtime.cuda.windows\1.8.1\build\Whisper.net.Runtime.Cuda.Windows.targets" Condition="Exists('$(NuGetPackageRoot)whisper.net.runtime.cuda.windows\1.8.1\build\Whisper.net.Runtime.Cuda.Windows.targets')" />
     <Import Project="$(NuGetPackageRoot)whisper.net.runtime\1.8.1\build\Whisper.net.Runtime.targets" Condition="Exists('$(NuGetPackageRoot)whisper.net.runtime\1.8.1\build\Whisper.net.Runtime.targets')" />
     <Import Project="$(NuGetPackageRoot)videolan.libvlc.windows\3.0.21\build\VideoLAN.LibVLC.Windows.targets" Condition="Exists('$(NuGetPackageRoot)videolan.libvlc.windows\3.0.21\build\VideoLAN.LibVLC.Windows.targets')" />
     <Import Project="$(NuGetPackageRoot)system.text.json\9.0.0\buildTransitive\net8.0\System.Text.Json.targets" Condition="Exists('$(NuGetPackageRoot)system.text.json\9.0.0\buildTransitive\net8.0\System.Text.Json.targets')" />
+    <Import Project="$(NuGetPackageRoot)microsoft.ml.onnxruntime.managed\1.23.1\build\netstandard2.0\Microsoft.ML.OnnxRuntime.Managed.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.ml.onnxruntime.managed\1.23.1\build\netstandard2.0\Microsoft.ML.OnnxRuntime.Managed.targets')" />
+    <Import Project="$(NuGetPackageRoot)microsoft.ml.onnxruntime\1.23.1\build\netstandard2.1\Microsoft.ML.OnnxRuntime.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.ml.onnxruntime\1.23.1\build\netstandard2.1\Microsoft.ML.OnnxRuntime.targets')" />
     <Import Project="$(NuGetPackageRoot)communitytoolkit.mvvm\8.4.0\buildTransitive\CommunityToolkit.Mvvm.targets" Condition="Exists('$(NuGetPackageRoot)communitytoolkit.mvvm\8.4.0\buildTransitive\CommunityToolkit.Mvvm.targets')" />
   </ImportGroup>
 </Project>

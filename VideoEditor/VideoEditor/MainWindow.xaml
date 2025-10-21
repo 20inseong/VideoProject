@@ -13,6 +13,7 @@
         xmlns:viewmodels="clr-namespace:VideoEditor.ViewModels"
         xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
         mc:Ignorable="d"
+        x:Name="mainWindow"
         Title="MainWindow" Height="800" Width="1500"
         Closing="MainWindow_Closing"
         WindowStyle="None"
@@ -25,14 +26,24 @@
         <KeyBinding Key="Delete" Command="{Binding VideoEditor.DeleteSelectedClipCommand}" />
         <KeyBinding Key="C" Modifiers="Ctrl" Command="{Binding VideoEditor.CopySelectedClipCommand}" />
         <KeyBinding Key="V" Modifiers="Ctrl" Command="{Binding VideoEditor.PasteClipCommand}" CommandParameter="{Binding CurrentTimelinePosition}"/>
+        <KeyBinding Key="G" Modifiers="Ctrl" Command="{Binding VideoEditor.GroupSelectedClipsCommand}" />
+        <KeyBinding Key="G" Modifiers="Ctrl+Shift" Command="{Binding VideoEditor.UngroupSelectedClipsCommand}" />
     </Window.InputBindings>
 
     <Window.Resources>
         <Common:TimelineClipTemplateSelector x:Key="ClipTemplateSelector">
-            <!-- 1. VideoClip을 위한 템플릿 (기존 템플릿과 동일) -->
+            <!-- 1. VideoClip을 위한 템플릿 -->
             <Common:TimelineClipTemplateSelector.VideoClipTemplate>
                 <DataTemplate>
                     <Border Width="{Binding Width}" Height="50" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                        <Border.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="그룹 만들기 (Ctrl+G)"
+                              Command="{Binding DataContext.VideoEditor.GroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                <MenuItem Header="그룹 해제"
+                              Command="{Binding DataContext.VideoEditor.UngroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                            </ContextMenu>
+                        </Border.ContextMenu>
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="BorderBrush" Value="Black"/>
@@ -59,7 +70,7 @@
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
-                            <!-- Top Part: Thumbnails and Name -->
+                            <!-- 상단: 썸네일, 이름 -->
                             <Grid Grid.Row="0">
                                 <Grid.Background>
                                     <ImageBrush ImageSource="{Binding Thumbnail}" TileMode="Tile" Stretch="UniformToFill" ViewportUnits="Absolute" Viewport="0,0,80,50" />
@@ -68,7 +79,7 @@
                                 <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                             </Grid>
 
-                            <!-- Bottom Part: Waveform -->
+                            <!-- 히단 파형-->
                             <Grid Grid.Row="1">
                                 <controls:WaveformControl WaveformData="{Binding WaveformData}" />
                                 <ProgressBar IsIndeterminate="True" Height="10" VerticalAlignment="Center" Margin="5"
@@ -83,6 +94,14 @@
             <Common:TimelineClipTemplateSelector.AudioClipTemplate>
                 <DataTemplate>
                     <Border Width="{Binding Width}" Height="50" Background="#2A5D84" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                        <Border.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="그룹 만들기 (Ctrl+G)"
+                              Command="{Binding DataContext.VideoEditor.GroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                <MenuItem Header="그룹 해제"
+                              Command="{Binding DataContext.VideoEditor.UngroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                            </ContextMenu>
+                        </Border.ContextMenu>
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="BorderBrush" Value="Black"/>
@@ -113,10 +132,18 @@
                 </DataTemplate>
             </Common:TimelineClipTemplateSelector.AudioClipTemplate>
 
-            <!-- 3. ImageClip을 위한 템플릿 (요청하신 초록색 배경) -->
+            <!-- 3. ImageClip을 위한 템플릿 -->
             <Common:TimelineClipTemplateSelector.ImageClipTemplate>
                 <DataTemplate>
                     <Border Width="{Binding Width}" Height="50" Background="#3E8948" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                        <Border.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="그룹 만들기 (Ctrl+G)"
+                              Command="{Binding DataContext.VideoEditor.GroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                <MenuItem Header="그룹 해제"
+                              Command="{Binding DataContext.VideoEditor.UngroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                            </ContextMenu>
+                        </Border.ContextMenu>
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="BorderBrush" Value="Black"/>
@@ -152,6 +179,14 @@
             <Common:TimelineClipTemplateSelector.TextClipTemplate>
                 <DataTemplate>
                     <Border Width="{Binding Width}" Height="50" Background="#6E6E6E" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                        <Border.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="그룹 만들기 (Ctrl+G)"
+                              Command="{Binding DataContext.VideoEditor.GroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                <MenuItem Header="그룹 해제"
+                              Command="{Binding DataContext.VideoEditor.UngroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                            </ContextMenu>
+                        </Border.ContextMenu>
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="BorderBrush" Value="Black"/>
@@ -219,15 +254,6 @@
                          ShowMaximize="True"
                          ShowMinimize="True"
                          ShowClose="True" HorizontalAlignment="Stretch" Width="1500" />
-        </Grid>
-
-        <!-- Transcription Progress Overlay -->
-        <Grid Grid.Row="1" Background="#80000000" Visibility="{Binding IsTranscribing, Converter={StaticResource BooleanToVisibilityConverter}}" Panel.ZIndex="100">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="음성 텍스트 변환 중..." Foreground="White" FontSize="20" HorizontalAlignment="Center"/>
-                <ProgressBar Value="{Binding TranscriptionProgress}" Width="300" Height="20" Margin="0,10,0,0"/>
-                <TextBlock Text="{Binding TranscriptionProgress, StringFormat={}{0}%}" Foreground="White" FontSize="16" HorizontalAlignment="Center" Margin="0,5,0,0"/>
-            </StackPanel>
         </Grid>
 
         <!-- 화면의 콘텐츠를 넣는 공간 -->
@@ -363,22 +389,32 @@
                             <Border Margin="5" Background="{Binding PlayerViewModel.VideoViewBackground}" />
 
                             <!-- 1. 비디오 플레이어 뷰  -->
-                            <Grid Margin="5" x:Name="VideoPlayerHost" SizeChanged="VideoPlayerHost_SizeChanged">
-                                <vlc:VideoView x:Name="videoView0"
-                                               RenderTransformOrigin="0.5,0.5"
-                                               RenderTransform="{Binding PlayerViewModel.VideoPlayerStates[0].Transform}"/>
-                                <vlc:VideoView x:Name="videoView1"
-                                               RenderTransformOrigin="0.5,0.5"
-                                               RenderTransform="{Binding PlayerViewModel.VideoPlayerStates[1].Transform}"/>
-                                <vlc:VideoView x:Name="videoView2"
-                                               RenderTransformOrigin="0.5,0.5"
-                                               RenderTransform="{Binding PlayerViewModel.VideoPlayerStates[2].Transform}"/>
-                                <vlc:VideoView x:Name="videoView3"
-                                               RenderTransformOrigin="0.5,0.5"
-                                               RenderTransform="{Binding PlayerViewModel.VideoPlayerStates[3].Transform}"/>
-                                <vlc:VideoView x:Name="videoView4"
-                                               RenderTransformOrigin="0.5,0.5"
-                                               RenderTransform="{Binding PlayerViewModel.VideoPlayerStates[4].Transform}"/>
+                            <Grid Margin="5" x:Name="VideoPlayerHost" SizeChanged="VideoPlayerHost_SizeChanged" ClipToBounds="True">
+                                <vlc:VideoView x:Name="videoView0" RenderTransformOrigin="0.5,0.5">
+                                    <vlc:VideoView.RenderTransform>
+                                        <Binding Path="PlayerViewModel.VideoPlayerStates[0].Transform"/>
+                                    </vlc:VideoView.RenderTransform>
+                                </vlc:VideoView>
+                                <vlc:VideoView x:Name="videoView1" RenderTransformOrigin="0.5,0.5">
+                                    <vlc:VideoView.RenderTransform>
+                                        <Binding Path="PlayerViewModel.VideoPlayerStates[1].Transform"/>
+                                    </vlc:VideoView.RenderTransform>
+                                </vlc:VideoView>
+                                <vlc:VideoView x:Name="videoView2" RenderTransformOrigin="0.5,0.5">
+                                    <vlc:VideoView.RenderTransform>
+                                        <Binding Path="PlayerViewModel.VideoPlayerStates[2].Transform"/>
+                                    </vlc:VideoView.RenderTransform>
+                                </vlc:VideoView>
+                                <vlc:VideoView x:Name="videoView3" RenderTransformOrigin="0.5,0.5">
+                                    <vlc:VideoView.RenderTransform>
+                                        <Binding Path="PlayerViewModel.VideoPlayerStates[3].Transform"/>
+                                    </vlc:VideoView.RenderTransform>
+                                </vlc:VideoView>
+                                <vlc:VideoView x:Name="videoView4" RenderTransformOrigin="0.5,0.5">
+                                    <vlc:VideoView.RenderTransform>
+                                        <Binding Path="PlayerViewModel.VideoPlayerStates[4].Transform"/>
+                                    </vlc:VideoView.RenderTransform>
+                                </vlc:VideoView>
                             </Grid>
 
                             <Border x:Name="PreviewHighlightBorder" 
@@ -410,7 +446,7 @@
                                 </Border.Style>
                             </Border>
 
-                            <!-- ✨ [결정적인 수정] 자막을 Popup 컨트롤 안에 배치 -->
+                            <!-- 자막을 Popup 컨트롤 안에 배치 -->
                             <Popup x:Name="SubtitlePopup"
                                    IsOpen="{Binding IsTextVisible, Mode=OneWay}"
                                    PlacementTarget="{Binding ElementName=VideoPlayerHost}"
@@ -424,7 +460,16 @@
                                     <Border Margin="10" Padding="10,5" CornerRadius="5"
                                             HorizontalAlignment="Center"
                                             VerticalAlignment="Bottom"
-                                            Background="#80000000">
+                                            Background="#80000000"
+                                            RenderTransformOrigin="0.5,0.5">
+                                        <Border.RenderTransform>
+                                            <TransformGroup>
+                                                <ScaleTransform ScaleX="{Binding DataContext.HighlightedVisualClip.Scale, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                ScaleY="{Binding DataContext.HighlightedVisualClip.Scale, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                <TranslateTransform X="{Binding DataContext.HighlightedVisualClip.PositionX, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    Y="{Binding DataContext.HighlightedVisualClip.PositionY, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            </TransformGroup>
+                                        </Border.RenderTransform>
                                         <Border.Style>
                                             <Style TargetType="Border">
                                                 <!-- 기본 상태: 투명한 테두리, 효과 없음 -->
@@ -432,10 +477,7 @@
                                                 <Setter Property="BorderThickness" Value="2"/>
                                                 <Setter Property="Effect" Value="{x:Null}"/>
                                                 <Style.Triggers>
-                                                    <!-- 
-                        MainWindow의 DataContext(MainViewModel)에 있는 HighlightedVisualClip이 TextClip일 때
-                        이 트리거가 활성화됩니다.
-                        -->
+                                                    <!-- MainWindow의 DataContext(MainViewModel)에 있는 HighlightedVisualClip이 TextClip일 때 활성화 -->
                                                     <DataTrigger Binding="{Binding DataContext.HighlightedVisualClip, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TypeToBoolConverter}, ConverterParameter={x:Type models:TextClip}}" Value="True">
                                                         <Setter Property="BorderBrush" Value="#FFD700"/>
                                                         <Setter Property="Effect">
@@ -459,7 +501,7 @@
 
                         </Grid>
 
-                        <!-- 기존 컨트롤 바 (변경 없음) -->
+                        <!-- 컨트롤 바 -->
                         <StackPanel x:Name="show_VideoBar" 
                                     Orientation="Horizontal" 
                                     Grid.Row="1" 
@@ -468,33 +510,35 @@
                                     VerticalAlignment="Bottom" 
                                     Grid.ColumnSpan="2">
 
-                                    <Button Content="{Binding PlayPauseButtonContent}"
+                            <Button Content="{Binding PlayPauseButtonContent}"
                                             Command="{Binding PlayPauseTimelineCommand}"
                                             Width="40"/>
 
-                                    <Button x:Name="btnStop" Content="■" Width="40" Margin="5,0,0,0"
+                            <Button x:Name="btnStop" Content="■" Width="40" Margin="5,0,0,0"
                                             Command="{Binding StopTimelineCommand}"/>
 
-                                    <TextBlock Text="{Binding CurrentTimelineTimeMs, Converter={StaticResource Converter}}"
+                            <TextBlock Text="{Binding CurrentTimelineTimeMs, Converter={StaticResource Converter}}"
                                                VerticalAlignment="Center" Margin="5,0"/>
 
-                                    <Slider Width="300" Minimum="0"
+                            <Slider Width="300" Minimum="0"
                                             Value="{Binding CurrentTimelineTimeMs, Mode=TwoWay}"
                                             Maximum="{Binding PlayerViewModel.TotalDuration}"
                                             IsSnapToTickEnabled="True" TickFrequency="1000" />
-                                    <TextBlock Text="{Binding TotalTimelineDurationMs, Converter={StaticResource Converter}}"
+                            <TextBlock Text="{Binding TotalTimelineDurationMs, Converter={StaticResource Converter}}"
                                                Margin="10,0,10,0" VerticalAlignment="Center"/>
 
-                                    <TextBlock Text="볼륨" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                            <TextBlock Text="볼륨" VerticalAlignment="Center" Margin="10,0,5,0"/>
                             <Slider Width="100" Minimum="0" Maximum="100" VerticalAlignment="Center"
                                     Value="{Binding PlayerViewModel.Volume, Mode=TwoWay}"/>
                         </StackPanel>
                     </Grid>
                 </Border>
 
-                <!-- Right Panel: Properties and Subtitles -->
+                <!-- 오른쪽 패널: 속성  -->
                 <Border Grid.Column="2" Grid.Row="0" Background="#36443d" BorderBrush="Black" BorderThickness="1">
-                    <ContentControl Content="{Binding EditorHost.CurrentEditor}"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ContentControl Content="{Binding EditorHost.CurrentEditor}"/>
+                    </ScrollViewer>
                 </Border>
 
                 <Border Grid.Column="1" Grid.Row="1" Grid.ColumnSpan="2"
@@ -511,7 +555,7 @@
                             <!-- 타임라인 -->
                         </Grid.RowDefinitions>
 
-                        <!-- ✅ (1) 타임라인 상단 메뉴 -->
+                        <!-- 타임라인 상단 메뉴 -->
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5,2,5,2">
                             <Button x:Name="btnZoomIn" Content="확대(+)" Margin="2" Command="{Binding VideoEditor.ZoomInCommand}"/>
                             <Button x:Name="btnZoomOut" Content="축소(-)" Margin="2" Command="{Binding VideoEditor.ZoomOutCommand}"/>
@@ -525,7 +569,7 @@
                                     Command="{Binding DataContext.ExportVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
                         </StackPanel>
 
-                        <!-- ✅ (2) 시간 눈금자 -->
+                        <!-- 시간 눈금자 -->
                         <ScrollViewer x:Name="RulerScrollViewer"
                                       Grid.Row="1"
                                       HorizontalScrollBarVisibility="Hidden"
