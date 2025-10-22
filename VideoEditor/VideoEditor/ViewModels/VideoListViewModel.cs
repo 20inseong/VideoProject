@@ -27,9 +27,9 @@ namespace VideoEditor.ViewModels
             {
                 if (SetProperty(ref _selectedVideoItem, value))
                 {
-                    // 선택된 비디오가 변경될 때 어떤 동작을 수행할 수 있습니다.
-                    // 예를 들어, 메인 ViewModel에 이 변경을 알릴 수 있습니다.
-                    // 이 예시에서는 메인 ViewModel에서 이 속성을 구독할 예정입니다.
+                    // 선택된 비디오가 변경될 때 어떤 동작을 수행할 수 있음
+                    // 예를 들어, 메인 ViewModel에 이 변경을 알릴 수 있음
+                    // 이 예시에서는 메인 ViewModel에서 이 속성을 구독할 예정
                 }
             }
         }

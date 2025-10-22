@@ -1,11 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -14,7 +15,8 @@ using Emgu.CV;
 using LibVLCSharp.Shared;
 using VideoEditor.Common;
 using VideoEditor.Models;
-using Wpf.Ui.Input;
+using CommunityToolkit.Mvvm.Input;
+using System.Windows.Media;
 
 namespace VideoEditor.ViewModels
 {
@@ -36,8 +38,10 @@ namespace VideoEditor.ViewModels
         public event EventHandler<ClipAddedEventArgs>? OnClipAdded;
         public event Action? ClipInteractionStarted;
         public event Action? ClipInteractionEnded;
-        public TimelineClipBase? DraggedClip { get; private set; }
-        private TimelineClipBase? _selectedClip;
+
+        private readonly List<TimelineClipBase> _selectedClips = new List<TimelineClipBase>();
+        public Dictionary<TimelineClipBase, (double OriginalStart, int OriginalTrack)> DraggedClipsOriginalState { get; } = new Dictionary<TimelineClipBase, (double, int)>();
+
         private TimelineClipBase? _copiedClip;
 
         private bool _isResizing = false;
@@ -60,15 +64,18 @@ namespace VideoEditor.ViewModels
 
         public bool IsResizing => _isResizing;
 
-        public ICommand DropOnTimelineCommand { get; }
-        public ICommand ClipMouseDownCommand { get; }
-        public ICommand ClipMouseMoveCommand { get; }
-        public ICommand CopySelectedClipCommand { get; }
-         public IRelayCommand<double> PasteClipCommand { get; }
-        public ICommand ZoomInCommand { get; }
-        public ICommand ZoomOutCommand { get; }
-        public ICommand AddTextClipCommand { get; }
-        public RelayCommand<object> DeleteSelectedClipCommand { get; }
+        public IRelayCommand<DragEventArgs> DropOnTimelineCommand { get; }
+        public IRelayCommand<MouseButtonEventArgs> ClipMouseDownCommand { get; }
+        public IRelayCommand<MouseEventArgs> ClipMouseMoveCommand { get; }
+        public IRelayCommand CopySelectedClipCommand { get; }
+        public IRelayCommand<double> PasteClipCommand { get; }
+        public IRelayCommand ZoomInCommand { get; }
+        public IRelayCommand ZoomOutCommand { get; }
+        public IRelayCommand<double> AddTextClipCommand { get; }
+        public IRelayCommand DeleteSelectedClipCommand { get; }
+        public IRelayCommand<double> SplitClipCommand { get; }
+        public IRelayCommand GroupSelectedClipsCommand { get; }
+        public IRelayCommand UngroupSelectedClipsCommand { get; }
 
         public ObservableCollection<TimelineClipBase> TimelineClips
         {
@@ -76,15 +83,17 @@ namespace VideoEditor.ViewModels
             set => SetProperty(ref _timelineClips, value);
         }
 
+        private TimelineClipBase? _primarySelectedClip;
         public TimelineClipBase? SelectedClip
         {
-            get => _selectedClip;
+            get => _primarySelectedClip;
             set
             {
-                if (SetProperty(ref _selectedClip, value))
+                if (SetProperty(ref _primarySelectedClip, value))
                 {
                     DeleteSelectedClipCommand.NotifyCanExecuteChanged();
-                    (CopySelectedClipCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
+                    CopySelectedClipCommand.NotifyCanExecuteChanged();
+                    SplitClipCommand.NotifyCanExecuteChanged();
                 }
             }
         }
@@ -114,8 +123,6 @@ namespace VideoEditor.ViewModels
             set => SetProperty(ref _currentlyPlayingClip, value);
         }
 
-        public ICommand SplitClipCommand { get; }
-
         public VideoEditorViewModel()
         {
             TimelineClips = new ObservableCollection<TimelineClipBase>();
@@ -126,22 +133,73 @@ namespace VideoEditor.ViewModels
             DropOnTimelineCommand = new RelayCommand<DragEventArgs>(ExecuteDropOnTimeline);
             ClipMouseDownCommand = new RelayCommand<MouseButtonEventArgs>(ExecuteClipMouseDown);
             ClipMouseMoveCommand = new RelayCommand<MouseEventArgs>(ExecuteClipMouseMove);
-            DeleteSelectedClipCommand = new RelayCommand<object>(ExecuteDeleteSelectedClip, CanExecuteDeleteSelectedClip);
 
-            CopySelectedClipCommand = new RelayCommand<object>(ExecuteCopySelectedClip, CanExecuteCopySelectedClip);
+            // [개선] 불필요한 object 파라미터 제거, CanExecute 메서드와 1:1 매칭
+            DeleteSelectedClipCommand = new RelayCommand(ExecuteDeleteSelectedClip, CanExecuteDeleteSelectedClip);
+            CopySelectedClipCommand = new RelayCommand(ExecuteCopySelectedClip, CanExecuteCopySelectedClip);
+
             PasteClipCommand = new RelayCommand<double>(ExecutePasteClip, CanExecutePasteClip);
+            SplitClipCommand = new RelayCommand<double>(ExecuteSplitClip, CanExecuteSplitClip); // [추가] CanExecute 추가
+            ZoomInCommand = new RelayCommand(ZoomIn);
 
-            SplitClipCommand = new RelayCommand<double>(ExecuteSplitClip);
-
-            ZoomInCommand = new RelayCommand<object>(_ => ZoomIn());
-            ZoomOutCommand = new RelayCommand<object>(_ => ZoomOut());
-
+            ZoomOutCommand = new RelayCommand(ZoomOut);
             AddTextClipCommand = new RelayCommand<double>(ExecuteAddTextClip);
+
+            GroupSelectedClipsCommand = new RelayCommand(ExecuteGroupSelectedClips, CanExecuteGroupSelectedClips);
+            UngroupSelectedClipsCommand = new RelayCommand(ExecuteUngroupSelectedClips, CanExecuteUngroupSelectedClips);
+
+        }
+
+        private void ExecuteGroupSelectedClips()
+        {
+            // 2개 이상의 클립이 선택되었을 때만 그룹화 진행
+            if (_selectedClips.Count < 2) return;
+
+            // 새로운 고유 ID를 생성
+            var newGroupId = Guid.NewGuid();
+
+            // 선택된 모든 클립에 동일한 그룹 ID를 할당
+            foreach (var clip in _selectedClips)
+            {
+                clip.GroupId = newGroupId;
+            }
+            Debug.WriteLine($"[Group LOG] {_selectedClips.Count}개의 클립이 그룹(ID: {newGroupId})으로 묶였습니다.");
+        }
+
+        private bool CanExecuteGroupSelectedClips()
+        {
+            return _selectedClips.Count >= 2;
+        }
+
+        private void ExecuteUngroupSelectedClips()
+        {
+            var groupIdsToUngroup = _selectedClips
+                .Where(c => c.GroupId.HasValue)
+                .Select(c => c.GroupId.Value)
+                .Distinct()
+                .ToList();
+
+            if (!groupIdsToUngroup.Any()) return;
+
+            var clipsToUngroup = TimelineClips
+                .Where(c => c.GroupId.HasValue && groupIdsToUngroup.Contains(c.GroupId.Value))
+                .ToList();
+
+            foreach (var clip in clipsToUngroup)
+            {
+                clip.GroupId = null;
+            }
+            Debug.WriteLine($"[Group LOG] {clipsToUngroup.Count}개의 클립이 포함된 {groupIdsToUngroup.Count}개의 그룹이 해제되었습니다.");
+        }
+
+        private bool CanExecuteUngroupSelectedClips()
+        {
+            return _selectedClips.Any(c => c.GroupId.HasValue);
         }
 
         private void ExecuteAddTextClip(double creationTime)
         {
-            const double defaultDuration = 5.0; // 자막 기본 길이 5초
+            const double defaultDuration = 5.0;
 
             var newClip = new TextClip
             {
@@ -155,26 +213,18 @@ namespace VideoEditor.ViewModels
             TimelineClips.Add(newClip);
         }
 
-        private void ZoomIn()
-        {
-            PixelsPerSecond *= 1.25;
-        }
+        private void ZoomIn() => PixelsPerSecond *= 1.25;
+        private void ZoomOut() => PixelsPerSecond /= 1.25;
 
-        private void ZoomOut()
-        {
-            PixelsPerSecond /= 1.25;
-        }
-
-        private void ExecuteCopySelectedClip(object? _)
+        private void ExecuteCopySelectedClip()
         {
             if (SelectedClip == null) return;
-
             _copiedClip = SelectedClip.Clone();
             PasteClipCommand.NotifyCanExecuteChanged();
             Debug.WriteLine($"[Copy LOG] '{_copiedClip.Name}' 클립이 복사되었습니다.");
         }
 
-        private bool CanExecuteCopySelectedClip(object? _)
+        private bool CanExecuteCopySelectedClip()
         {
             return SelectedClip != null;
         }
@@ -215,7 +265,7 @@ namespace VideoEditor.ViewModels
             return 0;
         }
 
-        private void ExecuteDeleteSelectedClip(object? _)
+        private void ExecuteDeleteSelectedClip()
         {
             if (SelectedClip != null)
             {
@@ -225,82 +275,57 @@ namespace VideoEditor.ViewModels
             }
         }
 
-        private bool CanExecuteDeleteSelectedClip(object? _)
+        private bool CanExecuteDeleteSelectedClip()
         {
-            return SelectedClip != null;
+            return _selectedClips.Any();
         }
 
         private void ExecuteSplitClip(double currentTimelinePosition)
         {
-            var originalClip = TimelineClips.FirstOrDefault(c =>
-                c.StartPosition < currentTimelinePosition && (c.StartPosition + c.Duration) > currentTimelinePosition);
-
+            var originalClip = SelectedClip;
             if (originalClip == null) return;
 
-            double originalDuration = originalClip.Duration;
-            double splitPointInClip = currentTimelinePosition - originalClip.StartPosition;
+            if (!(currentTimelinePosition > originalClip.StartPosition && currentTimelinePosition < originalClip.StartPosition + originalClip.Duration))
+                return;
 
+            // 계산에 필요한 값들을 미리 저장합니다.
+            double originalEndPosition = originalClip.StartPosition + originalClip.Duration;
+            double splitPointInClip = currentTimelinePosition - originalClip.StartPosition;
+            double splitPointInMedia = splitPointInClip * originalClip.SpeedRatio;
+
+            // 깨끗한 원본을 먼저 복제합니다.
+            TimelineClipBase newClip = originalClip.Clone();
+
+            // 원본 클립(첫 번째 조각)을 수정합니다.
             originalClip.Duration = splitPointInClip;
             originalClip.UpdateWidth(this.PixelsPerSecond);
 
-            TimelineClipBase? newClip = null;
+            // 복제된 클립(두 번째 조각)을 수정합니다.
+            newClip.StartPosition = currentTimelinePosition;
+            newClip.Duration = originalEndPosition - currentTimelinePosition;
+            newClip.UpdateWidth(this.PixelsPerSecond);
 
-            switch (originalClip)
+            // [핵심 수정]
+            // originalClip의 실제 타입을 확인하고, 안전하게 형 변환하여 SourceStartTime에 접근합니다.
+            if (originalClip is VideoClip originalVideoClip && newClip is VideoClip newVideoClip)
             {
-                case VideoClip vc:
-                    newClip = new VideoClip
-                    {
-                        Name = vc.Name + " (2)",
-                        VideoPath = vc.VideoPath,
-                        Thumbnail = vc.Thumbnail,
-                        Category = vc.Category,
-                        StartPosition = currentTimelinePosition,
-                        Duration = originalDuration - splitPointInClip,
-                        SourceStartTime = vc.SourceStartTime + splitPointInClip,
-                        TrackIndex = vc.TrackIndex
-                    };
-                    break;
-
-                case AudioClip ac:
-                    newClip = new AudioClip
-                    {
-                        Name = ac.Name + " (2)",
-                        AudioPath = ac.AudioPath,
-                        StartPosition = currentTimelinePosition,
-                        Duration = originalDuration - splitPointInClip,
-                        SourceStartTime = ac.SourceStartTime + splitPointInClip,
-                        TrackIndex = ac.TrackIndex
-                    };
-                    break;
-                case ImageClip ic:
-                    newClip = new ImageClip
-                    {
-                        Name = ic.Name + " (2)",
-                        ImagePath = ic.ImagePath,
-                        Thumbnail = ic.Thumbnail,
-                        StartPosition = currentTimelinePosition,
-                        Duration = originalDuration - splitPointInClip,
-                        TrackIndex = ic.TrackIndex
-                    };
-                    break;
+                // 이제 originalVideoClip은 VideoClip 타입이므로 SourceStartTime에 접근 가능합니다.
+                newVideoClip.SourceStartTime = originalVideoClip.SourceStartTime + splitPointInMedia;
+            }
+            else if (originalClip is AudioClip originalAudioClip && newClip is AudioClip newAudioClip)
+            {
+                // AudioClip도 마찬가지로 안전하게 형 변환 후 접근합니다.
+                newAudioClip.SourceStartTime = originalAudioClip.SourceStartTime + splitPointInMedia;
             }
 
-            if (newClip != null)
-            {
-                newClip.UpdateWidth(this.PixelsPerSecond);
+            TimelineClips.Add(newClip);
+        }
 
-                int originalClipIndex = TimelineClips.IndexOf(originalClip);
-                if (originalClipIndex != -1)
-                {
-                    TimelineClips.Insert(originalClipIndex + 1, newClip);
-                }
-                else
-                {
-                    TimelineClips.Add(newClip);
-                }
+        private bool CanExecuteSplitClip(double currentTimelinePosition)
+        {
+            if (SelectedClip == null || _selectedClips.Count != 1) return false;
 
-                Debug.WriteLine($"[Split LOG] '{originalClip.Name}' 클립 자르기 완료. 새 클립 '{newClip.Name}' 생성됨.");
-            }
+            return currentTimelinePosition > SelectedClip.StartPosition && currentTimelinePosition < SelectedClip.StartPosition + SelectedClip.Duration;
         }
 
         private async Task GenerateWaveformForClipAsync(TimelineClipBase clip, string mediaPath)
@@ -323,50 +348,38 @@ namespace VideoEditor.ViewModels
             }
         }
 
-        private async void ExecuteDropOnTimeline(DragEventArgs? e)
+        private void ExecuteDropOnTimeline(DragEventArgs? e)
         {
             if (e == null) return;
 
-            if (e.Data.GetDataPresent("TimelineClip"))
+            // 1. [수정] 올바른 데이터 키("TimelineClips")로 확인하고, List<TimelineClipBase> 형식으로 데이터를 받습니다.
+            if (e.Data.GetDataPresent("TimelineClips") &&
+                e.Data.GetData("TimelineClips") is List<TimelineClipBase> droppedClips &&
+                e.Source is FrameworkElement dropTarget)
             {
-                if (e.Data.GetData("TimelineClip") is TimelineClipBase droppedClip && e.Source is FrameworkElement dropTarget)
-                {
-                    Point finalDropPosition = e.GetPosition(dropTarget);
-
-                    double deltaX = finalDropPosition.X - DragStartPoint.X;
-                    double deltaTime = deltaX / this.PixelsPerSecond;
-
-                    int deltaTrack = (int)Math.Round((finalDropPosition.Y - DragStartPoint.Y) / 60.0);
-
-                    double desiredStartPosition = OriginalClipStartPosition + deltaTime;
-                    int newTrackIndex = Math.Clamp(OriginalClipTrackIndex + deltaTrack, 0, 4);
-
-                    double adjustedStartPosition = AdjustClipPosition(droppedClip, desiredStartPosition, newTrackIndex);
-
-                    droppedClip.StartPosition = adjustedStartPosition;
-                    droppedClip.TrackIndex = newTrackIndex;
-
-                    //Console.WriteLine($"[Move LOG] '{droppedClip.Name}' 클립이 위치 {droppedClip.StartPosition:F2}초, 트랙 {droppedClip.TrackIndex}로 이동됨");
-                }
+                // The DragOver event now handles all position validation and previewing.
+                // The Drop event simply finalizes the operation. Since the clip properties
+                // are already updated for the preview, we just need to ensure the drag state is cleared.
+                // The actual positioning is implicitly complete.
             }
             else if (e.Data.GetDataPresent("Myvideo"))
             {
+                // (파일을 직접 드롭하는 이 부분은 기존 코드와 동일하게 유지합니다)
                 Myvideo droppedVideo = e.Data.GetData("Myvideo") as Myvideo;
-                if (droppedVideo == null || !System.IO.File.Exists(droppedVideo.FullPath)) return;
+                if (droppedVideo == null || !File.Exists(droppedVideo.FullPath)) return;
 
-                if (e.Source is FrameworkElement dropTarget)
+                if (e.Source is FrameworkElement dropTargetForFile)
                 {
                     try
                     {
-                        Point dropPosition = e.GetPosition(dropTarget);
+                        Point dropPosition = e.GetPosition(dropTargetForFile);
                         double startTimeInSeconds = dropPosition.X / this.PixelsPerSecond;
-                        int trackIndex = (int)(dropPosition.Y / 60.0);
-                        trackIndex = Math.Clamp(trackIndex, 0, 4);
-                        await AddMediaClipAsync(droppedVideo, startTimeInSeconds, trackIndex);
+                        int trackIndex = Math.Clamp((int)(dropPosition.Y / 60.0), 0, 4);
+                        _ = AddMediaClipAsync(droppedVideo, startTimeInSeconds, trackIndex);
                     }
                     catch (Exception ex)
                     {
-                        //Console.WriteLine($"클립 추가 중 오류 발생: {ex.Message}");
+                        Debug.WriteLine($"클립 추가 중 오류 발생: {ex.Message}");
                     }
                 }
             }
@@ -527,13 +540,13 @@ namespace VideoEditor.ViewModels
         {
             try
             {
-                // 1. 이미지 파일을 로드하여 BitmapImage 객체를 생성합니다.
+                //  이미지 파일을 로드하여 BitmapImage 객체 생성
                 var thumbnail = new BitmapImage();
                 thumbnail.BeginInit();
                 thumbnail.UriSource = new Uri(image.FullPath);
                 thumbnail.CacheOption = BitmapCacheOption.OnLoad;
-                thumbnail.EndInit(); // 이 시점에 이미지 로드가 완료되고, 크기 정보를 알 수 있습니다.
-                thumbnail.Freeze(); // 다른 스레드에서 접근할 수 있도록 동결합니다.
+                thumbnail.EndInit(); // 이미지 로드가 완료 및 정보확인 가능
+                thumbnail.Freeze(); // 다른 스레드에서 접근할 수 있도록 프리즈
 
                 const double defaultDuration = 5.0; // 이미지 클립의 기본 길이
 
@@ -546,7 +559,7 @@ namespace VideoEditor.ViewModels
                     TrackIndex = track,
                     Duration = defaultDuration,
 
-                    // ✨ [핵심] 로드된 BitmapImage에서 직접 픽셀 너비와 높이를 읽어와 저장합니다.
+                    // 로드된 BitmapImage에서 직접 픽셀 너비와 높이를 읽어와 저장.
                     SourceWidth = thumbnail.PixelWidth,
                     SourceHeight = thumbnail.PixelHeight,
                 };
@@ -564,52 +577,122 @@ namespace VideoEditor.ViewModels
         private void ExecuteClipMouseDown(MouseButtonEventArgs? e)
         {
             ClipInteractionStarted?.Invoke();
-
-            if (e == null) return;
-
-            if ((e.OriginalSource as FrameworkElement)?.Tag is "ResizeHandle")
-            {
-                return;
-            }
-
-            var itemsControl = (e.Source as FrameworkElement)?.FindAncestor<ItemsControl>();
-            if (itemsControl != null)
-            {
-                itemsControl.Focus();
-            }
+            if (e == null || (e.OriginalSource as FrameworkElement)?.Tag is "ResizeHandle") return;
 
             if ((e.Source as FrameworkElement)?.DataContext is TimelineClipBase clickedClip)
             {
-                if (SelectedClip != null && SelectedClip != clickedClip)
+                bool isCtrlPressed = Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl);
+
+                // 1. 그룹화된 클립을 클릭했는지 먼저 확인
+                if (clickedClip.GroupId.HasValue)
                 {
-                    SelectedClip.IsSelected = false;
+                    // 그룹 멤버를 클릭하면 항상 그룹 전체를 선택/선택 해제
+                    var groupId = clickedClip.GroupId.Value;
+                    var groupMembers = TimelineClips.Where(c => c.GroupId == groupId).ToList();
+                    bool isGroupAlreadySelected = groupMembers.All(m => _selectedClips.Contains(m));
+
+                    // 다른 모든 클립 선택 해제
+                    foreach (var clip in _selectedClips.ToList())
+                    {
+                        clip.IsSelected = false;
+                        _selectedClips.Remove(clip);
+                    }
+
+                    // 그룹이 이미 전체 선택된 상태가 아니라면, 그룹 전체를 선택
+                    if (!isGroupAlreadySelected)
+                    {
+                        foreach (var member in groupMembers)
+                        {
+                            member.IsSelected = true;
+                            _selectedClips.Add(member);
+                        }
+                    }
+                }
+                // 2. 그룹이 아닌 클립을 클릭한 경우 (기존 로직)
+                else
+                {
+                    if (!isCtrlPressed)
+                    {
+                        if (!_selectedClips.Contains(clickedClip) || _selectedClips.Count > 1)
+                        {
+                            foreach (var clip in _selectedClips) clip.IsSelected = false;
+                            _selectedClips.Clear();
+                            clickedClip.IsSelected = true;
+                            _selectedClips.Add(clickedClip);
+                        }
+                    }
+                    else // Ctrl 키 누르고 클릭
+                    {
+                        if (clickedClip.IsSelected)
+                        {
+                            clickedClip.IsSelected = false;
+                            _selectedClips.Remove(clickedClip);
+                        }
+                        else
+                        {
+                            clickedClip.IsSelected = true;
+                            _selectedClips.Add(clickedClip);
+                        }
+                    }
                 }
 
-                clickedClip.IsSelected = true;
-                SelectedClip = clickedClip;
+                // 마지막으로 선택/클릭된 클립을 Primary로 설정
+                SelectedClip = _selectedClips.LastOrDefault();
 
-                DraggedClip = clickedClip;
-                OriginalClipStartPosition = clickedClip.StartPosition;
-                OriginalClipTrackIndex = clickedClip.TrackIndex;
+                // [추가] 새 커맨드의 CanExecute 상태 업데이트
+                GroupSelectedClipsCommand.NotifyCanExecuteChanged();
+                UngroupSelectedClipsCommand.NotifyCanExecuteChanged();
 
-                if (itemsControl != null)
+                // 드래그 시작 준비
+                if (_selectedClips.Any() && _selectedClips.Contains(clickedClip))
                 {
-                    DragStartPoint = e.GetPosition(itemsControl);
+                    IsDraggingClip = true;
+                    var itemsControl = FindAncestor<System.Windows.Controls.ItemsControl>(e.Source as DependencyObject);
+                    if (itemsControl != null) DragStartPoint = e.GetPosition(itemsControl);
+
+                    DraggedClipsOriginalState.Clear();
+                    foreach (var clip in _selectedClips)
+                    {
+                        DraggedClipsOriginalState[clip] = (clip.StartPosition, clip.TrackIndex);
+                    }
                 }
-                IsDraggingClip = true;
             }
         }
 
+        public event Action? OnTimelineChanged;
+
         private void ExecuteClipMouseMove(MouseEventArgs? e)
         {
-            if (_isResizing || e == null || DraggedClip == null || e.LeftButton != MouseButtonState.Pressed) return;
+            if (!IsDraggingClip || _isResizing || e?.LeftButton != MouseButtonState.Pressed)
+            {
+                if (IsDraggingClip)
+                {
+                    IsDraggingClip = false;
+                    DraggedClipsOriginalState.Clear();
+                }
+                return;
+            }
 
-            DataObject dragData = new DataObject("TimelineClip", DraggedClip);
-            DragDrop.DoDragDrop((DependencyObject)e.Source, dragData, DragDropEffects.Move);
+            DataObject dragData = new DataObject("TimelineClips", _selectedClips.ToList());
+            DragDropEffects result = DragDrop.DoDragDrop((DependencyObject)e.Source, dragData, DragDropEffects.Move);
 
-            DraggedClip = null;
+            // If the drop was cancelled or invalid, revert the positions of the clips.
+            if (result == DragDropEffects.None)
+            {
+                foreach (var clip in _selectedClips)
+                {
+                    if (DraggedClipsOriginalState.TryGetValue(clip, out var originalState))
+                    {
+                        clip.StartPosition = originalState.OriginalStart;
+                        clip.TrackIndex = originalState.OriginalTrack;
+                    }
+                }
+            }
+
             IsDraggingClip = false;
+            DraggedClipsOriginalState.Clear();
             ClipInteractionEnded?.Invoke();
+            OnTimelineChanged?.Invoke();
         }
 
         public void StartClipResize(TimelineClipBase clip, Point startPoint)
@@ -635,9 +718,21 @@ namespace VideoEditor.ViewModels
 
             double deltaX = currentPoint.X - _resizeStartPoint.X;
             double deltaTime = deltaX / PixelsPerSecond;
-
-            // 최소 길이를 0.1초로 제한하여 클립이 사라지는 것을 방지
             double newDuration = Math.Max(0.1, _originalClipDuration + deltaTime);
+
+            var nextClip = TimelineClips
+                .Where(c => c.TrackIndex == _resizingClip.TrackIndex && c.Id != _resizingClip.Id && c.StartPosition > _resizingClip.StartPosition)
+                .OrderBy(c => c.StartPosition)
+                .FirstOrDefault();
+
+            // 만약 바로 뒤에 다른 클립이 있다면, 길이를 조절하더라도 그 클립의 시작점을 침범할 수 없습니다.
+            if (nextClip != null)
+            {
+                // 최대로 늘어날 수 있는 길이를 계산합니다.
+                double maxDuration = nextClip.StartPosition - _resizingClip.StartPosition;
+                // 계산된 새 길이가 최대 길이를 초과하지 않도록 제한합니다.
+                newDuration = Math.Min(newDuration, maxDuration);
+            }
 
             _resizingClip.Duration = newDuration;
             _resizingClip.UpdateWidth(PixelsPerSecond);
@@ -649,39 +744,75 @@ namespace VideoEditor.ViewModels
             _resizingClip = null;
         }
 
-        private double AdjustClipPosition(TimelineClipBase movingClip, double desiredStartPosition, int desiredTrackIndex)
+        public double FindAdjustedPosition(TimelineClipBase movingClip, double desiredStartPosition, int desiredTrackIndex)
         {
-            double newStartPosition = Math.Max(0, desiredStartPosition);
-
+            // 이동하려는 클립 자체를 제외하고, 같은 트랙에 있는 다른 모든 클립을 가져옵니다.
             var otherClipsInTrack = TimelineClips
                 .Where(c => c.TrackIndex == desiredTrackIndex && c.Id != movingClip.Id)
                 .OrderBy(c => c.StartPosition)
                 .ToList();
 
-            foreach (var otherClip in otherClipsInTrack)
+            // 다른 클립이 없으면 원하는 위치에 그대로 두면 됩니다. (0보다 작은 값은 방지)
+            if (!otherClipsInTrack.Any())
             {
-                if (newStartPosition < (otherClip.StartPosition + otherClip.Duration) &&
-                    (movingClip.StartPosition + movingClip.Duration) > otherClip.StartPosition) 
-                {
-                    newStartPosition = otherClip.StartPosition + otherClip.Duration;
-                }
+                return Math.Max(0, desiredStartPosition);
             }
 
-            foreach (var otherClip in otherClipsInTrack)
+            double adjustedPosition = Math.Max(0, desiredStartPosition);
+            bool collisionDetected;
+
+            // 충돌이 더 이상 감지되지 않을 때까지 반복적으로 위치를 조정합니다.
+            do
             {
-                if (otherClip.StartPosition < (newStartPosition + movingClip.Duration) &&
-                    otherClip.StartPosition > newStartPosition)
+                collisionDetected = false;
+                double movingClipEndTime = adjustedPosition + movingClip.Duration;
+
+                // 조정된 위치를 기준으로 충돌하는 클립이 있는지 확인합니다.
+                var collidingClip = otherClipsInTrack.FirstOrDefault(other =>
+                    adjustedPosition < (other.StartPosition + other.Duration) && // 내 시작이 다른 클립의 끝보다 빠르고,
+                    movingClipEndTime > other.StartPosition                      // 내 끝이 다른 클립의 시작보다 늦으면 충돌!
+                );
+
+                if (collidingClip != null)
                 {
-                    newStartPosition = otherClip.StartPosition - movingClip.Duration;
+                    // 충돌이 감지되면, 충돌한 클립의 바로 뒤로 내 위치를 옮깁니다(스냅).
+                    adjustedPosition = collidingClip.StartPosition + collidingClip.Duration;
+                    collisionDetected = true; // 위치가 변경되었으므로, 그 위치에서 또 다른 충돌이 있는지 다시 검사해야 합니다.
+                }
+            } while (collisionDetected);
+
+            return adjustedPosition;
+        }
+
+        private void OnClipPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(TimelineClipBase.Duration))
+            {
+                if (sender is TimelineClipBase clip)
+                {
+                    clip.UpdateWidth(PixelsPerSecond);
                 }
             }
-
-            return Math.Max(0, newStartPosition);
         }
 
         public void Dispose()
         {
             _libVLC?.Dispose();
+        }
+
+        private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
+        {
+            if (current == null) return null;
+            do
+            {
+                if (current is T ancestor)
+                {
+                    return ancestor;
+                }
+                current = VisualTreeHelper.GetParent(current);
+            }
+            while (current != null);
+            return null;
         }
 
     }

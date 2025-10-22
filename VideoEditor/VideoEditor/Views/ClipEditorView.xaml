@@ -25,6 +25,7 @@
                     <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
                     <TextBlock Text="내용:" Foreground="White" Margin="0,0,0,5" FontWeight="Bold"/>
                     <TextBox Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" Height="100" VerticalScrollBarVisibility="Auto"/>
+                    <local:TransformEditorView />
                 </StackPanel>
             </DataTemplate>
 
@@ -32,6 +33,7 @@
             <DataTemplate DataType="{x:Type models:VideoClip}">
                 <Grid Margin="15">
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -54,11 +56,24 @@
 
                     <StackPanel Grid.Row="2" Margin="0,0,0,10">
                         <TextBlock Text="길이 (초):" Foreground="White" Margin="0,0,0,5" FontWeight="Bold"/>
-                        <TextBox Text="{Binding Duration, Mode=TwoWay, StringFormat={}{0:F2}, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBox Text="{Binding Duration, StringFormat={}{0:F2}}" IsReadOnly="True"/>
+                    </StackPanel>
+
+                    <!-- Speed Control -->
+                    <StackPanel Grid.Row="3" Margin="0,0,0,10">
+                        <TextBlock Text="배속:" Foreground="White" Margin="0,0,0,5" FontWeight="Bold"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Grid.Column="0" Minimum="0.1" Maximum="4" Value="{Binding SpeedRatio, Mode=TwoWay}" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding SpeedRatio, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F1}}" Foreground="Black" Margin="10,0,0,0" VerticalAlignment="Center" Width="50" GotFocus="TextBox_GotFocus" PreviewMouseLeftButtonDown="TextBox_PreviewMouseLeftButtonDown"/>
+                        </Grid>
                     </StackPanel>
 
                     <!-- Volume Control -->
-                    <StackPanel Grid.Row="3" Margin="0,0,0,10">
+                    <StackPanel Grid.Row="4" Margin="0,0,0,10">
                         <TextBlock Text="볼륨:" Foreground="White" Margin="0,0,0,5" FontWeight="Bold"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -66,15 +81,17 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Slider Grid.Column="0" Minimum="0" Maximum="100" Value="{Binding Volume, Mode=TwoWay}" VerticalAlignment="Center"/>
-                            <TextBox Grid.Column="1" Text="{Binding Volume, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F0}}" Foreground="Black" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding Volume, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F0}}" Foreground="Black" Margin="10,0,0,0" VerticalAlignment="Center" GotFocus="TextBox_GotFocus" PreviewMouseLeftButtonDown="TextBox_PreviewMouseLeftButtonDown"/>
                         </Grid>
                     </StackPanel>
 
+                    <local:TransformEditorView />
+
                     <!-- Transcription Section -->
-                    <TextBlock Grid.Row="4" Text="음성 텍스트 변환" FontWeight="Bold" Foreground="White" FontSize="16" Margin="0,10,0,10"/>
+                    <TextBlock Grid.Row="5" Text="음성 텍스트 변환" FontWeight="Bold" Foreground="White" FontSize="16" Margin="0,10,0,10"/>
 
                     <!-- 버튼 3개 (스크립트 생성 / 확인 / 숨기기) -->
-                    <StackPanel Grid.Row="5" Orientation="Horizontal">
+                    <StackPanel Grid.Row="6" Orientation="Horizontal">
                         <Button Content="스크립트 생성"
                                 Command="{Binding DataContext.TranscribeVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 IsEnabled="{Binding IsTranscribing, Converter={StaticResource InverseBooleanConverter}, FallbackValue=True}"
@@ -126,12 +143,12 @@
                     </StackPanel>
 
                     <!-- 변환 진행률 표시 -->
-                    <ProgressBar Grid.Row="6" Value="{Binding DataContext.TranscriptionProgress, RelativeSource={RelativeSource AncestorType=Window}}"
+                    <ProgressBar Grid.Row="7" Value="{Binding DataContext.TranscriptionProgress, RelativeSource={RelativeSource AncestorType=Window}}"
                                  Visibility="{Binding IsTranscribing, Converter={StaticResource BooleanToVisibilityConverter}}"
                                  Height="10" Margin="0,10,0,0"/>
 
                     <!-- 텍스트 변환 결과 -->
-                    <ListView Grid.Row="7" Grid.RowSpan="3" ItemsSource="{Binding Transcription}"
+                    <ListView Grid.Row="8" Grid.RowSpan="3" ItemsSource="{Binding Transcription}"
                               Visibility="{Binding ShowTranscription, Converter={StaticResource BooleanToVisibilityConverter}}"
                               HorizontalContentAlignment="Stretch" Background="#36443d" Foreground="White" BorderThickness="0"
                               Margin="0,10,0,0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -175,6 +192,7 @@
                     <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
                     <TextBlock Text="길이 (초):" Foreground="White" Margin="0,0,0,5" FontWeight="Bold"/>
                     <TextBox Text="{Binding Duration, Mode=TwoWay, StringFormat={}{0:F2}, UpdateSourceTrigger=PropertyChanged}"/>
+                    <local:TransformEditorView />
                 </StackPanel>
             </DataTemplate>
 
@@ -182,6 +200,7 @@
             <DataTemplate DataType="{x:Type models:AudioClip}">
                 <Grid Margin="15">
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -201,11 +220,24 @@
 
                     <StackPanel Grid.Row="2" Margin="0,0,0,10">
                         <TextBlock Text="길이 (초):" Foreground="White" Margin="0,0,0,5" FontWeight="Bold"/>
-                        <TextBox Text="{Binding Duration, Mode=TwoWay, StringFormat={}{0:F2}, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBox Text="{Binding Duration, StringFormat={}{0:F2}}" IsReadOnly="True"/>
+                    </StackPanel>
+
+                    <!-- Speed Control -->
+                    <StackPanel Grid.Row="3" Margin="0,0,0,10">
+                        <TextBlock Text="배속:" Foreground="White" Margin="0,0,0,5" FontWeight="Bold"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Grid.Column="0" Minimum="0.1" Maximum="4" Value="{Binding SpeedRatio, Mode=TwoWay}" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding SpeedRatio, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F1}}" Foreground="Black" Margin="10,0,0,0" VerticalAlignment="Center" Width="50" GotFocus="TextBox_GotFocus" PreviewMouseLeftButtonDown="TextBox_PreviewMouseLeftButtonDown"/>
+                        </Grid>
                     </StackPanel>
 
                     <!-- Volume Control -->
-                    <StackPanel Grid.Row="3" Margin="0,0,0,10">
+                    <StackPanel Grid.Row="4" Margin="0,0,0,10">
                         <TextBlock Text="볼륨:" Foreground="White" Margin="0,0,0,5" FontWeight="Bold"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -213,14 +245,14 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Slider Grid.Column="0" Minimum="0" Maximum="100" Value="{Binding Volume, Mode=TwoWay}" VerticalAlignment="Center"/>
-                            <TextBox Grid.Column="1" Text="{Binding Volume, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F0}}" Foreground="Black" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding Volume, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F0}}" Foreground="Black" Margin="10,0,0,0" VerticalAlignment="Center" GotFocus="TextBox_GotFocus" PreviewMouseLeftButtonDown="TextBox_PreviewMouseLeftButtonDown"/>
                         </Grid>
                     </StackPanel>
 
                     <!-- Transcription Section -->
-                    <TextBlock Grid.Row="4" Text="음성 텍스트 변환" FontWeight="Bold" Foreground="White" FontSize="16" Margin="0,10,0,10"/>
+                    <TextBlock Grid.Row="5" Text="음성 텍스트 변환" FontWeight="Bold" Foreground="White" FontSize="16" Margin="0,10,0,10"/>
                     
-                    <StackPanel Grid.Row="5" Orientation="Horizontal">
+                    <StackPanel Grid.Row="6" Orientation="Horizontal">
                         <Button Content="스크립트 생성"
                                 Command="{Binding DataContext.TranscribeVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 IsEnabled="{Binding IsTranscribing, Converter={StaticResource InverseBooleanConverter}, FallbackValue=True}"
@@ -269,11 +301,11 @@
                         </Button>
                     </StackPanel>
 
-                    <ProgressBar Grid.Row="6" Value="{Binding DataContext.TranscriptionProgress, RelativeSource={RelativeSource AncestorType=Window}}"
+                    <ProgressBar Grid.Row="7" Value="{Binding DataContext.TranscriptionProgress, RelativeSource={RelativeSource AncestorType=Window}}"
                                  Visibility="{Binding IsTranscribing, Converter={StaticResource BooleanToVisibilityConverter}}"
                                  Height="10" Margin="0,10,0,0"/>
 
-                    <ListView Grid.Row="7" ItemsSource="{Binding Transcription}"
+                    <ListView Grid.Row="8" ItemsSource="{Binding Transcription}"
                               Visibility="{Binding ShowTranscription, Converter={StaticResource BooleanToVisibilityConverter}}"
                               HorizontalContentAlignment="Stretch" Background="#36443d" Foreground="White" BorderThickness="0"
                               Margin="0,10,0,0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">

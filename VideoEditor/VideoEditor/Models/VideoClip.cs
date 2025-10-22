@@ -1,11 +1,9 @@
-﻿using System;
+﻿using System.Collections.ObjectModel;
 using System.Windows.Media.Imaging;
-using VideoEditor.Common;
-using System.Collections.ObjectModel;
 
 namespace VideoEditor.Models
 {
-    public class VideoClip : TimelineClipBase
+    public class VideoClip : VisualClipBase
     {
         private double _sourceStartTime;
         private string _videoPath = string.Empty;
@@ -23,31 +21,48 @@ namespace VideoEditor.Models
 
         public VideoClip() { }
 
-        public VideoClip(VideoClip original)
+        public override (int Width, int Height) GetContentDimensions()
         {
-            this.Name = original.Name;
-            this.StartPosition = original.StartPosition;
-            this.Duration = original.Duration;
-            this.Width = original.Width;
-            this.TrackIndex = original.TrackIndex;
-            this.IsSelected = false;
-
-            this.SourceStartTime = original.SourceStartTime;
-            this.VideoPath = original.VideoPath;
-            this.Thumbnail = original.Thumbnail;
-            this.Category = original.Category;
-
-            this.SourceWidth = original.SourceWidth;
-            this.SourceHeight = original.SourceHeight;
-            this.Volume = original.Volume;
+            return (SourceWidth, SourceHeight);
         }
 
         public override TimelineClipBase Clone()
         {
-            return new VideoClip(this)
+            var newClip = new VideoClip
             {
-                Name = this.Name + " (복사본)"
+                Name = this.Name + " (복사본)",
+
+                // TimelineClipBase 속성
+                StartPosition = this.StartPosition,
+                Duration = this.Duration,
+                SpeedRatio = this.SpeedRatio,
+                Width = this.Width,
+                TrackIndex = this.TrackIndex,
+                IsSelected = false,
+                Volume = this.Volume,
+                GroupId = this.GroupId,
+
+                // VisualClipBase 속성
+                PositionX = this.PositionX,
+                PositionY = this.PositionY,
+                Scale = this.Scale,
+
+                // VideoClip 고유 속성
+                VideoPath = this.VideoPath,
+                SourceStartTime = this.SourceStartTime,
+                Thumbnail = this.Thumbnail,
+                Category = this.Category,
+                SourceWidth = this.SourceWidth,
+                SourceHeight = this.SourceHeight,
             };
+
+            // 전사 데이터도 복사
+            foreach (var segment in this.Transcription)
+            {
+                newClip.Transcription.Add(segment);
+            }
+
+            return newClip;
         }
     }
 }

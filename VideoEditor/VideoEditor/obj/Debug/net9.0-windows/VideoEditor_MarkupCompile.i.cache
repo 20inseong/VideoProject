@@ -1,20 +1,20 @@
 ﻿VideoEditor
 1.0.0.0
 
-exe
+winexe
 C#
 .cs
-C:\Users\roxno\source\repos\비디오스크러빙1017VideoProj\1017VideoProj\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\
 VideoEditor
 none
 false
-TRACE;DEBUG;NET;NET9_0;NETCOREAPP
-C:\Users\roxno\source\repos\비디오스크러빙1017VideoProj\1017VideoProj\VideoEditor\VideoEditor\App.xaml
-8-368394950
-2181630080235
-3645363107
-2131059736395
-ExportProgressWindow.xaml;MainWindow.xaml;TranscriptionProgressWindow.xaml;Views\ClipEditorView.xaml;Views\Controls\WaveformControl.xaml;Views\EmotionEditorView.xaml;Views\SpeedEditorView.xaml;Views\TranscriptionProgressView.xaml;
+TRACE;DEBUG;NET;NET9_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NET9_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\App.xaml
+91361468644
+217-509503920
+39139098768
+213752800678
+ExportProgressWindow.xaml;MainWindow.xaml;TranscriptionProgressWindow.xaml;Views\ClipEditorView.xaml;Views\Controls\WaveformControl.xaml;Views\EmotionEditorView.xaml;Views\SpeedEditorView.xaml;Views\TranscriptionProgressView.xaml;Views\TransformEditorView.xaml;
 
-False
+True
 
