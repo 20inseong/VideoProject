@@ -76,6 +76,7 @@ namespace VideoEditor.ViewModels
         public IRelayCommand<double> SplitClipCommand { get; }
         public IRelayCommand GroupSelectedClipsCommand { get; }
         public IRelayCommand UngroupSelectedClipsCommand { get; }
+        public IRelayCommand SeparateAudioCommand { get; }
 
         public ObservableCollection<TimelineClipBase> TimelineClips
         {
@@ -94,6 +95,7 @@ namespace VideoEditor.ViewModels
                     DeleteSelectedClipCommand.NotifyCanExecuteChanged();
                     CopySelectedClipCommand.NotifyCanExecuteChanged();
                     SplitClipCommand.NotifyCanExecuteChanged();
+                    SeparateAudioCommand.NotifyCanExecuteChanged();
                 }
             }
         }
@@ -148,6 +150,165 @@ namespace VideoEditor.ViewModels
             GroupSelectedClipsCommand = new RelayCommand(ExecuteGroupSelectedClips, CanExecuteGroupSelectedClips);
             UngroupSelectedClipsCommand = new RelayCommand(ExecuteUngroupSelectedClips, CanExecuteUngroupSelectedClips);
 
+            SeparateAudioCommand = new RelayCommand(ExecuteSeparateAudio, CanExecuteSeparateAudio);
+        }
+
+        public void MoveSelectedClipsByKey(Key key)
+        {
+            // 1. 선택된 클립이 없으면 아무것도 하지 않습니다.
+            if (!_selectedClips.Any()) return;
+
+            // 2. 이동할 시간 단위를 결정합니다. (왼쪽: -1초, 오른쪽: +1초)
+            double timeDelta = (key == Key.Left) ? -1.0 : 1.0;
+
+            // 3. 실제로 이동해야 할 모든 클립 목록을 준비합니다.
+            //    - 선택된 클립과, 그 클립들이 속한 그룹의 모든 멤버를 포함합니다.
+            //    - HashSet을 사용하여 중복을 방지합니다.
+            var clipsToMove = new HashSet<TimelineClipBase>();
+            foreach (var selectedClip in _selectedClips)
+            {
+                if (selectedClip.GroupId.HasValue)
+                {
+                    // 그룹 멤버 전체를 추가합니다.
+                    var groupMembers = TimelineClips.Where(c => c.GroupId == selectedClip.GroupId);
+                    foreach (var member in groupMembers)
+                    {
+                        clipsToMove.Add(member);
+                    }
+                }
+                else
+                {
+                    // 그룹이 없는 클립은 자신만 추가합니다.
+                    clipsToMove.Add(selectedClip);
+                }
+            }
+
+            // 4. 경계 및 충돌 검사를 수행합니다.
+
+            // 4-1. 타임라인 시작(0초)보다 왼쪽으로 이동하는지 확인합니다.
+            double minStartPosition = clipsToMove.Min(c => c.StartPosition);
+            if (minStartPosition + timeDelta < 0)
+            {
+                // 0초에 "달라붙도록" 이동량을 조절합니다.
+                timeDelta = -minStartPosition;
+            }
+
+            // 이동량이 0이면 더 이상 진행할 필요가 없습니다.
+            if (Math.Abs(timeDelta) < 0.001) return;
+
+
+            // 4-2. 다른 클립과 충돌하는지 확인합니다.
+            var nonMovingClips = TimelineClips.Except(clipsToMove).ToList();
+            bool collisionDetected = false;
+            foreach (var clip in clipsToMove)
+            {
+                double newStart = clip.StartPosition + timeDelta;
+                double newEnd = newStart + clip.Duration;
+
+                // 같은 트랙에 있는 다른 클립과 겹치는지 확인합니다.
+                if (nonMovingClips.Any(other =>
+                    other.TrackIndex == clip.TrackIndex &&
+                    newStart < (other.StartPosition + other.Duration) &&
+                    newEnd > other.StartPosition))
+                {
+                    collisionDetected = true;
+                    Debug.WriteLine($"[Move Collision] '{clip.Name}' 클립 이동 시 충돌 발생!");
+                    break;
+                }
+            }
+             
+            // 충돌이 감지되면 이동을 취소합니다.
+            if (collisionDetected) return;
+
+            // 5. 모든 검사를 통과했으면, 클립들을 실제로 이동시킵니다.
+            foreach (var clip in clipsToMove)
+            {
+                clip.StartPosition += timeDelta;
+            }
+
+            // 타임라인 변경 사항을 알립니다 (필요 시).
+            OnTimelineChanged?.Invoke();
+        }
+
+        private bool CanExecuteSeparateAudio()
+        {
+            // 선택된 클립이 정확히 1개이고, 그것이 음소거되지 않은 'VideoClip'일 때만 활성화
+            return SelectedClip is VideoClip vc && !vc.IsMuted && _selectedClips.Count == 1;
+        }
+
+        private void ExecuteSeparateAudio()
+        {
+            if (!CanExecuteSeparateAudio()) return;
+
+            var originalVideoClip = (VideoClip)SelectedClip;
+
+            // 1. 바로 아래 트랙에 공간이 있는지 확인
+            int audioTrackIndex = originalVideoClip.TrackIndex + 1;
+            if (audioTrackIndex > 4) // 최대 트랙 수 제한
+            {
+                MessageBox.Show("클립 바로 아래에 오디오를 추가할 트랙이 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            bool isTrackOccupied = TimelineClips.Any(c =>
+               c.TrackIndex == audioTrackIndex &&
+               originalVideoClip.StartPosition < (c.StartPosition + c.Duration) &&
+               (originalVideoClip.StartPosition + originalVideoClip.Duration) > c.StartPosition
+           );
+
+            if (isTrackOccupied)
+            {
+                MessageBox.Show("클립 바로 아래 트랙의 해당 시간대에 다른 클립이 있어 오디오를 분리할 수 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // 2. '영상 전용'으로 사용할 새로운 VideoClip 생성 (기존 클립을 복제하여 사용)
+            var videoOnlyClip = originalVideoClip.Clone() as VideoClip;
+            if (videoOnlyClip == null) return; // 복제 실패 시 중단
+
+            videoOnlyClip.IsMuted = true; // 소리 끄기
+            videoOnlyClip.Name = $"{originalVideoClip.Name} (영상)"; // 이름 변경
+
+            // 3. '오디오 전용'으로 사용할 새로운 AudioClip 생성
+            var audioOnlyClip = new AudioClip
+            {
+                Name = $"{originalVideoClip.Name} (오디오)",
+                AudioPath = originalVideoClip.VideoPath,
+                StartPosition = originalVideoClip.StartPosition,
+                SourceStartTime = originalVideoClip.SourceStartTime,
+                TrackIndex = audioTrackIndex, // 바로 아래 트랙에 배치
+                Volume = originalVideoClip.Volume,
+
+                SpeedRatio = originalVideoClip.SpeedRatio,
+                Duration = originalVideoClip.Duration,
+            };
+            audioOnlyClip.UpdateWidth(this.PixelsPerSecond);
+
+
+            // 4. 새로운 그룹 ID 생성 및 할당
+            var newGroupId = Guid.NewGuid();
+            videoOnlyClip.GroupId = newGroupId;
+            audioOnlyClip.GroupId = newGroupId;
+
+            // 5. ★★★ 핵심: 원본 클립을 제거하고, 새로 만든 두 개의 클립을 추가 ★★★
+            TimelineClips.Remove(originalVideoClip);
+            TimelineClips.Add(videoOnlyClip);
+            TimelineClips.Add(audioOnlyClip);
+
+            // 6. 새로 생성된 클립들을 선택 상태로 만듦
+            foreach (var clip in _selectedClips) clip.IsSelected = false;
+            _selectedClips.Clear();
+
+            videoOnlyClip.IsSelected = true;
+            audioOnlyClip.IsSelected = true;
+            _selectedClips.Add(videoOnlyClip);
+            _selectedClips.Add(audioOnlyClip);
+            SelectedClip = videoOnlyClip; // 주 선택 클립 설정
+
+            // 커맨드 상태 갱신
+            SeparateAudioCommand.NotifyCanExecuteChanged();
+            GroupSelectedClipsCommand.NotifyCanExecuteChanged();
+            UngroupSelectedClipsCommand.NotifyCanExecuteChanged();
         }
 
         private void ExecuteGroupSelectedClips()
@@ -386,6 +547,10 @@ namespace VideoEditor.ViewModels
         }
         public async Task AddMediaClipAsync(Myvideo media, double dropPosition, int trackIndex)
         {
+            Debug.WriteLine($"[AddMediaClipAsync] Received call for '{media.Title}'.");
+            Debug.WriteLine($"    -> Received dropPosition: {dropPosition:F2}");
+            Debug.WriteLine($"    -> Received trackIndex: {trackIndex}");
+
             string extension = Path.GetExtension(media.FullPath).ToLowerInvariant();
             TimelineClipBase? newClip = null;
 
@@ -481,6 +646,7 @@ namespace VideoEditor.ViewModels
                 thumbnail = null;
             }
 
+            Debug.WriteLine($"    -> CreateVideoClipAsync: Name='{video.Title}', Position={position:F2}, Track={track}, Duration={duration:F2}");
             var newClip = new VideoClip
             {
                 Name = video.Title,
@@ -515,6 +681,7 @@ namespace VideoEditor.ViewModels
 
                 if (duration <= 0) return null;
 
+                Debug.WriteLine($"    -> CreateAudioClipAsync: Name='{audio.Title}', Position={position:F2}, Track={track}, Duration={duration:F2}");
                 var newClip = new AudioClip
                 {
                     Name = audio.Title,

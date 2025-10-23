@@ -8,6 +8,7 @@ namespace VideoEditor.Models
         private double _sourceStartTime;
         private string _videoPath = string.Empty;
         private BitmapImage? _thumbnail;
+        private bool _isMuted;
 
         public double SourceStartTime { get => _sourceStartTime; set => SetProperty(ref _sourceStartTime, value); }
         public string VideoPath { get => _videoPath; set => SetProperty(ref _videoPath, value); }
@@ -16,6 +17,12 @@ namespace VideoEditor.Models
 
         public int SourceWidth { get; set; }
         public int SourceHeight { get; set; }
+
+        public bool IsMuted
+        {
+            get => _isMuted;
+            set => SetProperty(ref _isMuted, value);
+        }
 
         public ObservableCollection<TranscriptionSegment> Transcription { get; set; } = new();
 
@@ -54,6 +61,7 @@ namespace VideoEditor.Models
                 Category = this.Category,
                 SourceWidth = this.SourceWidth,
                 SourceHeight = this.SourceHeight,
+                IsMuted = this.IsMuted,
             };
 
             // 전사 데이터도 복사

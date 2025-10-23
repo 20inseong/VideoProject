@@ -20,7 +20,8 @@
         AllowsTransparency="True"
         Background="#2B2B2B"
         ResizeMode="CanResizeWithGrip"
-        WindowState="Normal">
+        WindowState="Normal"
+        PreviewKeyDown="MainWindow_PreviewKeyDown">
 
     <Window.InputBindings>
         <KeyBinding Key="Delete" Command="{Binding VideoEditor.DeleteSelectedClipCommand}" />
@@ -308,7 +309,7 @@
                         <MenuItem Header="시계 반대 방향 90도 회전" />
                     </MenuItem>
                     <MenuItem Header="오디오">
-                        <MenuItem Header="오디오 분리" />
+                        <MenuItem Header="오디오 분리" Command="{Binding VideoEditor.SeparateAudioCommand}" />
                         <MenuItem Header="뮤트" />
                         <MenuItem Header="음성 텍스트 변환" Command="{Binding TranscribeVideoCommand}" />
                     </MenuItem>

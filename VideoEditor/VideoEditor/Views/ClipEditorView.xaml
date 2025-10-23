@@ -13,6 +13,15 @@
         <common:ClipTypeToStringConverter x:Key="ClipTypeToStringConverter" />
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <common:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+
+        <Style x:Key="MutedStateTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMuted}" Value="True">
+                    <Setter Property="IsEnabled" Value="False" />
+                    <Setter Property="Foreground" Value="Gray" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
     <ContentControl Content="{Binding}">
@@ -68,7 +77,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Slider Grid.Column="0" Minimum="0.1" Maximum="4" Value="{Binding SpeedRatio, Mode=TwoWay}" VerticalAlignment="Center"/>
-                            <TextBox Grid.Column="1" Text="{Binding SpeedRatio, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F1}}" Foreground="Black" Margin="10,0,0,0" VerticalAlignment="Center" Width="50" GotFocus="TextBox_GotFocus" PreviewMouseLeftButtonDown="TextBox_PreviewMouseLeftButtonDown"/>
+                            <TextBox Grid.Column="1" Text="{Binding SpeedRatio, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F1}}" Foreground="White" Margin="10,0,0,0" VerticalAlignment="Center" Width="50" GotFocus="TextBox_GotFocus" PreviewMouseLeftButtonDown="TextBox_PreviewMouseLeftButtonDown"/>
                         </Grid>
                     </StackPanel>
 
@@ -80,8 +89,15 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <Slider Grid.Column="0" Minimum="0" Maximum="100" Value="{Binding Volume, Mode=TwoWay}" VerticalAlignment="Center"/>
-                            <TextBox Grid.Column="1" Text="{Binding Volume, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F0}}" Foreground="Black" Margin="10,0,0,0" VerticalAlignment="Center" GotFocus="TextBox_GotFocus" PreviewMouseLeftButtonDown="TextBox_PreviewMouseLeftButtonDown"/>
+                            <Slider Grid.Column="0" Minimum="0" Maximum="100" 
+                                    Value="{Binding Volume, Mode=TwoWay}" 
+                                    VerticalAlignment="Center"
+                                    IsEnabled="{Binding IsMuted, Converter={StaticResource InverseBooleanConverter}}"/>
+
+                            <TextBox Grid.Column="1" Text="{Binding Volume, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F0}}" 
+                                     Margin="10,0,0,0" VerticalAlignment="Center" Width="50"
+                                     GotFocus="TextBox_GotFocus" PreviewMouseLeftButtonDown="TextBox_PreviewMouseLeftButtonDown"
+                                     Style="{StaticResource MutedStateTextBoxStyle}" />
                         </Grid>
                     </StackPanel>
 

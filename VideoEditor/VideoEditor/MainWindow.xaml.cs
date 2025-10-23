@@ -60,6 +60,23 @@ namespace VideoEditor
             DrawTimelineRuler();
         }
 
+        private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            // 텍스트 박스 등에 포커스가 있을 때는 방향키가 정상적으로 동작해야 하므로,
+            // 키보드 이벤트가 다른 컨트롤에서 이미 처리되지 않았을 때만 실행합니다.
+            if (e.OriginalSource is TextBox || e.OriginalSource is Slider)
+            {
+                return;
+            }
+
+            if (e.Key == Key.Left || e.Key == Key.Right)
+            {
+                // ViewModel에 키보드 이동 로직 처리를 위임합니다.
+                _mainViewModel.VideoEditor.MoveSelectedClipsByKey(e.Key);
+                // 이벤트가 다른 곳으로 전파되지 않도록 처리되었음을 표시합니다.
+                e.Handled = true;
+            }
+        }
         private void InitializeVideoViews()
         {
             var playerViewModel = _mainViewModel.PlayerViewModel;
