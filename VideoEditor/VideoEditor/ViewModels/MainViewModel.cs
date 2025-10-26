@@ -131,13 +131,51 @@ namespace VideoEditor.ViewModels
             get => (long)(CurrentTimelinePosition * 1000);
             set
             {
-                if (Math.Abs(value - (CurrentTimelinePosition * 1000)) < 100) return;
+                if (!IsScrubbing)
+                {
+                    _wasPlayingBeforeInteraction = IsTimelinePlaying;
+                    if (IsTimelinePlaying)
+                    {
+                        _timelineTimer.Stop();
+                        PlayerViewModel.PauseAllPlayers();
+                        IsTimelinePlaying = false;
+                    }
+                    _scrubSeekTimer.Start(); // Start the periodic seek timer
+                }
 
-                SeekTimeline(value / 1000.0);
+                IsScrubbing = true;
+                _scrubbingTimer.Stop(); // Reset the "end of scrub" timer
+                _scrubbingTimer.Start();
+
+                // Just update the position. The timer will do the seek.
+                if (SetProperty(ref _currentTimelinePosition, value / 1000.0, nameof(CurrentTimelinePosition)))
+                {
+                    OnPropertyChanged(nameof(CurrentTimelineTimeMs));
+                }
+            }
+        }
+
+        private void ScrubbingTimer_Tick(object? sender, EventArgs e)
+        {
+            _scrubbingTimer.Stop();
+            _scrubSeekTimer.Stop(); // Stop the periodic seeking
+            IsScrubbing = false;
+
+            if (_wasPlayingBeforeInteraction)
+            {
+                ResyncAndPlay();
+                _wasPlayingBeforeInteraction = false;
+            }
+            else
+            {
+                // If we were paused before scrubbing, just do a final soft seek to land on the right frame.
+                SeekTimeline(CurrentTimelinePosition, isScrubbing: true);
             }
         }
 
         private bool _isStopRequested;
+        private bool _isSeeking = false;
+
 
         private long _totalTimelineDurationMs;
         public long TotalTimelineDurationMs
@@ -151,7 +189,13 @@ namespace VideoEditor.ViewModels
         private readonly Dictionary<TimelineClipBase, MediaPlayer> _activeAudioPlayers = new();
 
         private readonly DispatcherTimer _timelineTimer;
+        private readonly DispatcherTimer _scrubSeekTimer;
         private readonly uint _flatEqIndex;
+
+        private void ScrubSeekTimer_Tick(object? sender, EventArgs e)
+        {
+            SeekTimeline(CurrentTimelinePosition, isScrubbing: true);
+        }
 
         public string ActiveDisplayText
         {
@@ -165,10 +209,20 @@ namespace VideoEditor.ViewModels
             set => SetProperty(ref _isTextVisible, value);
         }
 
-        public bool IsScrubbing { get; set; }
+        public bool IsScrubbing
+        {
+            get => _isScrubbing;
+            set => SetProperty(ref _isScrubbing, value);
+        }
+        private bool _isScrubbing;
+
+        private readonly DispatcherTimer _scrubbingTimer;
 
         public MainViewModel()
         {
+            _scrubbingTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+            _scrubbingTimer.Tick += ScrubbingTimer_Tick;
+
             PlayerViewModel = new PlayerViewModel();
             VideoList = new VideoListViewModel();
             VideoEditor = new VideoEditorViewModel();
@@ -237,6 +291,9 @@ namespace VideoEditor.ViewModels
                 Interval = TimeSpan.FromMilliseconds(50)
             };
             _timelineTimer.Tick += OnTimelineTimerTick;
+
+            _scrubSeekTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+            _scrubSeekTimer.Tick += ScrubSeekTimer_Tick;
 
             UpdateTotalTimelineDuration();
         }
@@ -755,12 +812,31 @@ namespace VideoEditor.ViewModels
 
             CurrentTimelinePosition += _timelineTimer.Interval.TotalSeconds;
 
-            SyncPlayersToTimeline();
-
+            // Check for end of timeline FIRST to prevent race conditions.
             if (CurrentTimelinePosition * 1000 >= TotalTimelineDurationMs)
             {
                 ExecuteStopTimeline();
+                return; // Stop processing this tick.
             }
+
+            // If not the end, then sync players for the new position.
+            SyncPlayersToTimeline();
+        }
+
+        private void ResyncAndPlay()
+        {
+            // 1. Ensure everything is paused and the timeline isn't running.
+            _timelineTimer.Stop();
+            PlayerViewModel.PauseAllPlayers();
+            IsTimelinePlaying = false; // Set to false temporarily
+
+            // 2. Seek all active players to the correct time while they are paused.
+            SyncPlayersToTimeline();
+
+            // 3. Now that everyone is at the same starting line, start the race.
+            IsTimelinePlaying = true; // Set to true for the playback state
+            PlayerViewModel.ResumeAllPlayers(); // Use a general resume command
+            _timelineTimer.Start();
         }
 
         private void Clip_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -919,8 +995,7 @@ namespace VideoEditor.ViewModels
             }
             else
             {
-                IsTimelinePlaying = true; 
-                SeekTimeline(CurrentTimelinePosition); 
+                ResyncAndPlay();
             }
         }
 
@@ -939,37 +1014,8 @@ namespace VideoEditor.ViewModels
 
         public void SeekTimeline(double timeSec, bool isScrubbing = false)
         {
-            Debug.WriteLine($"[SEEK] 타임라인 {timeSec:F2}초로 이동. Scrubbing: {isScrubbing}");
-
-            bool wasPlaying = IsTimelinePlaying;
-
-            // 스크러빙 중이 아닐 때만 플레이어를 완전히 멈추고 재설정.
-            if (!isScrubbing)
-            {
-                if (wasPlaying)
-                {
-                    _timelineTimer.Stop();
-                    IsTimelinePlaying = false; 
-                }
-
-                PlayerViewModel.Stop();
-                _activeVisualClipPlayers.Clear();
-                _activeAudioPlayers.Clear();
-            }
-
             CurrentTimelinePosition = timeSec;
-
-            if (wasPlaying && !isScrubbing)
-            {
-                IsTimelinePlaying = true; // 동기화 전에 true로 되돌리기
-            }
-
             SyncPlayersToTimeline();
-
-            if (wasPlaying && !isScrubbing)
-            {
-                _timelineTimer.Start();
-            }
         }
 
         public void SyncPlayersToTimeline()

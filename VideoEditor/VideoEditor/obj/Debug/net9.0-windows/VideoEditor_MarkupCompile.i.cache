@@ -4,14 +4,14 @@
 exe
 C#
 .cs
-C:\Users\roxno\source\repos\클립별배속추가1017VideoProj\비디오스크러빙1017VideoProj\1017VideoProj\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\
+C:\Users\roxno\source\repos\speedvolume\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\
 VideoEditor
 none
 false
 TRACE;DEBUG;NET;NET9_0;NETCOREAPP
-C:\Users\roxno\source\repos\클립별배속추가1017VideoProj\비디오스크러빙1017VideoProj\1017VideoProj\VideoEditor\VideoEditor\App.xaml
+C:\Users\roxno\source\repos\speedvolume\VideoEditor\VideoEditor\App.xaml
 8-368394950
-2181630080235
+217-509503920
 3645363107
 2131059736395
 ExportProgressWindow.xaml;MainWindow.xaml;TranscriptionProgressWindow.xaml;Views\ClipEditorView.xaml;Views\Controls\WaveformControl.xaml;Views\EmotionEditorView.xaml;Views\SpeedEditorView.xaml;Views\TranscriptionProgressView.xaml;
