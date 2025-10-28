@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Windows.Media.Imaging;
+using Newtonsoft.Json;
 
 namespace VideoEditor.Models
 {
@@ -12,6 +13,8 @@ namespace VideoEditor.Models
 
         public double SourceStartTime { get => _sourceStartTime; set => SetProperty(ref _sourceStartTime, value); }
         public string VideoPath { get => _videoPath; set => SetProperty(ref _videoPath, value); }
+
+        [JsonIgnore]
         public BitmapImage? Thumbnail { get => _thumbnail; set => SetProperty(ref _thumbnail, value); }
         public string Category { get; set; } = "미분류";
 

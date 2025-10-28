@@ -270,13 +270,13 @@
                 <!-- 파일 -->
                 <MenuItem Header="파일" >
                     <MenuItem Header="새 프로젝트" Click="NewProject_Click"/>
-                    <MenuItem Header="프로젝트 열기"/>
+                    <MenuItem Header="프로젝트 열기" Command="{Binding LoadProjectCommand}"/>
                     <MenuItem Header="프로젝트 초기화" Click="Project_Reset_Click"/>
                     <MenuItem Header="최근 파일 열기" />
                     <Separator/>
                     <MenuItem Header="미디어 가져오기" Click="btnSelectMedia_Click"/>
                     <Separator/>
-                    <MenuItem Header="프로젝트 저장" />
+                    <MenuItem Header="프로젝트 저장" Command="{Binding SaveProjectCommand}"/>
                     <Separator/>
                     <MenuItem Header="렌더링" 
                               Command="{Binding DataContext.ExportVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>

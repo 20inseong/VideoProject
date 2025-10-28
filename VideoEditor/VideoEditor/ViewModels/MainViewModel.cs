@@ -1,19 +1,26 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Input;
+using Emgu.CV;
 using LibVLCSharp.Shared;
 using Microsoft.Win32;
 using VideoEditor.Common;
 using VideoEditor.Models;
+using VideoEditor.Services; 
 using VlcMediaPlayer = LibVLCSharp.Shared.MediaPlayer;
-using System.ComponentModel;
+
 
 namespace VideoEditor.ViewModels
 {
@@ -29,6 +36,7 @@ namespace VideoEditor.ViewModels
 
     public class MainViewModel : ViewModelBase 
     {
+        private readonly ProjectService _projectService;
         public PlayerViewModel PlayerViewModel { get; }
         public VideoListViewModel VideoList { get; }
         public VideoEditorViewModel VideoEditor { get; }
@@ -36,6 +44,9 @@ namespace VideoEditor.ViewModels
         public string StatusMessage { get; set; } = "준비 완료";
         public IAsyncRelayCommand ExportVideoCommand { get; }
         public IAsyncRelayCommand TranscribeVideoCommand { get; }
+
+        public IAsyncRelayCommand SaveProjectCommand { get; }
+        public IAsyncRelayCommand LoadProjectCommand { get; }
 
         private bool _isTranscribing;
         public bool IsTranscribing
@@ -173,6 +184,7 @@ namespace VideoEditor.ViewModels
 
         public MainViewModel()
         {
+            _projectService = new ProjectService();
             PlayerViewModel = new PlayerViewModel();
             VideoList = new VideoListViewModel();
             VideoEditor = new VideoEditorViewModel();
@@ -239,6 +251,9 @@ namespace VideoEditor.ViewModels
             ExportVideoCommand = new AsyncRelayCommand(StartExportProcessAsync);
             TranscribeVideoCommand = new AsyncRelayCommand(TranscribeVideo);
 
+            SaveProjectCommand = new AsyncRelayCommand(SaveProjectAsync);
+            LoadProjectCommand = new AsyncRelayCommand(LoadProjectAsync);
+
             _timelineTimer = new DispatcherTimer(DispatcherPriority.Render)
             {
                 Interval = TimeSpan.FromMilliseconds(50)
@@ -246,6 +261,163 @@ namespace VideoEditor.ViewModels
             _timelineTimer.Tick += OnTimelineTimerTick;
 
             UpdateTotalTimelineDuration();
+        }
+
+        private async Task SaveProjectAsync()
+        {
+            var saveFileDialog = new SaveFileDialog
+            {
+                // 이 부분을 원하는 이름과 확장자로 바꾸세요.
+                Filter = "FrameCraft 프로젝트 (*.fcp)|*.fcp",
+                Title = "프로젝트 저장하기",
+                FileName = "MyProject.fcp"
+            };
+
+            if (saveFileDialog.ShowDialog(_mainWindow) != true) return;
+
+            var projectData = new ProjectSaveData
+            {
+                TimelineClips = new List<TimelineClipBase>(VideoEditor.TimelineClips),
+                MediaBin = new List<Myvideo>(VideoList.MyVideoes)
+            };
+
+            try
+            {
+                // 복잡한 로직은 서비스에 위임합니다.
+                await _projectService.SaveProjectAsync(projectData, saveFileDialog.FileName);
+                StatusMessage = $"프로젝트가 성공적으로 저장되었습니다.";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "프로젝트 저장 중 오류 발생.";
+                MessageBox.Show($"프로젝트 저장에 실패했습니다: {ex.Message}", "저장 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                OnPropertyChanged(nameof(StatusMessage));
+            }
+        }
+
+        private async Task LoadProjectAsync()
+        {
+            var openFileDialog = new OpenFileDialog
+            {
+                // 이 부분을 원하는 이름과 확장자로 바꾸세요.
+                Filter = "FrameCraft 프로젝트 (*.fcp)|*.fcp",
+                Title = "프로젝트 열기"
+            };
+
+            if (openFileDialog.ShowDialog(_mainWindow) != true) return;
+
+            try
+            {
+                // 복잡한 로직은 서비스에 위임합니다.
+                var projectData = await _projectService.LoadProjectAsync(openFileDialog.FileName);
+
+                if (projectData != null)
+                {
+                    // 불러온 데이터로 현재 상태를 교체합니다.
+                    VideoEditor.TimelineClips.Clear();
+                    VideoList.MyVideoes.Clear();
+
+                    foreach (var clip in projectData.TimelineClips) VideoEditor.TimelineClips.Add(clip);
+                    foreach (var media in projectData.MediaBin) VideoList.MyVideoes.Add(media);
+
+                    await RecreateThumbnailsAfterLoadAsync();
+
+                    UpdateTotalTimelineDuration();
+                    SeekTimeline(0);
+                    StatusMessage = $"프로젝트 '{Path.GetFileName(openFileDialog.FileName)}'를 불러왔습니다.";
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "프로젝트 불러오기 중 오류 발생.";
+                MessageBox.Show($"프로젝트를 불러오는 데 실패했습니다: {ex.Message}", "불러오기 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                OnPropertyChanged(nameof(StatusMessage));
+            }
+        }
+
+        private async Task RecreateThumbnailsAfterLoadAsync()
+        {
+            foreach (var clip in VideoEditor.TimelineClips)
+            {
+                if (clip is VideoClip videoClip)
+                {
+                    videoClip.Thumbnail = await GenerateThumbnailForVideoAsync(videoClip.VideoPath);
+                }
+                else if (clip is ImageClip imageClip)
+                {
+                    imageClip.Thumbnail = GenerateThumbnailForImage(imageClip.ImagePath);
+                }
+            }
+        }
+
+        private Task<BitmapImage?> GenerateThumbnailForVideoAsync(string videoPath)
+        {
+            return Task.Run(() =>
+            {
+                if (!File.Exists(videoPath)) return null;
+
+                try
+                {
+                    using (var capture = new VideoCapture(videoPath))
+                    {
+                        int frameCount = (int)capture.Get(Emgu.CV.CvEnum.CapProp.FrameCount);
+                        if (frameCount <= 0) return null;
+
+                        capture.Set(Emgu.CV.CvEnum.CapProp.PosFrames, frameCount / 2);
+                        using (var frame = new Mat())
+                        {
+                            if (!capture.Read(frame) || frame.IsEmpty) return null;
+
+                            using (var bmp = frame.ToBitmap())
+                            using (var memory = new MemoryStream())
+                            {
+                                bmp.Save(memory, ImageFormat.Png);
+                                memory.Position = 0;
+
+                                var bitmapImage = new BitmapImage();
+                                bitmapImage.BeginInit();
+                                bitmapImage.StreamSource = memory;
+                                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                                bitmapImage.EndInit();
+                                bitmapImage.Freeze(); // UI 스레드 외에서 생성했으므로 Freeze는 필수
+                                return bitmapImage;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"썸네일 재생성 실패 ({videoPath}): {ex.Message}");
+                    return null;
+                }
+            });
+        }
+
+        private BitmapImage? GenerateThumbnailForImage(string imagePath)
+        {
+            if (!File.Exists(imagePath)) return null;
+
+            try
+            {
+                var bitmapImage = new BitmapImage();
+                bitmapImage.BeginInit();
+                bitmapImage.UriSource = new Uri(imagePath);
+                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                bitmapImage.EndInit();
+                bitmapImage.Freeze();
+                return bitmapImage;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"이미지 썸네일 재생성 실패 ({imagePath}): {ex.Message}");
+                return null;
+            }
         }
 
         private async Task TranscribeVideo()

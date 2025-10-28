@@ -9523,3 +9523,4 @@ C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Tra
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Views\TransformEditorView.g.cs
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Views\TransformEditorView.baml
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\ggml-large-v3-turbo-q5_0.bin
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\Newtonsoft.Json.dll
