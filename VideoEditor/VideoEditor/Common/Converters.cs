@@ -3,6 +3,7 @@
 using System;
 using System.Globalization;
 using System.Windows.Data;
+using System.Windows;
 using VideoEditor.ViewModels;
 using VideoEditor.Models;
 
@@ -100,6 +101,36 @@ namespace VideoEditor.Common
                 return !b;
             }
             return value; // Return original value if not a boolean
+        }
+    }
+
+    public class NullToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return value == null ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class XYToMarginConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is TimelineClipBase clip)
+            {
+                return new Thickness(clip.X, clip.Y, 0, 0);
+            }
+            return new Thickness(0);
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
         }
     }
 }

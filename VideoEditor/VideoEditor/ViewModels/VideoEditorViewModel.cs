@@ -168,7 +168,11 @@ namespace VideoEditor.ViewModels
                 StartPosition = creationTime,
                 Duration = defaultDuration,
                 Width = defaultDuration * PixelsPerSecond,
-                TrackIndex = FindAvailableTrack(creationTime, defaultDuration)
+                TrackIndex = FindAvailableTrack(creationTime, defaultDuration),
+                X = 100, // Default X position
+                Y = 100, // Default Y position
+                RenderWidth = 200, // Default width for rendering
+                RenderHeight = 50 // Default height for rendering
             };
             TimelineClips.Add(newClip);
         }
@@ -567,6 +571,11 @@ namespace VideoEditor.ViewModels
                     // 로드된 BitmapImage에서 직접 픽셀 너비와 높이를 읽어와 저장.
                     SourceWidth = thumbnail.PixelWidth,
                     SourceHeight = thumbnail.PixelHeight,
+
+                    X = 0, // Initial X position
+                    Y = 0, // Initial Y position
+                    RenderWidth = thumbnail.PixelWidth, // Initial width for rendering
+                    RenderHeight = thumbnail.PixelHeight // Initial height for rendering
                 };
 
                 clip.UpdateWidth(this.PixelsPerSecond); // 타임라인에서의 클립 너비 계산

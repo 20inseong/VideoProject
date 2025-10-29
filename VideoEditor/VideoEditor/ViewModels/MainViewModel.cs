@@ -56,25 +56,11 @@ namespace VideoEditor.ViewModels
         private TranscriptionProgressWindow? _transcriptionProgressWindow;
         private CancellationTokenSource? _exportCts;
 
-        private string _activeDisplayText = string.Empty;
-        private bool _isTextVisible = false;
+        public ObservableCollection<TimelineClipBase> ActiveVisualClips { get; } = new();
 
-        private double _lastPlayerWidth;
-        private double _lastPlayerHeight;
 
-        private TimelineClipBase? _highlightedVisualClip;
-        public TimelineClipBase? HighlightedVisualClip
-        {
-            get => _highlightedVisualClip;
-            private set => SetProperty(ref _highlightedVisualClip, value);
-        }
 
-        private Thickness _highlightBorderMargin;
-        public Thickness HighlightBorderMargin
-        {
-            get => _highlightBorderMargin;
-            private set => SetProperty(ref _highlightBorderMargin, value);
-        }
+
 
         public MainViewModel(Window mainWindow) : this()
         {
@@ -197,17 +183,7 @@ namespace VideoEditor.ViewModels
             SeekTimeline(CurrentTimelinePosition, isScrubbing: true);
         }
 
-        public string ActiveDisplayText
-        {
-            get => _activeDisplayText;
-            set => SetProperty(ref _activeDisplayText, value);
-        }
 
-        public bool IsTextVisible
-        {
-            get => _isTextVisible;
-            set => SetProperty(ref _isTextVisible, value);
-        }
 
         public bool IsScrubbing
         {
@@ -273,13 +249,7 @@ namespace VideoEditor.ViewModels
                 });
             };
 
-            VideoEditor.PropertyChanged += (s, e) =>
-            {
-                if (e.PropertyName == nameof(VideoEditor.SelectedClip))
-                {
-                    UpdateHighlightedVisualClip();
-                }
-            };
+
 
             PlayPauseTimelineCommand = new RelayCommand(ExecutePlayPauseTimeline);
             StopTimelineCommand = new RelayCommand(ExecuteStopTimeline);
@@ -408,74 +378,7 @@ namespace VideoEditor.ViewModels
             }
         }
 
-        public void UpdateHighlightBorderSize(double playerWidth, double playerHeight)
-        {
-            _lastPlayerWidth = playerWidth;
-            _lastPlayerHeight = playerHeight;
 
-            if (HighlightedVisualClip == null || playerWidth <= 0 || playerHeight <= 0)
-            {
-                HighlightBorderMargin = new Thickness(0);
-                return;
-            }
-
-            int contentWidth = 0;
-            int contentHeight = 0;
-
-            if (HighlightedVisualClip is VideoClip vc)
-            {
-                contentWidth = vc.SourceWidth;
-                contentHeight = vc.SourceHeight;
-            }
-            else if (HighlightedVisualClip is ImageClip ic)
-            {
-                contentWidth = ic.SourceWidth;
-                contentHeight = ic.SourceHeight;
-            }
-
-            if (contentWidth <= 0 || contentHeight <= 0)
-            {
-                HighlightBorderMargin = new Thickness(0);
-                return;
-            }
-
-            double playerAspectRatio = playerWidth / playerHeight;
-            double contentAspectRatio = (double)contentWidth / contentHeight;
-
-            double marginH = 0;
-            double marginV = 0;
-
-            if (contentAspectRatio > playerAspectRatio)
-            {
-                double scaledHeight = playerWidth / contentAspectRatio;
-                marginV = (playerHeight - scaledHeight) / 2.0;
-            }
-            else
-            {
-                double scaledWidth = playerHeight * contentAspectRatio;
-                marginH = (playerWidth - scaledWidth) / 2.0;
-            }
-
-            HighlightBorderMargin = new Thickness(marginH, marginV, marginH, marginV);
-        }
-
-        private void UpdateHighlightedVisualClip()
-        {
-            var selected = VideoEditor.SelectedClip;
-
-            if (selected == null || !(selected is VideoClip || selected is ImageClip || selected is TextClip))
-            {
-                HighlightedVisualClip = null;
-            }
-            else
-            {
-                bool isClipActive = CurrentTimelinePosition >= selected.StartPosition &&
-                                    CurrentTimelinePosition < (selected.StartPosition + selected.Duration);
-
-                HighlightedVisualClip = isClipActive ? selected : null;
-            }
-            UpdateHighlightBorderSize(_lastPlayerWidth, _lastPlayerHeight);
-        }
 
         private async Task StartExportProcessAsync()
         {
@@ -1028,103 +931,64 @@ namespace VideoEditor.ViewModels
                 .Where(c => c.StartPosition <= CurrentTimelinePosition && (c.StartPosition + c.Duration) > CurrentTimelinePosition)
                 .ToList();
 
-                    // 재생 중 드래그된 클립의 실시간 탐색 처리
-            var draggedClip = this.VideoEditor.DraggedClip;
-            if (draggedClip != null && IsTimelinePlaying)
+            // Update ActiveVisualClips for the overlay
+            ActiveVisualClips.Clear();
+            var activeVisualClipsForOverlay = activeClips.Where(c => c is ImageClip || c is TextClip).OrderBy(c => c.TrackIndex);
+            foreach (var clip in activeVisualClipsForOverlay)
             {
-                var activeDraggedClip = activeClips.FirstOrDefault(c => c.Id == draggedClip.Id);
-                if (activeDraggedClip != null)
-                {
-                    double timeWithinClip = CurrentTimelinePosition - activeDraggedClip.StartPosition;
-                    long newTimeMs = (long)(timeWithinClip * activeDraggedClip.SpeedRatio * 1000);
+                ActiveVisualClips.Add(clip);
+            }
 
-                    if (_activeVisualClipPlayers.TryGetValue(activeDraggedClip, out var visualPlayer))
-                    {
-                        if (Math.Abs(visualPlayer.Time - newTimeMs) > 100)
-                        {
-                            visualPlayer.Time = newTimeMs;
-                        }
-                    }
-                    if (_activeAudioPlayers.TryGetValue(activeDraggedClip, out var audioPlayer))
-                    {
-                        if (Math.Abs(audioPlayer.Time - newTimeMs) > 100)
-                        {
-                            audioPlayer.Time = newTimeMs;
-                        }
-                    }
+            // Handle video clips
+            var activeVideoClips = activeClips.OfType<VideoClip>().ToList();
+            var videoClipsToDeactivate = _activeVisualClipPlayers.Keys.OfType<VideoClip>().Except(activeVideoClips).ToList();
+            
+            foreach (var clip in videoClipsToDeactivate)
+            {
+                if (_activeVisualClipPlayers.Remove(clip, out var player))
+                {
+                    player.Stop();
+                    player.Media?.Dispose();
+                    player.Media = null;
                 }
             }
 
-                        var activeVisualClips = activeClips.OfType<VideoClip>().Concat<TimelineClipBase>(activeClips.OfType<ImageClip>()).ToList();
+            foreach (var videoClip in activeVideoClips)
+            {
+                var player = PlayerViewModel.VideoPlayers[videoClip.TrackIndex];
+                double timeWithinClip = CurrentTimelinePosition - videoClip.StartPosition;
 
-                                    //  어떤 플레이어가 활성화되어야 하는지 결정
-                        var playersToKeepActive = new HashSet<MediaPlayer>();
-                        foreach (var clip in activeVisualClips)
-                        {
-                            if (clip.TrackIndex < PlayerViewModel.VideoPlayers.Count)
-                            {
-                                playersToKeepActive.Add(PlayerViewModel.VideoPlayers[clip.TrackIndex]);
-                            }
-                        }
+                if (!_activeVisualClipPlayers.ContainsKey(videoClip) || _activeVisualClipPlayers[videoClip] != player)
+                {
+                    _activeVisualClipPlayers[videoClip] = player;
+                    string mediaPath = videoClip.VideoPath;
+                    if (!string.IsNullOrEmpty(mediaPath))
+                    {
+                        player.Media = PlayerViewModel.PrepareMedia(mediaPath, timeWithinClip * videoClip.SpeedRatio, videoOnly: true, audioOnly: false);
+                        player.SetRate((float)videoClip.SpeedRatio);
+                    }
+                }
 
-                                    // 더 이상 필요하지 않은 플레이어 비활성화
-                        foreach (var player in PlayerViewModel.VideoPlayers)
-                        {
-                            if (!playersToKeepActive.Contains(player) && player.Media != null)
-                            {
-                                player.Stop();
-                                player.Media.Dispose();
-                                player.Media = null;
-                            }
-                        }
+                if (IsScrubbing || VideoEditor.IsDraggingClip)
+                {
+                    player.Time = (long)(timeWithinClip * videoClip.SpeedRatio * 1000);
+                    player.Play();
+                    player.SetPause(true);
+                }
+                else if (IsTimelinePlaying && !player.IsPlaying)
+                {
+                    player.Play();
+                }
+                else if (!IsTimelinePlaying && player.IsPlaying)
+                {
+                    player.SetPause(true);
+                }
+            }
 
-                                    // 더 이상 활성 상태가 아닌 딕셔너리의 클립 비활성화
-                        var clipsToDeactivate = _activeVisualClipPlayers.Keys.Except(activeVisualClips).ToList();
-                        foreach (var clip in clipsToDeactivate)
-                        {
-                            _activeVisualClipPlayers.Remove(clip);
-                        }
-
-                                    // 현재 활성 클립에 대한 플레이어 활성화 또는 업데이트
-                        foreach (var clip in activeVisualClips)
-                        {
-                            var player = PlayerViewModel.VideoPlayers[clip.TrackIndex];
-                            double timeWithinClip = CurrentTimelinePosition - clip.StartPosition;
-
-                                        // 클립이 새롭거나 이 플레이어로 이동한 경우, 미디어 설정
-                            if (!_activeVisualClipPlayers.ContainsKey(clip) || _activeVisualClipPlayers[clip] != player)
-                            {
-                                _activeVisualClipPlayers[clip] = player;
-                                string mediaPath = (clip is VideoClip vc) ? vc.VideoPath : (clip as ImageClip)?.ImagePath ?? string.Empty;
-                                bool isVideo = clip is VideoClip;
-            
-                                if (!string.IsNullOrEmpty(mediaPath))
-                                {
-                                    player.Media = PlayerViewModel.PrepareMedia(mediaPath, timeWithinClip * clip.SpeedRatio, videoOnly: isVideo, audioOnly: false);
-                                    player.SetRate((float)clip.SpeedRatio);
-                                }
-                            }
-            
-                            if (IsScrubbing || VideoEditor.IsDraggingClip)
-                            {
-                                player.Time = (long)(timeWithinClip * clip.SpeedRatio * 1000);
-                                player.Play();
-                                player.SetPause(true);
-                            }
-                            else if (IsTimelinePlaying && !player.IsPlaying)
-                            {
-                                player.Play();
-                            }
-                            else if (!IsTimelinePlaying && player.IsPlaying)
-                            {
-                                player.SetPause(true);
-                            }
-                        }
-            
+            // Handle audio
             var activeAudioSourceClips = activeClips.Where(c => c is VideoClip || c is AudioClip).ToList();
-
-                   // 더 이상 활성 상태가 아닌 클립의 오디오 플레이어 비활성화.
             var audioClipsToDeactivate = _activeAudioPlayers.Keys.Except(activeAudioSourceClips).ToList();
+            
             foreach (var clip in audioClipsToDeactivate)
             {
                 if (_activeAudioPlayers.Remove(clip, out var player))
@@ -1135,18 +999,16 @@ namespace VideoEditor.ViewModels
                 }
             }
 
-                    // 오디오 플레이어 활성화 또는 업데이트
             foreach (var clip in activeAudioSourceClips)
             {
                 MediaPlayer? player;
                 double timeWithinClip = CurrentTimelinePosition - clip.StartPosition;
                 double sourceStartTime = (clip is VideoClip vc) ? vc.SourceStartTime : (clip as AudioClip)?.SourceStartTime ?? 0;
-                double seekTimeInSource = sourceStartTime + timeWithinClip;
 
                 if (!_activeAudioPlayers.TryGetValue(clip, out player))
                 {
                     player = PlayerViewModel.GetAvailableAudioPlayer();
-                    if (player == null) { Debug.WriteLine("[WARNING] No available audio player."); continue; }
+                    if (player == null) { continue; }
                     _activeAudioPlayers.Add(clip, player);
 
                     string mediaPath = (clip is VideoClip v) ? v.VideoPath : (clip as AudioClip)?.AudioPath ?? string.Empty;
@@ -1157,7 +1019,7 @@ namespace VideoEditor.ViewModels
                         equalizer.SetPreamp(ConvertVolumeToDb(combinedVolume));
                         player.SetEqualizer(equalizer);
 
-                    player.Media = PlayerViewModel.PrepareMedia(mediaPath, sourceStartTime + (timeWithinClip * clip.SpeedRatio), videoOnly: false, audioOnly: true);
+                        player.Media = PlayerViewModel.PrepareMedia(mediaPath, sourceStartTime + (timeWithinClip * clip.SpeedRatio), videoOnly: false, audioOnly: true);
                         player.SetRate((float)clip.SpeedRatio);
                     }
                 }
@@ -1181,11 +1043,6 @@ namespace VideoEditor.ViewModels
                     }
                 }
             }
-
-            var activeTextClip = activeClips.OfType<TextClip>().OrderByDescending(c => c.TrackIndex).FirstOrDefault();
-            IsTextVisible = activeTextClip != null;
-            if (activeTextClip != null) { ActiveDisplayText = activeTextClip.Text; }
-            UpdateHighlightedVisualClip();
         }
 
         private float ConvertVolumeToDb(int volume)

@@ -16,6 +16,19 @@ namespace VideoEditor.Models
         private bool _isSelected;
         private int _volume = 100;
 
+        // Properties for positioning and sizing within the video preview
+        private double _x;
+        public double X { get => _x; set => SetProperty(ref _x, value); }
+
+        private double _y;
+        public double Y { get => _y; set => SetProperty(ref _y, value); }
+
+        private double _renderWidth;
+        public double RenderWidth { get => _renderWidth; set => SetProperty(ref _renderWidth, value); }
+
+        private double _renderHeight;
+        public double RenderHeight { get => _renderHeight; set => SetProperty(ref _renderHeight, value); }
+
         public Guid Id { get; } = Guid.NewGuid();
 
         public string Name { get => _name; set => SetProperty(ref _name, value); }

@@ -72,13 +72,7 @@ namespace VideoEditor
             }
         }
 
-        private void VideoPlayerHost_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            if (DataContext is MainViewModel vm)
-            {
-                vm.UpdateHighlightBorderSize(e.NewSize.Width, e.NewSize.Height);
-            }
-        }
+
 
         private void NewProject_Click(object sender, RoutedEventArgs e)
         {

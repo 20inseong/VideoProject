@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "pyoM5QaaKgw=",
+  "dgSpecHash": "XJd8zZ0dGDc=",
   "success": true,
-  "projectFilePath": "C:\\Users\\roxno\\source\\repos\\speedvolume\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
+  "projectFilePath": "C:\\Users\\roxno\\source\\repos\\imageSize_BUGFIX3\\imageSize_BUGFIX2\\imageSize\\speedvolume\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\roxno\\.nuget\\packages\\communitytoolkit.mvvm\\8.4.0\\communitytoolkit.mvvm.8.4.0.nupkg.sha512",
     "C:\\Users\\roxno\\.nuget\\packages\\emgu.cv\\4.11.0.5746\\emgu.cv.4.11.0.5746.nupkg.sha512",

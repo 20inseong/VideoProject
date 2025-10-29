@@ -4,17 +4,17 @@
 exe
 C#
 .cs
-C:\Users\roxno\source\repos\speedvolume\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\
+C:\Users\roxno\source\repos\imageSize_BUGFIX3\imageSize_BUGFIX2\imageSize\speedvolume\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\
 VideoEditor
 none
 false
 TRACE;DEBUG;NET;NET9_0;NETCOREAPP
-C:\Users\roxno\source\repos\speedvolume\VideoEditor\VideoEditor\App.xaml
-8-368394950
+C:\Users\roxno\source\repos\imageSize_BUGFIX3\imageSize_BUGFIX2\imageSize\speedvolume\VideoEditor\VideoEditor\App.xaml
+999925930
 217-509503920
-3645363107
+39-1107953735
 2131059736395
-ExportProgressWindow.xaml;MainWindow.xaml;TranscriptionProgressWindow.xaml;Views\ClipEditorView.xaml;Views\Controls\WaveformControl.xaml;Views\EmotionEditorView.xaml;Views\SpeedEditorView.xaml;Views\TranscriptionProgressView.xaml;
+ExportProgressWindow.xaml;MainWindow.xaml;TranscriptionProgressWindow.xaml;Views\ClipEditorView.xaml;Views\Controls\WaveformControl.xaml;Views\EmotionEditorView.xaml;Views\SpeedEditorView.xaml;Views\TranscriptionProgressView.xaml;Views\VideoPreviewOverlay.xaml;
 
 False
 
