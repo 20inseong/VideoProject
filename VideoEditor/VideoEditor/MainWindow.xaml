@@ -352,14 +352,25 @@
 
                             <!-- 1. 비디오 플레이어 뷰  -->
                             <Grid Margin="5" x:Name="VideoPlayerHost">
-                                <vlc:VideoView x:Name="videoView0" />
-                                <vlc:VideoView x:Name="videoView1" />
-                                <vlc:VideoView x:Name="videoView2" />
-                                <vlc:VideoView x:Name="videoView3" />
-                                <vlc:VideoView x:Name="videoView4" />
+                                <vlc:VideoView x:Name="videoView0" 
+                                               Visibility="{Binding VideoView0Visibility}" 
+                                               Panel.ZIndex="{Binding VideoView0ZIndex}" />
+                                <vlc:VideoView x:Name="videoView1" 
+                                               Visibility="{Binding VideoView1Visibility}" 
+                                               Panel.ZIndex="{Binding VideoView1ZIndex}" />
+                                <vlc:VideoView x:Name="videoView2" 
+                                               Visibility="{Binding VideoView2Visibility}" 
+                                               Panel.ZIndex="{Binding VideoView2ZIndex}" />
+                                <vlc:VideoView x:Name="videoView3" 
+                                               Visibility="{Binding VideoView3Visibility}" 
+                                               Panel.ZIndex="{Binding VideoView3ZIndex}" />
+                                <vlc:VideoView x:Name="videoView4" 
+                                               Visibility="{Binding VideoView4Visibility}" 
+                                               Panel.ZIndex="{Binding VideoView4ZIndex}">
+                                    <!-- Place overlay content inside the last VideoView to appear on top -->
+                                    <views:VideoPreviewOverlay DataContext="{Binding}" />
+                                </vlc:VideoView>
                             </Grid>
-
-                            <views:VideoPreviewOverlay DataContext="{Binding}" />
 
                             <!-- 자막을 Popup 컨트롤 안에 배치 -->
                             <Popup x:Name="SubtitlePopup"

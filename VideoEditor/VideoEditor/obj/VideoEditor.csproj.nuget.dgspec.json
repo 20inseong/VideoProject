@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\roxno\\source\\repos\\imageSize_BUGFIX3\\imageSize_BUGFIX2\\imageSize\\speedvolume\\VideoEditor\\VideoEditor\\VideoEditor.csproj": {}
+    "C:\\Users\\roxno\\source\\repos\\imageSize_BUGFIX3\\imageSize\\speedvolume\\VideoEditor\\VideoEditor\\VideoEditor.csproj": {}
   },
   "projects": {
-    "C:\\Users\\roxno\\source\\repos\\imageSize_BUGFIX3\\imageSize_BUGFIX2\\imageSize\\speedvolume\\VideoEditor\\VideoEditor\\VideoEditor.csproj": {
+    "C:\\Users\\roxno\\source\\repos\\imageSize_BUGFIX3\\imageSize\\speedvolume\\VideoEditor\\VideoEditor\\VideoEditor.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\roxno\\source\\repos\\imageSize_BUGFIX3\\imageSize_BUGFIX2\\imageSize\\speedvolume\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
+        "projectUniqueName": "C:\\Users\\roxno\\source\\repos\\imageSize_BUGFIX3\\imageSize\\speedvolume\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
         "projectName": "VideoEditor",
-        "projectPath": "C:\\Users\\roxno\\source\\repos\\imageSize_BUGFIX3\\imageSize_BUGFIX2\\imageSize\\speedvolume\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
+        "projectPath": "C:\\Users\\roxno\\source\\repos\\imageSize_BUGFIX3\\imageSize\\speedvolume\\VideoEditor\\VideoEditor\\VideoEditor.csproj",
         "packagesPath": "C:\\Users\\roxno\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\roxno\\source\\repos\\imageSize_BUGFIX3\\imageSize_BUGFIX2\\imageSize\\speedvolume\\VideoEditor\\VideoEditor\\obj\\",
+        "outputPath": "C:\\Users\\roxno\\source\\repos\\imageSize_BUGFIX3\\imageSize\\speedvolume\\VideoEditor\\VideoEditor\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

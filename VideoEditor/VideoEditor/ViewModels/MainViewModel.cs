@@ -58,6 +58,21 @@ namespace VideoEditor.ViewModels
 
         public ObservableCollection<TimelineClipBase> ActiveVisualClips { get; } = new();
 
+        // VideoView visibility control (5 video players)
+        private Visibility[] _videoViewVisibilities = new Visibility[5];
+        public Visibility VideoView0Visibility { get => _videoViewVisibilities[0]; set => SetProperty(ref _videoViewVisibilities[0], value); }
+        public Visibility VideoView1Visibility { get => _videoViewVisibilities[1]; set => SetProperty(ref _videoViewVisibilities[1], value); }
+        public Visibility VideoView2Visibility { get => _videoViewVisibilities[2]; set => SetProperty(ref _videoViewVisibilities[2], value); }
+        public Visibility VideoView3Visibility { get => _videoViewVisibilities[3]; set => SetProperty(ref _videoViewVisibilities[3], value); }
+        public Visibility VideoView4Visibility { get => _videoViewVisibilities[4]; set => SetProperty(ref _videoViewVisibilities[4], value); }
+
+        // VideoView ZIndex control based on active VideoClip TrackIndex
+        private int[] _videoViewZIndices = new int[5];
+        public int VideoView0ZIndex { get => _videoViewZIndices[0]; set => SetProperty(ref _videoViewZIndices[0], value); }
+        public int VideoView1ZIndex { get => _videoViewZIndices[1]; set => SetProperty(ref _videoViewZIndices[1], value); }
+        public int VideoView2ZIndex { get => _videoViewZIndices[2]; set => SetProperty(ref _videoViewZIndices[2], value); }
+        public int VideoView3ZIndex { get => _videoViewZIndices[3]; set => SetProperty(ref _videoViewZIndices[3], value); }
+        public int VideoView4ZIndex { get => _videoViewZIndices[4]; set => SetProperty(ref _videoViewZIndices[4], value); }
 
 
 
@@ -196,6 +211,13 @@ namespace VideoEditor.ViewModels
 
         public MainViewModel()
         {
+            // Initialize VideoView visibilities to Visible
+            for (int i = 0; i < 5; i++)
+            {
+                _videoViewVisibilities[i] = Visibility.Visible;
+                _videoViewZIndices[i] = 0; // Default ZIndex
+            }
+            
             _scrubbingTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
             _scrubbingTimer.Tick += ScrubbingTimer_Tick;
 
@@ -932,12 +954,47 @@ namespace VideoEditor.ViewModels
                 .ToList();
 
             // Update ActiveVisualClips for the overlay
-            ActiveVisualClips.Clear();
-            var activeVisualClipsForOverlay = activeClips.Where(c => c is ImageClip || c is TextClip).OrderBy(c => c.TrackIndex);
+            // Only ImageClip and TextClip go to overlay (not VideoClip)
+            // Update collection without clearing to avoid recreating adorners
+            var activeVisualClipsForOverlay = activeClips
+                .Where(c => c is ImageClip || c is TextClip)
+                .OrderBy(c => c.TrackIndex)
+                .ToList();
+
+            // Remove clips that are no longer active
+            for (int i = ActiveVisualClips.Count - 1; i >= 0; i--)
+            {
+                if (!activeVisualClipsForOverlay.Contains(ActiveVisualClips[i]))
+                {
+                    ActiveVisualClips.RemoveAt(i);
+                }
+            }
+
+            // Add new active clips
             foreach (var clip in activeVisualClipsForOverlay)
             {
-                ActiveVisualClips.Add(clip);
+                if (!ActiveVisualClips.Contains(clip))
+                {
+                    // Find correct position to maintain order
+                    int insertIndex = 0;
+                    for (int i = 0; i < ActiveVisualClips.Count; i++)
+                    {
+                        if (ActiveVisualClips[i].TrackIndex > clip.TrackIndex)
+                        {
+                            break;
+                        }
+                        insertIndex = i + 1;
+                    }
+                    ActiveVisualClips.Insert(insertIndex, clip);
+                }
             }
+
+            // Update VideoView ZIndex based on active VideoClips' TrackIndex
+            var activeVideoClipsForZIndex = activeClips.OfType<VideoClip>().ToList();
+            UpdateVideoViewZIndices(activeVideoClipsForZIndex);
+            
+            // All VideoViews are visible (no hiding)
+            UpdateVideoViewVisibilities(new HashSet<int>());
 
             // Handle video clips
             var activeVideoClips = activeClips.OfType<VideoClip>().ToList();
@@ -1043,6 +1100,48 @@ namespace VideoEditor.ViewModels
                     }
                 }
             }
+        }
+
+        private void UpdateVideoViewVisibilities(HashSet<int> videoClipsInOverlay)
+        {
+            // Update visibility for each VideoView (0-4)
+            // Hide VideoView if there's a VideoClip in overlay at that track index
+            VideoView0Visibility = videoClipsInOverlay.Contains(0) ? Visibility.Collapsed : Visibility.Visible;
+            VideoView1Visibility = videoClipsInOverlay.Contains(1) ? Visibility.Collapsed : Visibility.Visible;
+            VideoView2Visibility = videoClipsInOverlay.Contains(2) ? Visibility.Collapsed : Visibility.Visible;
+            VideoView3Visibility = videoClipsInOverlay.Contains(3) ? Visibility.Collapsed : Visibility.Visible;
+            VideoView4Visibility = videoClipsInOverlay.Contains(4) ? Visibility.Collapsed : Visibility.Visible;
+            
+            OnPropertyChanged(nameof(VideoView0Visibility));
+            OnPropertyChanged(nameof(VideoView1Visibility));
+            OnPropertyChanged(nameof(VideoView2Visibility));
+            OnPropertyChanged(nameof(VideoView3Visibility));
+            OnPropertyChanged(nameof(VideoView4Visibility));
+        }
+
+        private void UpdateVideoViewZIndices(List<VideoClip> activeVideoClips)
+        {
+            // Reset all ZIndices to 0
+            for (int i = 0; i < 5; i++)
+            {
+                _videoViewZIndices[i] = 0;
+            }
+
+            // Set ZIndex based on TrackIndex of active VideoClips
+            // Higher TrackIndex = Higher ZIndex (appears on top)
+            foreach (var clip in activeVideoClips)
+            {
+                if (clip.TrackIndex >= 0 && clip.TrackIndex < 5)
+                {
+                    _videoViewZIndices[clip.TrackIndex] = clip.TrackIndex;
+                }
+            }
+
+            OnPropertyChanged(nameof(VideoView0ZIndex));
+            OnPropertyChanged(nameof(VideoView1ZIndex));
+            OnPropertyChanged(nameof(VideoView2ZIndex));
+            OnPropertyChanged(nameof(VideoView3ZIndex));
+            OnPropertyChanged(nameof(VideoView4ZIndex));
         }
 
         private float ConvertVolumeToDb(int volume)

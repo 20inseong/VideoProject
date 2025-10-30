@@ -279,7 +279,13 @@ namespace VideoEditor.ViewModels
                         StartPosition = currentTimelinePosition,
                         Duration = originalDuration - splitPointInClip,
                         SourceStartTime = vc.SourceStartTime + splitPointInClip,
-                        TrackIndex = vc.TrackIndex
+                        TrackIndex = vc.TrackIndex,
+                        SourceWidth = vc.SourceWidth,
+                        SourceHeight = vc.SourceHeight,
+                        X = vc.X,
+                        Y = vc.Y,
+                        RenderWidth = vc.RenderWidth,
+                        RenderHeight = vc.RenderHeight
                     };
                     break;
 
@@ -302,7 +308,13 @@ namespace VideoEditor.ViewModels
                         Thumbnail = ic.Thumbnail,
                         StartPosition = currentTimelinePosition,
                         Duration = originalDuration - splitPointInClip,
-                        TrackIndex = ic.TrackIndex
+                        TrackIndex = ic.TrackIndex,
+                        SourceWidth = ic.SourceWidth,
+                        SourceHeight = ic.SourceHeight,
+                        X = ic.X,
+                        Y = ic.Y,
+                        RenderWidth = ic.RenderWidth,
+                        RenderHeight = ic.RenderHeight
                     };
                     break;
             }
@@ -502,7 +514,13 @@ namespace VideoEditor.ViewModels
                 TrackIndex = track,
 
                 SourceWidth = sourceWidth,
-                SourceHeight = sourceHeight
+                SourceHeight = sourceHeight,
+                
+                // Add rendering properties for overlay display
+                X = 0, // Initial X position
+                Y = 0, // Initial Y position
+                RenderWidth = sourceWidth, // Initial width for rendering
+                RenderHeight = sourceHeight // Initial height for rendering
             };
 
             _ = GenerateWaveformForClipAsync(newClip, video.FullPath);

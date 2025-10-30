@@ -133,4 +133,21 @@ namespace VideoEditor.Common
             throw new NotImplementedException();
         }
     }
+
+    public class InverseTrackIndexConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is int trackIndex)
+            {
+                return -trackIndex;
+            }
+            return 0;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }

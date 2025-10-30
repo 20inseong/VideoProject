@@ -10,6 +10,25 @@
              d:DesignHeight="450" d:DesignWidth="800">
     <UserControl.Resources>
         <common:TypeToBoolConverter x:Key="TypeToBoolConverter" />
+        <common:InverseTrackIndexConverter x:Key="InverseTrackIndexConverter" />
+        
+        <!-- DataTemplate for VideoClip in video preview -->
+        <DataTemplate DataType="{x:Type models:VideoClip}">
+            <AdornerDecorator>
+                <Image Source="{Binding Thumbnail}"
+                       Width="{Binding RenderWidth}"
+                       Height="{Binding RenderHeight}"
+                       Stretch="Fill"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top">
+                    <!-- Attached behavior to add/remove adorner -->
+                    <adorners:AdornerService.IsAdornerEnabled>
+                        <Binding Path="IsSelected" />
+                    </adorners:AdornerService.IsAdornerEnabled>
+                </Image>
+            </AdornerDecorator>
+        </DataTemplate>
+        
         <!-- DataTemplate for ImageClip in video preview -->
         <DataTemplate DataType="{x:Type models:ImageClip}">
             <AdornerDecorator>
@@ -58,7 +77,7 @@
             <Style TargetType="ContentPresenter">
                 <Setter Property="Canvas.Left" Value="{Binding X}" />
                 <Setter Property="Canvas.Top" Value="{Binding Y}" />
-                <Setter Property="Canvas.ZIndex" Value="{Binding TrackIndex}" />
+                <Setter Property="Canvas.ZIndex" Value="{Binding TrackIndex, Converter={StaticResource InverseTrackIndexConverter}}" />
             </Style>
         </ItemsControl.ItemContainerStyle>
     </ItemsControl>

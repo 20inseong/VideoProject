@@ -14,6 +14,8 @@ namespace VideoEditor.Common.Adorners
         private Thumb _topLeft, _topRight, _bottomLeft, _bottomRight, _middle;
         private VisualCollection _visuals;
         private TimelineClipBase _clip;
+        private Point _dragStartPoint;
+        private double _initialX, _initialY;
 
         public ClipAdorner(UIElement adornedElement, TimelineClipBase clip) : base(adornedElement)
         {
@@ -35,7 +37,10 @@ namespace VideoEditor.Common.Adorners
             _topRight.DragDelta += TopRight_DragDelta;
             _bottomLeft.DragDelta += BottomLeft_DragDelta;
             _bottomRight.DragDelta += BottomRight_DragDelta;
+            
+            _middle.DragStarted += Middle_DragStarted;
             _middle.DragDelta += Middle_DragDelta;
+            _middle.DragCompleted += Middle_DragCompleted;
 
             _visuals.Add(_topLeft);
             _visuals.Add(_topRight);
@@ -134,10 +139,23 @@ namespace VideoEditor.Common.Adorners
             }
         }
 
+        private void Middle_DragStarted(object sender, DragStartedEventArgs e)
+        {
+            // Store initial position when drag starts
+            _initialX = _clip.X;
+            _initialY = _clip.Y;
+        }
+
         private void Middle_DragDelta(object sender, DragDeltaEventArgs e)
         {
+            // Update position based on drag delta
             _clip.X += e.HorizontalChange;
             _clip.Y += e.VerticalChange;
+        }
+
+        private void Middle_DragCompleted(object sender, DragCompletedEventArgs e)
+        {
+            // Drag completed - position should be final
         }
 
         protected override Size MeasureOverride(Size constraint)
