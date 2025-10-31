@@ -53,7 +53,7 @@ namespace VideoEditor {
                 return;
             }
             _contentLoaded = true;
-            System.Uri resourceLocater = new System.Uri("/VideoEditor;component/exportprogresswindow.xaml", System.UriKind.Relative);
+            System.Uri resourceLocater = new System.Uri("/VideoEditor;V1.0.0.0;component/exportprogresswindow.xaml", System.UriKind.Relative);
             
             #line 1 "..\..\..\ExportProgressWindow.xaml"
             System.Windows.Application.LoadComponent(this, resourceLocater);

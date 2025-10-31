@@ -40,6 +40,12 @@ namespace VideoEditor.Models
             this.SourceWidth = original.SourceWidth;
             this.SourceHeight = original.SourceHeight;
             this.Volume = original.Volume;
+            
+            // Copy rendering properties for overlay
+            this.X = original.X;
+            this.Y = original.Y;
+            this.RenderWidth = original.RenderWidth;
+            this.RenderHeight = original.RenderHeight;
         }
 
         public override TimelineClipBase Clone()

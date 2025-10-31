@@ -53,7 +53,7 @@ namespace VideoEditor.Views {
                 return;
             }
             _contentLoaded = true;
-            System.Uri resourceLocater = new System.Uri("/VideoEditor;component/views/speededitorview.xaml", System.UriKind.Relative);
+            System.Uri resourceLocater = new System.Uri("/VideoEditor;V1.0.0.0;component/views/speededitorview.xaml", System.UriKind.Relative);
             
             #line 1 "..\..\..\..\Views\SpeedEditorView.xaml"
             System.Windows.Application.LoadComponent(this, resourceLocater);

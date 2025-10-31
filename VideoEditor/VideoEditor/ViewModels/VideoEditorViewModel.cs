@@ -56,7 +56,7 @@ namespace VideoEditor.ViewModels
         }
         private bool _isDraggingClip;
 
-        public double ZoomPercentage => PixelsPerSecond * 10.0;
+
 
         public bool IsResizing => _isResizing;
 
@@ -94,7 +94,7 @@ namespace VideoEditor.ViewModels
             get => _pixelsPerSecond;
             set
             {
-                double clampedValue = Math.Clamp(value, 1.0, 100.0);
+                double clampedValue = Math.Clamp(value, 0.02, 200.0);
                 if (SetProperty(ref _pixelsPerSecond, clampedValue))
                 {
                     foreach (var clip in TimelineClips)
@@ -102,7 +102,6 @@ namespace VideoEditor.ViewModels
                         clip.UpdateWidth(_pixelsPerSecond);
                         clip.OnPropertyChanged(nameof(clip.StartPosition));
                     }
-                    OnPropertyChanged(nameof(ZoomPercentage));
                 }
             }
         }
@@ -179,12 +178,12 @@ namespace VideoEditor.ViewModels
 
         private void ZoomIn()
         {
-            PixelsPerSecond *= 1.25;
+            PixelsPerSecond *= 1.6;
         }
 
         private void ZoomOut()
         {
-            PixelsPerSecond /= 1.25;
+            PixelsPerSecond /= 1.6;
         }
 
         private void ExecuteCopySelectedClip(object? _)
@@ -279,7 +278,13 @@ namespace VideoEditor.ViewModels
                         StartPosition = currentTimelinePosition,
                         Duration = originalDuration - splitPointInClip,
                         SourceStartTime = vc.SourceStartTime + splitPointInClip,
-                        TrackIndex = vc.TrackIndex
+                        TrackIndex = vc.TrackIndex,
+                        SourceWidth = vc.SourceWidth,
+                        SourceHeight = vc.SourceHeight,
+                        X = vc.X,
+                        Y = vc.Y,
+                        RenderWidth = vc.RenderWidth,
+                        RenderHeight = vc.RenderHeight
                     };
                     break;
 
@@ -302,7 +307,13 @@ namespace VideoEditor.ViewModels
                         Thumbnail = ic.Thumbnail,
                         StartPosition = currentTimelinePosition,
                         Duration = originalDuration - splitPointInClip,
-                        TrackIndex = ic.TrackIndex
+                        TrackIndex = ic.TrackIndex,
+                        SourceWidth = ic.SourceWidth,
+                        SourceHeight = ic.SourceHeight,
+                        X = ic.X,
+                        Y = ic.Y,
+                        RenderWidth = ic.RenderWidth,
+                        RenderHeight = ic.RenderHeight
                     };
                     break;
             }
@@ -502,7 +513,13 @@ namespace VideoEditor.ViewModels
                 TrackIndex = track,
 
                 SourceWidth = sourceWidth,
-                SourceHeight = sourceHeight
+                SourceHeight = sourceHeight,
+                
+                // Add rendering properties for overlay display
+                X = 0, // Initial X position
+                Y = 0, // Initial Y position
+                RenderWidth = sourceWidth, // Initial width for rendering
+                RenderHeight = sourceHeight // Initial height for rendering
             };
 
             _ = GenerateWaveformForClipAsync(newClip, video.FullPath);
