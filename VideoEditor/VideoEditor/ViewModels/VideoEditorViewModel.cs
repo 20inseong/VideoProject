@@ -192,7 +192,7 @@ namespace VideoEditor.ViewModels
 
             _copiedClip = SelectedClip.Clone();
             PasteClipCommand.NotifyCanExecuteChanged();
-            Debug.WriteLine($"[Copy LOG] '{_copiedClip.Name}' 클립이 복사되었습니다.");
+            Console.WriteLine($"[Copy LOG] '{_copiedClip.Name}' 클립이 복사되었습니다.");
         }
 
         private bool CanExecuteCopySelectedClip(object? _)
