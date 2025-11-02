@@ -14,7 +14,6 @@ using Microsoft.Win32;
 using VideoEditor.Common;
 using VideoEditor.Models;
 using VideoEditor.ViewModels;
-using System.Diagnostics;
 
 namespace VideoEditor
 {
@@ -60,23 +59,6 @@ namespace VideoEditor
             DrawTimelineRuler();
         }
 
-        private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            // 텍스트 박스 등에 포커스가 있을 때는 방향키가 정상적으로 동작해야 하므로,
-            // 키보드 이벤트가 다른 컨트롤에서 이미 처리되지 않았을 때만 실행합니다.
-            if (e.OriginalSource is TextBox || e.OriginalSource is Slider)
-            {
-                return;
-            }
-
-            if (e.Key == Key.Left || e.Key == Key.Right)
-            {
-                // ViewModel에 키보드 이동 로직 처리를 위임합니다.
-                _mainViewModel.VideoEditor.MoveSelectedClipsByKey(e.Key);
-                // 이벤트가 다른 곳으로 전파되지 않도록 처리되었음을 표시합니다.
-                e.Handled = true;
-            }
-        }
         private void InitializeVideoViews()
         {
             var playerViewModel = _mainViewModel.PlayerViewModel;
@@ -90,13 +72,7 @@ namespace VideoEditor
             }
         }
 
-        private void VideoPlayerHost_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            if (DataContext is MainViewModel vm)
-            {
-                vm.UpdateHighlightBorderSize(e.NewSize.Width, e.NewSize.Height);
-            }
-        }
+
 
         private void NewProject_Click(object sender, RoutedEventArgs e)
         {
@@ -173,7 +149,7 @@ namespace VideoEditor
                 Owner = this
             };
 
-            this.IsEnabled = false;
+            //this.IsEnabled = false;
             _progressWindow.Show();
         }
 
@@ -189,8 +165,20 @@ namespace VideoEditor
                     _progressWindow = null;
                 }
 
-                this.IsEnabled = true;
+                //this.IsEnabled = true;
                 this.Activate();
+
+                if (!string.IsNullOrEmpty(_mainViewModel.LastExportMessage))
+                {
+                    if (_mainViewModel.LastExportSuccess)
+                    {
+                        MessageBox.Show(this, _mainViewModel.LastExportMessage, "내보내기 완료", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show(this, _mainViewModel.LastExportMessage, "렌더링 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
             });
         }
 
@@ -239,32 +227,31 @@ namespace VideoEditor
 
         private void Timeline_DragOver(object sender, DragEventArgs e)
         {
-            var vm = DataContext as MainViewModel;
-            if (vm == null) return;
-
-            if (e.Data.GetDataPresent("TimelineClips") && e.Data.GetData("TimelineClips") is List<TimelineClipBase> draggedClips)
+            if ((DateTime.Now - _lastDragUpdateTime).TotalMilliseconds < DRAG_UPDATE_THROTTLE_MS)
             {
-                e.Effects = DragDropEffects.Move; // A valid snapped position can always be found.
+                e.Handled = true;
+                return;
+            }
+            _lastDragUpdateTime = DateTime.Now;
+
+            if (e.Data.GetDataPresent("TimelineClip"))
+            {
+                e.Effects = DragDropEffects.Move;
+
+                var vm = DataContext as MainViewModel;
+                if (vm?.VideoEditor.DraggedClip == null) return;
 
                 Point position = e.GetPosition(TimelineCanvas);
-                double deltaTime = (position.X - vm.VideoEditor.DragStartPoint.X) / vm.VideoEditor.PixelsPerSecond;
+                double deltaX = position.X - vm.VideoEditor.DragStartPoint.X;
+                double deltaTime = deltaX / vm.VideoEditor.PixelsPerSecond;
+                double newStartPosition = vm.VideoEditor.OriginalClipStartPosition + deltaTime;
+
                 int deltaTrack = (int)Math.Round((position.Y - vm.VideoEditor.DragStartPoint.Y) / 60.0);
+                int newTrackIndex = Math.Clamp(vm.VideoEditor.OriginalClipTrackIndex + deltaTrack, 0, 4);
 
-                foreach (var clip in draggedClips)
-                {
-                    if (vm.VideoEditor.DraggedClipsOriginalState.TryGetValue(clip, out var originalState))
-                    {
-                        double desiredStart = originalState.OriginalStart + deltaTime;
-                        int desiredTrack = Math.Clamp(originalState.OriginalTrack + deltaTrack, 0, 4);
-
-                        // Get the final, snapped position from the ViewModel
-                        double finalAdjustedStart = vm.VideoEditor.FindAdjustedPosition(clip, desiredStart, desiredTrack);
-                        
-                        // Update the clip's properties for the real-time preview
-                        clip.StartPosition = finalAdjustedStart;
-                        clip.TrackIndex = desiredTrack;
-                    }
-                }
+                vm.VideoEditor.DraggedClip.StartPosition = Math.Max(0, newStartPosition);
+                vm.VideoEditor.DraggedClip.TrackIndex = newTrackIndex;
+                vm.SyncPlayersToTimeline();
             }
             else if (e.Data.GetDataPresent("Myvideo"))
             {

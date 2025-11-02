@@ -6,10 +6,10 @@
         xmlns:local="clr-namespace:VideoEditor"
         mc:Ignorable="d"
         Title="렌더링 진행률" Height="180" Width="500"
-        WindowStyle="ToolWindow"
+        WindowStyle="SingleBorderWindow"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
-        ShowInTaskbar="False"
+        ResizeMode="CanResize"
+        ShowInTaskbar="True"
         Topmost="True"
         Closing="ExportProgressWindow_Closing">
     <Grid Margin="15">

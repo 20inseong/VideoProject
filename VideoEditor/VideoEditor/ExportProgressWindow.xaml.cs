@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,6 +12,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using VideoEditor.ViewModels;
 
 namespace VideoEditor
 {
@@ -28,11 +30,18 @@ namespace VideoEditor
             _isCloseAllowed = true;
         }
 
-        private void ExportProgressWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        private void ExportProgressWindow_Closing(object sender, CancelEventArgs e)
         {
-            if (!_isCloseAllowed)
+            if (_isCloseAllowed)
             {
-                e.Cancel = true;
+                return;
+            }
+
+            e.Cancel = true;
+
+            if (DataContext is ExportProgressViewModel vm && vm.CancelCommand.CanExecute(null))
+            {
+                vm.CancelCommand.Execute(null);
             }
         }
     }

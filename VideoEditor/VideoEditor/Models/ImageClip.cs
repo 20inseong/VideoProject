@@ -1,20 +1,13 @@
 ﻿using System.Windows.Media.Imaging;
-using Newtonsoft.Json;
 
 namespace VideoEditor.Models
 {
-    public class ImageClip : VisualClipBase
+    public class ImageClip : TimelineClipBase
     {
         public string ImagePath { get; set; } = string.Empty;
-        [JsonIgnore]
         public BitmapImage? Thumbnail { get; set; }
         public int SourceWidth { get; set; }
         public int SourceHeight { get; set; }
-
-        public override (int Width, int Height) GetContentDimensions()
-        {
-            return (SourceWidth, SourceHeight);
-        }
 
         public override TimelineClipBase Clone()
         {

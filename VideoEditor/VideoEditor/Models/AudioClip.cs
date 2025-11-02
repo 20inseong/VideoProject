@@ -14,25 +14,15 @@ namespace VideoEditor.Models
             var newClip = new AudioClip
             {
                 Name = this.Name + " (복사본)",
-
-                StartPosition = this.StartPosition,
-                Duration = this.Duration,
-                SpeedRatio = this.SpeedRatio,
-                Width = this.Width,
-                TrackIndex = this.TrackIndex,
-                IsSelected = false,
-                Volume = this.Volume,
-                GroupId = this.GroupId,
-
                 AudioPath = this.AudioPath,
                 SourceStartTime = this.SourceStartTime,
+                StartPosition = this.StartPosition,
+                Duration = this.Duration,
+                Width = this.Width,
+                TrackIndex = this.TrackIndex,
+                Volume = this.Volume,
+                IsSelected = false
             };
-
-            foreach (var segment in this.Transcription)
-            {
-                newClip.Transcription.Add(segment);
-            }
-
             return newClip;
         }
     }

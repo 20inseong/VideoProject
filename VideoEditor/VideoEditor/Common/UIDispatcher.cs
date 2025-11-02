@@ -19,5 +19,10 @@ namespace VideoEditor.Common
         {
             _dispatcher?.Invoke(action);
         }
+
+        public static DispatcherOperation? InvokeAsync(Action action, DispatcherPriority priority = DispatcherPriority.Normal)
+        {
+            return _dispatcher?.InvokeAsync(action, priority);
+        }
     }
 }

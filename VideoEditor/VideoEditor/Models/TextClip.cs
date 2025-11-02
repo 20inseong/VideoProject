@@ -6,18 +6,13 @@ using System.Threading.Tasks;
 
 namespace VideoEditor.Models
 {
-    public class TextClip : VisualClipBase
+    public class TextClip : TimelineClipBase
     {
         private string _text = "자막을 입력하세요";
         public string Text
         {
             get => _text;
             set => SetProperty(ref _text, value);
-        }
-
-        public override (int Width, int Height) GetContentDimensions()
-        {
-            return (0, 0);
         }
 
         public override TimelineClipBase Clone()

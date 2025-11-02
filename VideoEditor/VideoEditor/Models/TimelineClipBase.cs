@@ -16,6 +16,21 @@ namespace VideoEditor.Models
         private bool _isSelected;
         private int _volume = 100;
 
+        // Properties for positioning and sizing within the video preview
+        private double _x;
+        public double X { get => _x; set => SetProperty(ref _x, value); }
+
+        private double _y;
+        public double Y { get => _y; set => SetProperty(ref _y, value); }
+
+        private double _renderWidth;
+        public double RenderWidth { get => _renderWidth; set => SetProperty(ref _renderWidth, value); }
+
+        private double _renderHeight;
+        public double RenderHeight { get => _renderHeight; set => SetProperty(ref _renderHeight, value); }
+
+        public double Scale { get; set; } = 1.0;
+
         public Guid Id { get; } = Guid.NewGuid();
 
         public string Name { get => _name; set => SetProperty(ref _name, value); }
@@ -27,8 +42,8 @@ namespace VideoEditor.Models
             {
                 if (SetProperty(ref _duration, value))
                 {
-                    // Duration이 직접 설정된 경우, 1x 속도에서의 원래 지속 시간
-                    SetProperty(ref _originalDuration, value * this.SpeedRatio, nameof(OriginalDuration));
+                        // Duration이 직접 설정된 경우, 1x 속도에서의 원래 지속 시간
+                    SetProperty(ref _originalDuration, value, nameof(OriginalDuration));
                 }
             }
         }
@@ -50,8 +65,6 @@ namespace VideoEditor.Models
         public int TrackIndex { get => _trackIndex; set => SetProperty(ref _trackIndex, value); }
         public bool IsSelected { get => _isSelected; set => SetProperty(ref _isSelected, value); }
         public int Volume { get => _volume; set => SetProperty(ref _volume, value); }
-
-        public Guid? GroupId { get; set; }
 
         private bool _isTranscribing;
         public bool IsTranscribing
