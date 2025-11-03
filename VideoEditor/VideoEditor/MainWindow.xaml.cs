@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 using System.IO;
- using System.Text;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -14,6 +14,7 @@ using Microsoft.Win32;
 using VideoEditor.Common;
 using VideoEditor.Models;
 using VideoEditor.ViewModels;
+using System.Windows.Threading;
 
 namespace VideoEditor
 {
@@ -27,6 +28,7 @@ namespace VideoEditor
         private double _currentTimelineDurationSec = 300;
         private DateTime _lastDragUpdateTime = DateTime.MinValue;
         private const int DRAG_UPDATE_THROTTLE_MS = 50; // 50ms 간격으로 업데이트
+        private DispatcherTimer _rulerRedrawTimer;
 
 
         public MainWindow()
@@ -38,7 +40,7 @@ namespace VideoEditor
             DataContext = _mainViewModel;
 
             _mainViewModel.ExportStarted += MainViewModel_ExportStarted;
-            _mainViewModel.ExportFinished += MainViewModel_ExportFinished;
+            //_mainViewModel.ExportFinished += MainViewModel_ExportFinished;
 
             InitializeVideoViews();
 
@@ -47,9 +49,21 @@ namespace VideoEditor
 
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
 
+            _rulerRedrawTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+            _rulerRedrawTimer.Tick += (s, e) =>
+            {
+                _rulerRedrawTimer.Stop();
+                DrawTimelineRuler();
+            };
+
             TimelineScrollViewer.ScrollChanged += (s, e) =>
             {
                 RulerScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset);
+                if (e.HorizontalChange != 0)
+                {
+                    _rulerRedrawTimer.Stop();
+                    _rulerRedrawTimer.Start();
+                }
             };
 
             TimelineRulerCanvas.PreviewMouseLeftButtonDown += TimelineRulerCanvas_PreviewMouseLeftButtonDown;
@@ -97,7 +111,7 @@ namespace VideoEditor
             if (_mainViewModel != null)
             {
                 _mainViewModel.ExportStarted -= MainViewModel_ExportStarted;
-                _mainViewModel.ExportFinished -= MainViewModel_ExportFinished;
+                //_mainViewModel.ExportFinished -= MainViewModel_ExportFinished;
                 _mainViewModel.PropertyChanged -= MainViewModel_PropertyChanged;
                 if (_mainViewModel.VideoEditor != null)
                 {
@@ -109,7 +123,7 @@ namespace VideoEditor
             DataContext = _mainViewModel;
 
             _mainViewModel.ExportStarted += MainViewModel_ExportStarted;
-            _mainViewModel.ExportFinished += MainViewModel_ExportFinished;
+            //_mainViewModel.ExportFinished += MainViewModel_ExportFinished;
             _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
 
@@ -132,6 +146,19 @@ namespace VideoEditor
             }
         }
 
+        //private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+        //{
+        //    if (e.OriginalSource is TextBox || e.OriginalSource is Slider)
+        //    {
+        //        return;
+        //    }
+
+        //    if (e.Key == Key.Left || e.Key == Key.Right)
+        //    {
+        //        _mainViewModel.VideoEditor.MoveSelectedClipsByKey(e.Key);
+        //        e.Handled = true;
+        //    }
+        //}
 
         private void VideoEditor_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
@@ -149,28 +176,15 @@ namespace VideoEditor
                 Owner = this
             };
 
-            //this.IsEnabled = false;
-            _progressWindow.Show();
-        }
-
-        private void MainViewModel_ExportFinished(object? sender, EventArgs e)
-        {
-            Dispatcher.Invoke(() =>
+            _progressWindow.Closed += (s, args) =>
             {
-                this.Activate();
+                this.IsEnabled = true; // MainWindow를 다시 활성화합니다.
+                this.Activate();       // MainWindow를 맨 앞으로 가져옵니다.
+                _progressWindow = null;  // 참조를 정리합니다.
+            };
 
-                //if (!string.IsNullOrEmpty(_mainViewModel.LastExportMessage))
-                //{
-                //    if (_mainViewModel.LastExportSuccess)
-                //    {
-                //        MessageBox.Show(this, _mainViewModel.LastExportMessage, "내보내기 완료", MessageBoxButton.OK, MessageBoxImage.Information);
-                //    }
-                //    else
-                //    {
-                //        MessageBox.Show(this, _mainViewModel.LastExportMessage, "렌더링 오류", MessageBoxButton.OK, MessageBoxImage.Error);
-                //    }
-                //}
-            });
+            this.IsEnabled = false;
+            _progressWindow.Show();
         }
 
         private void btnSelectMedia_Click(object sender, RoutedEventArgs e)
@@ -288,7 +302,7 @@ namespace VideoEditor
 
         private void DrawTimelineRuler()
         {
-            if (TimelineRulerCanvas == null) return;
+            if (TimelineRulerCanvas == null || _mainViewModel == null) return;
 
             TimelineRulerCanvas.Children.Clear();
 
@@ -299,36 +313,77 @@ namespace VideoEditor
             TimelineRulerCanvas.Width = totalWidth;
             TimelineCanvas.Width = totalWidth;
 
-            for (int sec = 0; sec <= totalDuration; sec++)
+            // Determine the visible time range
+            double firstVisibleTime = TimelineScrollViewer.HorizontalOffset / pixelsPerSecond;
+            double lastVisibleTime = (TimelineScrollViewer.HorizontalOffset + TimelineScrollViewer.ViewportWidth) / pixelsPerSecond;
+
+            // Add a buffer to each side to ensure smooth scrolling
+            firstVisibleTime = Math.Max(0, firstVisibleTime - 20); // 20 seconds buffer
+            lastVisibleTime = Math.Min(totalDuration, lastVisibleTime + 20);
+
+            var (majorTickInterval, minorTickInterval, timeFormat) = GetMajorTickInterval(pixelsPerSecond);
+
+            // Align the starting point to the nearest minor tick
+            double startSec = Math.Floor(firstVisibleTime / minorTickInterval) * minorTickInterval;
+            long startTick = (long)Math.Round(startSec / minorTickInterval);
+            int ticksPerMajor = (int)Math.Round(majorTickInterval / minorTickInterval);
+
+            if (ticksPerMajor == 0) ticksPerMajor = 1;
+
+            for (long i = startTick; ; ++i)
             {
+                double sec = i * minorTickInterval;
+                if (sec > lastVisibleTime) break;
+                if (sec < 0) continue;
+
+                bool isMajorTick = (i % ticksPerMajor) == 0;
                 double x = sec * pixelsPerSecond;
-                bool isMajorTick = sec % 5 == 0;
 
                 var line = new Line
                 {
                     X1 = x,
                     X2 = x,
                     Y1 = 0,
-                    Y2 = isMajorTick ? 30 : 10,
+                    Y2 = isMajorTick ? 20 : 10,
                     Stroke = isMajorTick ? Brushes.LightGray : Brushes.Gray,
                     StrokeThickness = isMajorTick ? 2 : 1
                 };
-
                 TimelineRulerCanvas.Children.Add(line);
 
                 if (isMajorTick)
                 {
                     var text = new TextBlock
                     {
-                        Text = TimeSpan.FromSeconds(sec).ToString(@"m\:ss"),
+                        Text = TimeSpan.FromSeconds(sec).ToString(timeFormat),
                         Foreground = Brushes.White,
                         FontSize = 12
                     };
                     Canvas.SetLeft(text, x + 2);
-                    Canvas.SetTop(text, 10);
+                    Canvas.SetTop(text, 22);
                     TimelineRulerCanvas.Children.Add(text);
                 }
             }
+        }
+
+        private (double major, double minor, string format) GetMajorTickInterval(double pixelsPerSecond)
+        {
+            double visibleWidth = TimelineScrollViewer.ActualWidth;
+            if (visibleWidth <= 0) visibleWidth = 1000; // Default width if not rendered yet
+
+            double visibleTime = visibleWidth / pixelsPerSecond;
+            double idealMajorTickInterval = visibleTime / 10; // 10 major ticks on screen
+
+            var intervals = new[] { 0.1, 0.2, 0.5, 1, 5, 10, 30, 60, 180, 300, 600, 900, 1800, 3600 };
+            var majorTick = intervals.FirstOrDefault(i => i >= idealMajorTickInterval);
+            if (majorTick == 0) majorTick = intervals.Last();
+
+            if (majorTick >= 1)
+            {
+                var minorTickDivider = majorTick >= 1800 ? 6 : 5;
+                return (majorTick, majorTick / minorTickDivider, @"h\:mm\:ss");
+            }
+
+            return (majorTick, majorTick / 5, @"ss\.f");
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -369,11 +424,9 @@ namespace VideoEditor
                 {
                     _currentTimelineDurationSec = _mainViewModel.TotalTimelineDurationMs / 1000.0;
                     DrawTimelineRuler();
-
-                    System.Diagnostics.Debug.WriteLine($"[UI Event] Ruler updated to: {_currentTimelineDurationSec:F2} seconds.");
                 });
             }
-            if (e.PropertyName == nameof(MainViewModel.CurrentTimelinePosition))
+            else if (e.PropertyName == nameof(MainViewModel.CurrentTimelinePosition))
             {
                 Dispatcher.Invoke(() =>
                 {
@@ -476,5 +529,46 @@ namespace VideoEditor
             }
         }
 
+        private void TimelineResizeThumb_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
+        {
+            double newWidth = TimelineRulerCanvas.Width + e.HorizontalChange;
+            double pixelsPerSecond = _mainViewModel.VideoEditor.PixelsPerSecond;
+    
+            // 최소 너비 제어 (예: 10초에 해당하는 너비)
+            double minWidth = 10 * pixelsPerSecond;
+            if (newWidth < minWidth)
+            {
+                newWidth = minWidth;
+            }
+
+            _currentTimelineDurationSec = newWidth / pixelsPerSecond;
+    
+            // MainViewModel의 TotalTimelineDurationMs 업데이트
+            _mainViewModel.TotalTimelineDurationMs = (long)(_currentTimelineDurationSec * 1000);
+
+            DrawTimelineRuler();
+        }
+
+        private void TimelineDurationTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                (sender as TextBox)?.GetBindingExpression(TextBox.TextProperty).UpdateSource();
+                Keyboard.ClearFocus();
+            }
+        }
+
+        private void TimelineDurationTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            (sender as TextBox)?.GetBindingExpression(TextBox.TextProperty).UpdateSource();
+        }
+
+        private void TimelineDurationTextBox_GotFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is TextBox textBox)
+            {
+                textBox.SelectAll();
+            }
+        }
     }
 }

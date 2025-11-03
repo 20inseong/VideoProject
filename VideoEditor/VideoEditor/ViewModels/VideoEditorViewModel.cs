@@ -56,7 +56,7 @@ namespace VideoEditor.ViewModels
         }
         private bool _isDraggingClip;
 
-        public double ZoomPercentage => PixelsPerSecond * 10.0;
+
 
         public bool IsResizing => _isResizing;
 
@@ -69,6 +69,11 @@ namespace VideoEditor.ViewModels
         public ICommand ZoomOutCommand { get; }
         public ICommand AddTextClipCommand { get; }
         public ICommand CreateSubtitlesFromTranscriptionCommand { get; }
+
+        public ICommand SplitClipCommand { get; }
+        public IRelayCommand GroupSelectedClipsCommand { get; }
+        public IRelayCommand UngroupSelectedClipsCommand { get; }
+        public IRelayCommand SeparateAudioCommand { get; }
         public RelayCommand<object> DeleteSelectedClipCommand { get; }
 
         public ObservableCollection<TimelineClipBase> TimelineClips
@@ -97,7 +102,7 @@ namespace VideoEditor.ViewModels
             get => _pixelsPerSecond;
             set
             {
-                double clampedValue = Math.Clamp(value, 1.0, 100.0);
+                double clampedValue = Math.Clamp(value, 0.02, 200.0);
                 if (SetProperty(ref _pixelsPerSecond, clampedValue))
                 {
                     foreach (var clip in TimelineClips)
@@ -105,7 +110,6 @@ namespace VideoEditor.ViewModels
                         clip.UpdateWidth(_pixelsPerSecond);
                         clip.OnPropertyChanged(nameof(clip.StartPosition));
                     }
-                    OnPropertyChanged(nameof(ZoomPercentage));
                 }
             }
         }
@@ -116,8 +120,6 @@ namespace VideoEditor.ViewModels
             get => _currentlyPlayingClip;
             set => SetProperty(ref _currentlyPlayingClip, value);
         }
-
-        public ICommand SplitClipCommand { get; }
 
         public VideoEditorViewModel()
         {
@@ -243,12 +245,12 @@ namespace VideoEditor.ViewModels
 
         private void ZoomIn()
         {
-            PixelsPerSecond *= 1.25;
+            PixelsPerSecond *= 1.6;
         }
 
         private void ZoomOut()
         {
-            PixelsPerSecond /= 1.25;
+            PixelsPerSecond /= 1.6;
         }
 
         private void ExecuteCopySelectedClip(object? _)
@@ -257,7 +259,7 @@ namespace VideoEditor.ViewModels
 
             _copiedClip = SelectedClip.Clone();
             PasteClipCommand.NotifyCanExecuteChanged();
-            Debug.WriteLine($"[Copy LOG] '{_copiedClip.Name}' 클립이 복사되었습니다.");
+            Console.WriteLine($"[Copy LOG] '{_copiedClip.Name}' 클립이 복사되었습니다.");
         }
 
         private bool CanExecuteCopySelectedClip(object? _)
@@ -535,8 +537,6 @@ namespace VideoEditor.ViewModels
                             sourceWidth = (int)capture.Get(Emgu.CV.CvEnum.CapProp.FrameWidth);
                             sourceHeight = (int)capture.Get(Emgu.CV.CvEnum.CapProp.FrameHeight);
 
-                            Debug.WriteLine($"[DEBUG RESOLUTION] Original source resolution for '{video.Title}': {sourceWidth}x{sourceHeight}");
-
                             int frameCount = (int)capture.Get(Emgu.CV.CvEnum.CapProp.FrameCount);
                             if (frameCount > 0)
                             {
@@ -676,10 +676,6 @@ namespace VideoEditor.ViewModels
                     RenderWidth = thumbnail.PixelWidth, // Initial width for rendering
                     RenderHeight = thumbnail.PixelHeight // Initial height for rendering
                 };
-
-                System.Diagnostics.Debug.WriteLine($"[ImageClip Created] Name: {clip.Name}, " +
-                                           $"Source W/H: {clip.SourceWidth}x{clip.SourceHeight}, " +
-                                           $"Initial Render W/H: {clip.RenderWidth}x{clip.RenderHeight}");
 
                 clip.UpdateWidth(this.PixelsPerSecond); // 타임라인에서의 클립 너비 계산
                 return Task.FromResult<ImageClip?>(clip);

@@ -231,13 +231,13 @@
                 <!-- 파일 -->
                 <MenuItem Header="파일" >
                     <MenuItem Header="새 프로젝트" Click="NewProject_Click"/>
-                    <MenuItem Header="프로젝트 열기"/>
+                    <MenuItem Header="프로젝트 열기" Command="{Binding LoadProjectCommand}"/>
                     <MenuItem Header="프로젝트 초기화" Click="Project_Reset_Click"/>
                     <MenuItem Header="최근 파일 열기" />
                     <Separator/>
                     <MenuItem Header="미디어 가져오기" Click="btnSelectMedia_Click"/>
                     <Separator/>
-                    <MenuItem Header="프로젝트 저장" />
+                    <MenuItem Header="프로젝트 저장" Command="{Binding SaveProjectCommand}"/>
                     <Separator/>
                     <MenuItem Header="렌더링" 
                               Command="{Binding DataContext.ExportVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
@@ -473,7 +473,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <!-- 상단 메뉴 -->
-                            <RowDefinition Height="30"/>
+                            <RowDefinition Height="40"/>
                             <!-- 눈금자 -->
                             <RowDefinition Height="*"/>
                             <!-- 타임라인 -->
@@ -483,8 +483,7 @@
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5,2,5,2">
                             <Button x:Name="btnZoomIn" Content="확대(+)" Margin="2" Command="{Binding VideoEditor.ZoomInCommand}"/>
                             <Button x:Name="btnZoomOut" Content="축소(-)" Margin="2" Command="{Binding VideoEditor.ZoomOutCommand}"/>
-                            <TextBlock Text="확대/축소: " Foreground="White" VerticalAlignment="Center" Margin="10,0,5,0"/>
-                            <TextBlock x:Name="txtZoomValue" Text="{Binding VideoEditor.ZoomPercentage, StringFormat={}{0:F0}%}" Foreground="White" VerticalAlignment="Center" Width="50"/>
+
                             <Button x:Name="btnSplitClip" Content="클립 분할" Margin="10,2,2,2" Command="{Binding VideoEditor.SplitClipCommand}" CommandParameter="{Binding CurrentTimelinePosition}"/>
                             <Button x:Name="btnCopyClip" Content="복사" Margin="2" Command="{Binding VideoEditor.CopySelectedClipCommand}"/>
                             <Button x:Name="btnPasteClip" Content="붙여넣기" Margin="2" Command="{Binding VideoEditor.PasteClipCommand}" CommandParameter="{Binding CurrentTimelinePosition}"/>
@@ -494,18 +493,41 @@
                         </StackPanel>
 
                         <!-- 시간 눈금자 -->
-                        <ScrollViewer x:Name="RulerScrollViewer"
-                                      Grid.Row="1"
-                                      HorizontalScrollBarVisibility="Hidden"
-                                      VerticalScrollBarVisibility="Disabled"
-                                      Height="60"
-                                      Background="Transparent"
-                                      IsHitTestVisible="False">
-                            <Canvas x:Name="TimelineRulerCanvas"
-                                    Height="60"
-                                    Panel.ZIndex="5"
-                                    Background="Transparent"/>
-                        </ScrollViewer>
+                        <Grid Grid.Row="1" Background="Transparent">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ScrollViewer x:Name="RulerScrollViewer"
+                                          Grid.Column="0"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Disabled"
+                                          Height="40"
+                                          Background="Transparent"
+                                          IsHitTestVisible="False">
+                                <Canvas x:Name="TimelineRulerCanvas"
+                                        Height="40"
+                                        Panel.ZIndex="5"
+                                        Background="Transparent"/>
+                            </ScrollViewer>
+
+                            <Thumb x:Name="TimelineResizeThumb"
+                                   Grid.Column="1"
+                                   Width="10"
+                                   Cursor="SizeWE"
+                                   DragDelta="TimelineResizeThumb_DragDelta"
+                                   Background="LightGray"/>
+
+                            <TextBox x:Name="TimelineDurationTextBox"
+                                     Grid.Column="2"
+                                     Width="80"
+                                     VerticalAlignment="Center"
+                                     GotFocus="TimelineDurationTextBox_GotFocus"
+                                     KeyDown="TimelineDurationTextBox_KeyDown"
+                                     LostFocus="TimelineDurationTextBox_LostFocus"
+                                     Text="{Binding TotalTimelineDurationMs, Converter={StaticResource Converter}, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                        </Grid>
 
                         <ScrollViewer x:Name="TimelineScrollViewer"
                                       Grid.Row="2"

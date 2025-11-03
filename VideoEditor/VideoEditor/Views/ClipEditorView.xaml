@@ -87,7 +87,7 @@
                     <!-- Transcription Section -->
                     <TextBlock Grid.Row="5" Text="음성 텍스트 변환" FontWeight="Bold" Foreground="White" FontSize="16" Margin="0,10,0,10"/>
 
-                    <!-- 버튼 3개 (스크립트 생성 / 확인 / 숨기기) -->
+                    <!-- 버튼 4개 (스크립트 생성 / 확인 / 숨기기 / 자막 생성하기) -->
                     <StackPanel Grid.Row="6" Orientation="Horizontal">
                         <Button Content="스크립트 생성"
                                 Command="{Binding DataContext.TranscribeVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -137,7 +137,6 @@
                                 </Style>
                             </Button.Style>
                         </Button>
-
                         <Button Content="자막으로 생성"
                                 Command="{Binding DataContext.VideoEditor.CreateSubtitlesFromTranscriptionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 Margin="5,0,0,0" Width="100">

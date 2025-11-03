@@ -137,8 +137,6 @@ namespace VideoEditor.Common.Adorners
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
             }
-
-            System.Diagnostics.Debug.WriteLine($"[Adorner] Resize: W={_clip.RenderWidth:F2}, H={_clip.RenderHeight:F2}");
         }
 
         private void Middle_DragStarted(object sender, DragStartedEventArgs e)
@@ -153,8 +151,6 @@ namespace VideoEditor.Common.Adorners
             // Update position based on drag delta
             _clip.X += e.HorizontalChange;
             _clip.Y += e.VerticalChange;
-
-            System.Diagnostics.Debug.WriteLine($"[Adorner] Move: X={_clip.X:F2}, Y={_clip.Y:F2}");
         }
 
         private void Middle_DragCompleted(object sender, DragCompletedEventArgs e)

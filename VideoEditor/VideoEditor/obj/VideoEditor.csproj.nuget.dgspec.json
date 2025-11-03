@@ -79,6 +79,10 @@
               "target": "Package",
               "version": "[1.1.135, )"
             },
+            "Newtonsoft.Json": {
+              "target": "Package",
+              "version": "[13.0.4, )"
+            },
             "VideoLAN.LibVLC.Windows": {
               "target": "Package",
               "version": "[3.0.21, )"

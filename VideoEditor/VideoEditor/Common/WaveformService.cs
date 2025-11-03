@@ -50,7 +50,7 @@ namespace VideoEditor.Common
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error generating waveform data: {ex.Message}");
+                Console.WriteLine($"Error generating waveform data: {ex.Message}");
             }
             finally
             {
@@ -62,7 +62,7 @@ namespace VideoEditor.Common
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Failed to delete temp audio file {audioPath}: {ex.Message}");
+                        Console.WriteLine($"Failed to delete temp audio file {audioPath}: {ex.Message}");
                     }
                 }
             }
@@ -73,16 +73,16 @@ namespace VideoEditor.Common
         private async Task<string?> ExtractAudioAsync(string videoPath)
         {
             var tempPath = Path.GetTempFileName() + ".wav";
-            var ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "bin", "ffmpeg.exe");
+            var ffmpegPath = "ffmpeg\\bin\\ffmpeg.exe";
 
             if (!File.Exists(ffmpegPath))
             {
-                Debug.WriteLine("ffmpeg.exe not found!");
+                Console.WriteLine("ffmpeg.exe not found!");
                 return null;
             }
              if (!File.Exists(videoPath))
             {
-                Debug.WriteLine($"Media file not found: {videoPath}");
+                Console.WriteLine($"Media file not found: {videoPath}");
                 return null;
             }
 
@@ -102,7 +102,7 @@ namespace VideoEditor.Common
 
             if (process.ExitCode != 0)
             {
-                Debug.WriteLine($"ffmpeg error: {error}");
+                Console.WriteLine($"ffmpeg error: {error}");
                 return null;
             }
 
