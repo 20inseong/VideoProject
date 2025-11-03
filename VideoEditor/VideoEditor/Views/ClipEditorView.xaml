@@ -137,6 +137,22 @@
                                 </Style>
                             </Button.Style>
                         </Button>
+
+                        <Button Content="자막으로 생성"
+                                Command="{Binding DataContext.VideoEditor.CreateSubtitlesFromTranscriptionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                Margin="5,0,0,0" Width="100">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <!-- 스크립트가 표시될 때만 버튼이 보이도록 설정 -->
+                                        <DataTrigger Binding="{Binding ShowTranscription}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
                     </StackPanel>
 
                     <!-- 변환 진행률 표시 -->
@@ -288,6 +304,21 @@
                                 <Style TargetType="Button">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                     <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ShowTranscription}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Content="자막으로 생성"
+                                Command="{Binding DataContext.VideoEditor.CreateSubtitlesFromTranscriptionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                Margin="5,0,0,0" Width="100">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <!-- 스크립트가 표시될 때만 버튼이 보이도록 설정 -->
                                         <DataTrigger Binding="{Binding ShowTranscription}" Value="True">
                                             <Setter Property="Visibility" Value="Visible"/>
                                         </DataTrigger>

@@ -68,6 +68,7 @@ namespace VideoEditor.ViewModels
         public ICommand ZoomInCommand { get; }
         public ICommand ZoomOutCommand { get; }
         public ICommand AddTextClipCommand { get; }
+        public ICommand CreateSubtitlesFromTranscriptionCommand { get; }
         public RelayCommand<object> DeleteSelectedClipCommand { get; }
 
         public ObservableCollection<TimelineClipBase> TimelineClips
@@ -85,6 +86,8 @@ namespace VideoEditor.ViewModels
                 {
                     DeleteSelectedClipCommand.NotifyCanExecuteChanged();
                     (CopySelectedClipCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
+
+                    (CreateSubtitlesFromTranscriptionCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
                 }
             }
         }
@@ -155,6 +158,67 @@ namespace VideoEditor.ViewModels
             ZoomOutCommand = new RelayCommand<object>(_ => ZoomOut());
 
             AddTextClipCommand = new RelayCommand<double>(ExecuteAddTextClip);
+
+            CreateSubtitlesFromTranscriptionCommand = new RelayCommand<object>(ExecuteCreateSubtitlesFromTranscription, CanExecuteCreateSubtitlesFromTranscription);
+        }
+
+        private bool CanExecuteCreateSubtitlesFromTranscription(object? _)
+        {
+            if (SelectedClip == null) return false;
+
+            if (SelectedClip is VideoClip vc && vc.Transcription.Any()) return true;
+            if (SelectedClip is AudioClip ac && ac.Transcription.Any()) return true;
+
+            return false;
+        }
+
+        private void ExecuteCreateSubtitlesFromTranscription(object? _)
+        {
+            // CanExecuteCreateSubtitlesFromTranscription 메서드 또한 object? 매개변수를 받도록 수정해야 합니다.
+            // CanExecute..() -> CanExecute..(null)
+            if (!CanExecuteCreateSubtitlesFromTranscription(null)) return;
+
+            var transcriptionOwnerClip = SelectedClip;
+            ObservableCollection<TranscriptionSegment>? segments = null;
+
+            if (transcriptionOwnerClip is VideoClip vc) segments = vc.Transcription;
+            else if (transcriptionOwnerClip is AudioClip ac) segments = ac.Transcription;
+
+            if (segments == null) return;
+
+            var result = MessageBox.Show(
+                $"{segments.Count}개의 자막 클립을 타임라인에 추가하시겠습니까?",
+                "자막 생성 확인",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.No) return;
+
+            foreach (var segment in segments)
+            {
+                double newTextClipStart = transcriptionOwnerClip.StartPosition + segment.Start.TotalSeconds;
+                double newTextClipDuration = segment.Duration.TotalSeconds;
+
+                if (newTextClipDuration < 0.1) newTextClipDuration = 0.1;
+
+                int trackIndex = FindAvailableTrack(newTextClipStart, newTextClipDuration, 4, -1);
+
+                var newTextClip = new TextClip
+                {
+                    Name = "자막",
+                    Text = segment.Text.Trim(),
+                    StartPosition = newTextClipStart,
+                    Duration = newTextClipDuration,
+                    TrackIndex = trackIndex,
+                    RenderWidth = 600,
+                    RenderHeight = 80,
+                    X = 100,
+                    Y = 400
+                };
+
+                TimelineClips.Add(newTextClip);
+            }
+            Debug.WriteLine($"[Subtitle Gen] {segments.Count}개의 자막 클립이 생성되었습니다.");
         }
 
         private void ExecuteAddTextClip(double creationTime)
@@ -221,20 +285,35 @@ namespace VideoEditor.ViewModels
 
         private int FindAvailableTrack(double startTime, double duration)
         {
-            for (int track = 0; track <= 4; track++)
-            {
-                bool isOccupied = TimelineClips.Any(c =>
-                    c.TrackIndex == track &&
-                    startTime < (c.StartPosition + c.Duration) &&
-                    (startTime + duration) > c.StartPosition
-                );
+            return FindAvailableTrack(startTime, duration, 0, 1);
+        }
 
-                if (!isOccupied)
+        private int FindAvailableTrack(double startTime, double duration, int startTrack, int direction)
+        {
+            if (direction > 0) // 위에서 아래로 (0 -> 4)
+            {
+                for (int track = startTrack; track <= 4; track++)
                 {
-                    return track;
+                    bool isOccupied = TimelineClips.Any(c =>
+                        c.TrackIndex == track &&
+                        startTime < (c.StartPosition + c.Duration) &&
+                        (startTime + duration) > c.StartPosition);
+                    if (!isOccupied) return track;
                 }
             }
-            return 0;
+            else // 아래에서 위로 (4 -> 0)
+            {
+                for (int track = startTrack; track >= 0; track--)
+                {
+                    bool isOccupied = TimelineClips.Any(c =>
+                       c.TrackIndex == track &&
+                       startTime < (c.StartPosition + c.Duration) &&
+                       (startTime + duration) > c.StartPosition);
+                    if (!isOccupied) return track;
+                }
+            }
+            // 모든 트랙이 꽉 찼으면 원래 시작하려던 트랙을 반환
+            return Math.Clamp(startTrack, 0, 4);
         }
 
         private void ExecuteDeleteSelectedClip(object? _)
@@ -738,6 +817,11 @@ namespace VideoEditor.ViewModels
                 {
                     clip.UpdateWidth(PixelsPerSecond);
                 }
+            }
+
+            if (sender == SelectedClip)
+            {
+                (CreateSubtitlesFromTranscriptionCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
             }
         }
 
