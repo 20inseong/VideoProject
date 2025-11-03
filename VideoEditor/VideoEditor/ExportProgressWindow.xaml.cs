@@ -18,30 +18,26 @@ namespace VideoEditor
 {
     public partial class ExportProgressWindow : Window
     {
-        private bool _isCloseAllowed = false;
 
         public ExportProgressWindow()
         {
             InitializeComponent();
         }
 
-        public void AllowClose()
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            _isCloseAllowed = true;
+            this.Close();
         }
 
         private void ExportProgressWindow_Closing(object sender, CancelEventArgs e)
         {
-            if (_isCloseAllowed)
+            if (DataContext is ExportProgressViewModel vm)
             {
-                return;
-            }
-
-            e.Cancel = true;
-
-            if (DataContext is ExportProgressViewModel vm && vm.CancelCommand.CanExecute(null))
-            {
-                vm.CancelCommand.Execute(null);
+                if (!vm.IsFinished && vm.CancelCommand.CanExecute(null))
+                {
+                    e.Cancel = true;
+                    vm.CancelCommand.Execute(null);
+                }
             }
         }
     }

@@ -1,17 +1,18 @@
+using System;
 using System.Collections.ObjectModel;
-using System.Windows;
 using System.Diagnostics;
-using Microsoft.Win32;
+using System.Globalization;
+using System.IO;
 using System.Text;
+using System.Threading;
+using System.Windows;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Input;
+using LibVLCSharp.Shared;
+using Microsoft.Win32;
 using VideoEditor.Common;
 using VideoEditor.Models;
 using VideoEditor.Services;
-using System.Windows.Threading;
-using System.Globalization;
-using System.IO;
-using LibVLCSharp.Shared;
-using System.Threading;
 
 namespace VideoEditor.ViewModels
 {
@@ -440,7 +441,6 @@ namespace VideoEditor.ViewModels
 
             try
             {
-                // FFmpegExportService 호출
                 bool success = await _exportService.ExportVideoAsync(
                     VideoEditor.TimelineClips,
                     TotalTimelineDurationMs / 1000.0,
@@ -450,29 +450,23 @@ namespace VideoEditor.ViewModels
 
                 if (success)
                 {
-                    LastExportSuccess = true;
-                    StatusMessage = $"성공! 영상이 '{saveFileDialog.FileName}'에 저장되었습니다.";
-                    MessageBox.Show(_mainWindow, StatusMessage, "내보내기 완료", MessageBoxButton.OK, MessageBoxImage.Information);
+                    progressViewModel.StatusMessage = $"성공! 영상이 '{saveFileDialog.FileName}'에 저장되었습니다.";
+                    progressViewModel.IsFinished = true;
                 }
                 else
                 {
-                    // 서비스에서 취소 또는 오류 메시지를 이미 설정했음
-                    StatusMessage = progressViewModel.StatusMessage;
-                    if (!_exportCts.Token.IsCancellationRequested) // 취소가 아닌 오류일 때만 메시지 박스 표시
+                    if (!_exportCts.Token.IsCancellationRequested)
                     {
-                        LastExportSuccess = false;
-                        LastExportMessage = "영상 내보내기에 실패했습니다.\n타임라인의 클립이나 파일 경로에 문제가 없는지 확인해주세요.";
+                        progressViewModel.StatusMessage = $"오류: 렌더링에 실패했습니다."; // 예시
                     }
-                    else
-                    {
-                        LastExportMessage = string.Empty;
-                    }
+                    progressViewModel.IsFinished = true;
                 }
             }
             catch (Exception ex)
             {
                 StatusMessage = $"내보내기 중 예외 발생: {ex.Message}";
-                MessageBox.Show(_mainWindow, StatusMessage, "치명적 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                progressViewModel.StatusMessage = StatusMessage;
+                progressViewModel.IsFinished = true;
             }
             finally
             {

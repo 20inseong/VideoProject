@@ -15497,3 +15497,4 @@ C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Vie
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Views\VideoPreviewOverlay.g.cs
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\TranscriptionProgressWindow.baml
 C:\Users\94320\source\repos\VideoEditor\VideoEditor\obj\Debug\net9.0-windows\Views\VideoPreviewOverlay.baml
+C:\Users\94320\source\repos\VideoEditor\VideoEditor\bin\Debug\net9.0-windows\ffmpeg\ggml-large-v3-turbo-q5_0.bin

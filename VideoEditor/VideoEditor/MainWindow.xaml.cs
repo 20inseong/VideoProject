@@ -157,28 +157,19 @@ namespace VideoEditor
         {
             Dispatcher.Invoke(() =>
             {
-                if (_progressWindow != null)
-                {
-                    _progressWindow.AllowClose();
-
-                    _progressWindow.Close();
-                    _progressWindow = null;
-                }
-
-                //this.IsEnabled = true;
                 this.Activate();
 
-                if (!string.IsNullOrEmpty(_mainViewModel.LastExportMessage))
-                {
-                    if (_mainViewModel.LastExportSuccess)
-                    {
-                        MessageBox.Show(this, _mainViewModel.LastExportMessage, "내보내기 완료", MessageBoxButton.OK, MessageBoxImage.Information);
-                    }
-                    else
-                    {
-                        MessageBox.Show(this, _mainViewModel.LastExportMessage, "렌더링 오류", MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
-                }
+                //if (!string.IsNullOrEmpty(_mainViewModel.LastExportMessage))
+                //{
+                //    if (_mainViewModel.LastExportSuccess)
+                //    {
+                //        MessageBox.Show(this, _mainViewModel.LastExportMessage, "내보내기 완료", MessageBoxButton.OK, MessageBoxImage.Information);
+                //    }
+                //    else
+                //    {
+                //        MessageBox.Show(this, _mainViewModel.LastExportMessage, "렌더링 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                //    }
+                //}
             });
         }
 
