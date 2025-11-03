@@ -1,11 +1,10 @@
-﻿// Common/Converters.cs
-
-using System;
+﻿using System;
+using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Windows.Data;
 using System.Windows;
-using VideoEditor.ViewModels;
+using System.Windows.Data;
 using VideoEditor.Models;
+using VideoEditor.ViewModels;
 
 namespace VideoEditor.Common
 {
@@ -146,6 +145,31 @@ namespace VideoEditor.Common
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class IsAudioClipInGroupConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            // values[0]은 GroupId, values[1]은 전체 TimelineClips 컬렉션
+            if (values.Length < 2 || values[0] == null || values[1] == null || values[0] == DependencyProperty.UnsetValue)
+            {
+                return false;
+            }
+
+            if (values[0] is Guid groupId && values[1] is ObservableCollection<TimelineClipBase> allClips)
+            {
+                // 같은 GroupId를 가진 클립들 중에서 AudioClip 타입이 하나라도 있는지 확인
+                return allClips.Any(clip => clip.GroupId == groupId && clip is AudioClip);
+            }
+
+            return false;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
         }

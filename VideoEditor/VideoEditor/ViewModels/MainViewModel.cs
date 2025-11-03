@@ -785,6 +785,17 @@ namespace VideoEditor.ViewModels
                     }
                 }
             }
+            else if (e.PropertyName == nameof(VideoClip.IsMuted))
+            {
+                // 변경된 클립이 현재 재생 위치에 활성화된 클립이라면
+                if (sender is VideoClip changedClip &&
+                    CurrentTimelinePosition >= changedClip.StartPosition &&
+                    CurrentTimelinePosition < (changedClip.StartPosition + changedClip.Duration))
+                {
+                    // 오디오 플레이어 상태를 즉시 재동기화합니다.
+                    SyncPlayersToTimeline();
+                }
+            }
         }
 
         private void PlayerViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -879,9 +890,6 @@ namespace VideoEditor.ViewModels
                 .Where(c => c.StartPosition <= CurrentTimelinePosition && (c.StartPosition + c.Duration) > CurrentTimelinePosition)
                 .ToList();
 
-            // Update ActiveVisualClips for the overlay
-            // Only ImageClip and TextClip go to overlay (not VideoClip)
-            // Update collection without clearing to avoid recreating adorners
             var activeVisualClipsForOverlay = activeClips
                 .Where(c => c is ImageClip || c is TextClip)
                 .OrderBy(c => c.TrackIndex)
@@ -969,7 +977,9 @@ namespace VideoEditor.ViewModels
             }
 
             // Handle audio
-            var activeAudioSourceClips = activeClips.Where(c => c is VideoClip || c is AudioClip).ToList();
+            var activeAudioSourceClips = activeClips
+                .Where(c => (c is VideoClip vc && !vc.IsMuted) || c is AudioClip)
+                .ToList();
             var audioClipsToDeactivate = _activeAudioPlayers.Keys.Except(activeAudioSourceClips).ToList();
             
             foreach (var clip in audioClipsToDeactivate)

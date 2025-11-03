@@ -20,12 +20,15 @@
         AllowsTransparency="True"
         Background="#2B2B2B"
         ResizeMode="CanResizeWithGrip"
-        WindowState="Normal">
+        WindowState="Normal"
+        PreviewKeyDown="MainWindow_PreviewKeyDown">
 
     <Window.InputBindings>
         <KeyBinding Key="Delete" Command="{Binding VideoEditor.DeleteSelectedClipCommand}" />
         <KeyBinding Key="C" Modifiers="Ctrl" Command="{Binding VideoEditor.CopySelectedClipCommand}" />
         <KeyBinding Key="V" Modifiers="Ctrl" Command="{Binding VideoEditor.PasteClipCommand}" CommandParameter="{Binding CurrentTimelinePosition}"/>
+        <KeyBinding Key="G" Modifiers="Ctrl" Command="{Binding VideoEditor.GroupSelectedClipsCommand}" />
+        <KeyBinding Key="G" Modifiers="Ctrl+Shift" Command="{Binding VideoEditor.UngroupSelectedClipsCommand}" />
     </Window.InputBindings>
 
     <Window.Resources>
@@ -34,6 +37,14 @@
             <Common:TimelineClipTemplateSelector.VideoClipTemplate>
                 <DataTemplate>
                     <Border Width="{Binding Width}" Height="50" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                        <Border.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="그룹 만들기 (Ctrl+G)"
+                              Command="{Binding DataContext.VideoEditor.GroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                <MenuItem Header="그룹 해제"
+                              Command="{Binding DataContext.VideoEditor.UngroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                            </ContextMenu>
+                        </Border.ContextMenu>
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="BorderBrush" Value="Black"/>
@@ -84,6 +95,14 @@
             <Common:TimelineClipTemplateSelector.AudioClipTemplate>
                 <DataTemplate>
                     <Border Width="{Binding Width}" Height="50" Background="#2A5D84" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                        <Border.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="그룹 만들기 (Ctrl+G)"
+                              Command="{Binding DataContext.VideoEditor.GroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                <MenuItem Header="그룹 해제"
+                              Command="{Binding DataContext.VideoEditor.UngroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                            </ContextMenu>
+                        </Border.ContextMenu>
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="BorderBrush" Value="Black"/>
@@ -118,6 +137,14 @@
             <Common:TimelineClipTemplateSelector.ImageClipTemplate>
                 <DataTemplate>
                     <Border Width="{Binding Width}" Height="50" Background="#3E8948" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                        <Border.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="그룹 만들기 (Ctrl+G)"
+                              Command="{Binding DataContext.VideoEditor.GroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                <MenuItem Header="그룹 해제"
+                              Command="{Binding DataContext.VideoEditor.UngroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                            </ContextMenu>
+                        </Border.ContextMenu>
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="BorderBrush" Value="Black"/>
@@ -153,6 +180,14 @@
             <Common:TimelineClipTemplateSelector.TextClipTemplate>
                 <DataTemplate>
                     <Border Width="{Binding Width}" Height="50" Background="#6E6E6E" CornerRadius="3" ClipToBounds="True" Cursor="Hand">
+                        <Border.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="그룹 만들기 (Ctrl+G)"
+                              Command="{Binding DataContext.VideoEditor.GroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                <MenuItem Header="그룹 해제"
+                              Command="{Binding DataContext.VideoEditor.UngroupSelectedClipsCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                            </ContextMenu>
+                        </Border.ContextMenu>
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="BorderBrush" Value="Black"/>
@@ -266,11 +301,11 @@
                 <!-- 도구 -->
                 <MenuItem Header="도구">
                     <MenuItem Header="비디오">
+                        <MenuItem Header="오디오 분리" Command="{Binding VideoEditor.SeparateAudioCommand}"/>
                         <MenuItem Header="시계 방향 90도 회전" />
                         <MenuItem Header="시계 반대 방향 90도 회전" />
                     </MenuItem>
                     <MenuItem Header="오디오">
-                        <MenuItem Header="오디오 분리" />
                         <MenuItem Header="뮤트" />
                         <MenuItem Header="음성 텍스트 변환" Command="{Binding TranscribeVideoCommand}" />
                     </MenuItem>

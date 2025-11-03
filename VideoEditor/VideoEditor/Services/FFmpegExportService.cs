@@ -154,7 +154,6 @@ namespace VideoEditor.Services
                     case VideoClip vc:
                         {
                             int fileIndex = inputFiles.IndexOf(vc.VideoPath);
-                            // <--- 수정됨: 속도 배율을 고려한 실제 원본 클립 길이 계산
                             double sourceDuration = vc.Duration * vc.SpeedRatio;
 
                             string normalizeFilter = $"scale={OutputWidth}:{OutputHeight}:force_original_aspect_ratio=decrease";
@@ -168,11 +167,13 @@ namespace VideoEditor.Services
                             filterComplex.AppendLine($"[{fileIndex}:v] {speedAndTrimFilter}{normalizeFilter}, {userScaleFilter}, setsar=1 [processed_{clipId}];");
                             clipIdToProcessedStreamMap[vc.Id] = $"[processed_{clipId}]";
 
-                            // <--- 수정됨: atrim의 duration도 sourceDuration으로 변경
-                            filterComplex.AppendLine($"[{fileIndex}:a] atrim=start={vc.SourceStartTime.ToString("F6", culture)}:duration={sourceDuration.ToString("F6", culture)},asetpts=PTS-STARTPTS, " +
-                                $"{BuildAtempoFilter(vc.SpeedRatio)}, volume={(vc.Volume / 100.0).ToString("F2", culture)}, " +
-                                $"adelay={(long)(vc.StartPosition * 1000)}|{(long)(vc.StartPosition * 1000)} [a_{clipId}];");
-                            audioStreamsToMix.Add($"[a_{clipId}]");
+                            if (!vc.IsMuted)
+                            {
+                                filterComplex.AppendLine($"[{fileIndex}:a] atrim=start={vc.SourceStartTime.ToString("F6", culture)}:duration={sourceDuration.ToString("F6", culture)},asetpts=PTS-STARTPTS, " +
+                                    $"{BuildAtempoFilter(vc.SpeedRatio)}, volume={(vc.Volume / 100.0).ToString("F2", culture)}, " +
+                                    $"adelay={(long)(vc.StartPosition * 1000)}|{(long)(vc.StartPosition * 1000)} [a_{clipId}];");
+                                audioStreamsToMix.Add($"[a_{clipId}]");
+                            }
                             break;
                         }
                     case ImageClip ic:

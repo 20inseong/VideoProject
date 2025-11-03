@@ -86,7 +86,34 @@ namespace VideoEditor
             }
         }
 
+        private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            // TextBox와 같은 입력 컨트롤에 포커스가 있을 때는 키보드 이동을 막습니다.
+            // 이를 통해 TextBox에서 방향키로 커서를 움직이는 기본 동작을 유지할 수 있습니다.
+            if (e.OriginalSource is TextBox || e.OriginalSource is Slider)
+            {
+                return;
+            }
 
+            // Alt 키와 함께 방향키: 타임라인 스크롤
+            if (Keyboard.Modifiers == ModifierKeys.Alt && (e.Key == Key.Left || e.Key == Key.Right))
+            {
+                double scrollAmount = 50.0;
+                double newOffset = TimelineScrollViewer.HorizontalOffset + (e.Key == Key.Left ? -scrollAmount : scrollAmount);
+                TimelineScrollViewer.ScrollToHorizontalOffset(newOffset);
+                e.Handled = true;
+            }
+            // 방향키만: 선택된 클립 이동
+            else if (Keyboard.Modifiers == ModifierKeys.None && (e.Key == Key.Left || e.Key == Key.Right))
+            {
+                // ViewModel의 Command를 직접 호출합니다.
+                if (_mainViewModel.VideoEditor.MoveClipsByKeyCommand.CanExecute(e.Key))
+                {
+                    _mainViewModel.VideoEditor.MoveClipsByKeyCommand.Execute(e.Key);
+                    e.Handled = true; // 이벤트 처리를 완료했음을 알립니다.
+                }
+            }
+        }
 
         private void NewProject_Click(object sender, RoutedEventArgs e)
         {
@@ -232,31 +259,40 @@ namespace VideoEditor
 
         private void Timeline_DragOver(object sender, DragEventArgs e)
         {
-            if ((DateTime.Now - _lastDragUpdateTime).TotalMilliseconds < DRAG_UPDATE_THROTTLE_MS)
-            {
-                e.Handled = true;
-                return;
-            }
-            _lastDragUpdateTime = DateTime.Now;
+            var vm = DataContext as MainViewModel;
+            if (vm == null) return;
 
-            if (e.Data.GetDataPresent("TimelineClip"))
+            if (e.Data.GetDataPresent("TimelineClips") && e.Data.GetData("TimelineClips") is List<TimelineClipBase> draggedClips)
             {
                 e.Effects = DragDropEffects.Move;
 
-                var vm = DataContext as MainViewModel;
-                if (vm?.VideoEditor.DraggedClip == null) return;
+                // 드래그 업데이트 간격 조절 (선택사항이지만 성능에 도움됨)
+                if ((DateTime.Now - _lastDragUpdateTime).TotalMilliseconds < 20) // 20ms 간격
+                {
+                    e.Handled = true;
+                    return;
+                }
+                _lastDragUpdateTime = DateTime.Now;
 
                 Point position = e.GetPosition(TimelineCanvas);
-                double deltaX = position.X - vm.VideoEditor.DragStartPoint.X;
-                double deltaTime = deltaX / vm.VideoEditor.PixelsPerSecond;
-                double newStartPosition = vm.VideoEditor.OriginalClipStartPosition + deltaTime;
-
+                double deltaTime = (position.X - vm.VideoEditor.DragStartPoint.X) / vm.VideoEditor.PixelsPerSecond;
                 int deltaTrack = (int)Math.Round((position.Y - vm.VideoEditor.DragStartPoint.Y) / 60.0);
-                int newTrackIndex = Math.Clamp(vm.VideoEditor.OriginalClipTrackIndex + deltaTrack, 0, 4);
 
-                vm.VideoEditor.DraggedClip.StartPosition = Math.Max(0, newStartPosition);
-                vm.VideoEditor.DraggedClip.TrackIndex = newTrackIndex;
-                vm.SyncPlayersToTimeline();
+                // [핵심 수정] 리스트의 모든 클립에 대해 위치를 업데이트합니다.
+                foreach (var clip in draggedClips)
+                {
+                    // 각 클립의 원본 상태를 ViewModel의 Dictionary에서 가져옵니다.
+                    if (vm.VideoEditor.DraggedClipsOriginalState.TryGetValue(clip, out var originalState))
+                    {
+                        double desiredStart = originalState.OriginalStart + deltaTime;
+                        int desiredTrack = Math.Clamp(originalState.OriginalTrack + deltaTrack, 0, 4);
+
+                        // 실시간 미리보기를 위해 클립 속성 업데이트
+                        clip.StartPosition = Math.Max(0, desiredStart);
+                        clip.TrackIndex = desiredTrack;
+                    }
+                }
+                // SyncPlayersToTimeline() 호출은 성능 저하를 유발할 수 있으므로 여기서는 제거합니다.
             }
             else if (e.Data.GetDataPresent("Myvideo"))
             {

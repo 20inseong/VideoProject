@@ -13,6 +13,42 @@
         <common:ClipTypeToStringConverter x:Key="ClipTypeToStringConverter" />
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <common:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+        <common:IsAudioClipInGroupConverter x:Key="IsAudioClipInGroupConverter" />
+        
+        <!-- 음소거 상태에 따라 볼륨 텍스트 박스의 스타일을 변경하는 스타일 -->
+        <Style x:Key="MutedStateTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMuted}" Value="True">
+                    <Setter Property="IsEnabled" Value="False" />
+                    <Setter Property="Foreground" Value="Gray" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 오디오 분리 상태에 따라 음소거 체크박스를 비활성화하는 스타일 -->
+        <Style x:Key="MuteCheckBoxStyle" TargetType="CheckBox">
+            <!-- 기본 상태: 활성화, 흰색 글씨, 클릭 가능 -->
+            <Setter Property="IsEnabled" Value="True"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="IsHitTestVisible" Value="True"/>
+            <Style.Triggers>
+                <!-- 오디오가 분리된 그룹에 속해 있을 경우 아래 Setter들이 적용됨 -->
+                <DataTrigger Value="True">
+                    <DataTrigger.Binding>
+                        <MultiBinding Converter="{StaticResource IsAudioClipInGroupConverter}">
+                            <Binding Path="GroupId"/>
+                            <Binding Path="DataContext.VideoEditor.TimelineClips" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                        </MultiBinding>
+                    </DataTrigger.Binding>
+                    <!-- 1. 컨트롤 비활성화 (논리적) -->
+                    <Setter Property="IsEnabled" Value="False"/>
+                    <!-- 2. 시각적 피드백 강화: 글자색을 회색으로 변경 -->
+                    <Setter Property="Foreground" Value="Gray"/>
+                    <!-- 3. 물리적 클릭 방지: 마우스 이벤트를 완전히 무시하도록 설정 -->
+                    <Setter Property="IsHitTestVisible" Value="False"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
     <ContentControl Content="{Binding}">
@@ -32,6 +68,7 @@
             <DataTemplate DataType="{x:Type models:VideoClip}">
                 <Grid Margin="15">
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -67,7 +104,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Slider Grid.Column="0" Minimum="0.1" Maximum="4" Value="{Binding SpeedRatio, Mode=TwoWay}" VerticalAlignment="Center"/>
-                            <TextBox Grid.Column="1" Text="{Binding SpeedRatio, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F1}}" Foreground="Black" Margin="10,0,0,0" VerticalAlignment="Center" Width="50" GotFocus="TextBox_GotFocus" PreviewMouseLeftButtonDown="TextBox_PreviewMouseLeftButtonDown"/>
+                            <TextBox Grid.Column="1" Text="{Binding SpeedRatio, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F1}}" Foreground="White" Margin="10,0,0,0" VerticalAlignment="Center" Width="50" GotFocus="TextBox_GotFocus" PreviewMouseLeftButtonDown="TextBox_PreviewMouseLeftButtonDown"/>
                         </Grid>
                     </StackPanel>
 
@@ -79,16 +116,24 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <Slider Grid.Column="0" Minimum="0" Maximum="100" Value="{Binding Volume, Mode=TwoWay}" VerticalAlignment="Center"/>
-                            <TextBox Grid.Column="1" Text="{Binding Volume, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F0}}" Foreground="Black" Margin="10,0,0,0" VerticalAlignment="Center" GotFocus="TextBox_GotFocus" PreviewMouseLeftButtonDown="TextBox_PreviewMouseLeftButtonDown"/>
+                            <Slider Grid.Column="0" Minimum="0" Maximum="100" Value="{Binding Volume, Mode=TwoWay}" VerticalAlignment="Center"
+                                    IsEnabled="{Binding IsMuted, Converter={StaticResource InverseBooleanConverter}}"/>
+                            <TextBox Grid.Column="1" Text="{Binding Volume, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F0}}" Margin="10,0,0,0" VerticalAlignment="Center" GotFocus="TextBox_GotFocus" PreviewMouseLeftButtonDown="TextBox_PreviewMouseLeftButtonDown"
+                                     Style="{StaticResource MutedStateTextBoxStyle}"/>
                         </Grid>
                     </StackPanel>
 
+                    <CheckBox Grid.Row="5" Content="음소거 (Mute)"
+                              IsChecked="{Binding IsMuted, Mode=TwoWay}"
+                              Foreground="White"
+                              Margin="0,5,0,10"
+                              Style="{StaticResource MuteCheckBoxStyle}"/>
+
                     <!-- Transcription Section -->
-                    <TextBlock Grid.Row="5" Text="음성 텍스트 변환" FontWeight="Bold" Foreground="White" FontSize="16" Margin="0,10,0,10"/>
+                    <TextBlock Grid.Row="6" Text="음성 텍스트 변환" FontWeight="Bold" Foreground="White" FontSize="16" Margin="0,10,0,10"/>
 
                     <!-- 버튼 4개 (스크립트 생성 / 확인 / 숨기기 / 자막 생성하기) -->
-                    <StackPanel Grid.Row="6" Orientation="Horizontal">
+                    <StackPanel Grid.Row="7" Orientation="Horizontal">
                         <Button Content="스크립트 생성"
                                 Command="{Binding DataContext.TranscribeVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 IsEnabled="{Binding IsTranscribing, Converter={StaticResource InverseBooleanConverter}, FallbackValue=True}"
@@ -155,12 +200,12 @@
                     </StackPanel>
 
                     <!-- 변환 진행률 표시 -->
-                    <ProgressBar Grid.Row="7" Value="{Binding DataContext.TranscriptionProgress, RelativeSource={RelativeSource AncestorType=Window}}"
+                    <ProgressBar Grid.Row="8" Value="{Binding DataContext.TranscriptionProgress, RelativeSource={RelativeSource AncestorType=Window}}"
                                  Visibility="{Binding IsTranscribing, Converter={StaticResource BooleanToVisibilityConverter}}"
                                  Height="10" Margin="0,10,0,0"/>
 
                     <!-- 텍스트 변환 결과 -->
-                    <ListView Grid.Row="8" Grid.RowSpan="3" ItemsSource="{Binding Transcription}"
+                    <ListView Grid.Row="9" Grid.RowSpan="3" ItemsSource="{Binding Transcription}"
                               Visibility="{Binding ShowTranscription, Converter={StaticResource BooleanToVisibilityConverter}}"
                               HorizontalContentAlignment="Stretch" Background="#36443d" Foreground="White" BorderThickness="0"
                               Margin="0,10,0,0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">

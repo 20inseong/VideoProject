@@ -12,6 +12,13 @@ namespace VideoEditor.Models
         private string _videoPath = string.Empty;
         private BitmapImage? _thumbnail;
 
+        private bool _isMuted;
+        public bool IsMuted
+        {
+            get => _isMuted;
+            set => SetProperty(ref _isMuted, value);
+        }
+
         public double SourceStartTime { get => _sourceStartTime; set => SetProperty(ref _sourceStartTime, value); }
         public string VideoPath { get => _videoPath; set => SetProperty(ref _videoPath, value); }
         [JsonIgnore]

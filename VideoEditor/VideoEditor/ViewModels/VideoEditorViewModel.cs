@@ -38,12 +38,16 @@ namespace VideoEditor.ViewModels
         public event Action? ClipInteractionEnded;
         public TimelineClipBase? DraggedClip { get; private set; }
         private TimelineClipBase? _selectedClip;
+        private readonly List<TimelineClipBase> _selectedClips = new List<TimelineClipBase>();
         private TimelineClipBase? _copiedClip;
+
+        public Dictionary<TimelineClipBase, (double OriginalStart, int OriginalTrack)> DraggedClipsOriginalState { get; } = new Dictionary<TimelineClipBase, (double, int)>();
 
         private bool _isResizing = false;
         private TimelineClipBase? _resizingClip;
         private Point _resizeStartPoint;
         private double _originalClipDuration;
+
 
         public Point DragStartPoint { get; private set; }
         public double OriginalClipStartPosition { get; private set; }
@@ -71,9 +75,11 @@ namespace VideoEditor.ViewModels
         public ICommand CreateSubtitlesFromTranscriptionCommand { get; }
 
         public ICommand SplitClipCommand { get; }
-        public IRelayCommand GroupSelectedClipsCommand { get; }
-        public IRelayCommand UngroupSelectedClipsCommand { get; }
-        public IRelayCommand SeparateAudioCommand { get; }
+
+        public ICommand MoveClipsByKeyCommand { get; }
+        public RelayCommand<object> GroupSelectedClipsCommand { get; }
+        public RelayCommand<object> UngroupSelectedClipsCommand { get; }
+        public RelayCommand<object> SeparateAudioCommand { get; }
         public RelayCommand<object> DeleteSelectedClipCommand { get; }
 
         public ObservableCollection<TimelineClipBase> TimelineClips
@@ -162,7 +168,167 @@ namespace VideoEditor.ViewModels
             AddTextClipCommand = new RelayCommand<double>(ExecuteAddTextClip);
 
             CreateSubtitlesFromTranscriptionCommand = new RelayCommand<object>(ExecuteCreateSubtitlesFromTranscription, CanExecuteCreateSubtitlesFromTranscription);
+
+            GroupSelectedClipsCommand = new RelayCommand<object>(ExecuteGroupSelectedClips, CanExecuteGroupSelectedClips);
+            UngroupSelectedClipsCommand = new RelayCommand<object>(ExecuteUngroupSelectedClips, CanExecuteUngroupSelectedClips);
+            SeparateAudioCommand = new RelayCommand<object>(ExecuteSeparateAudio, CanExecuteSeparateAudio);
+
+            MoveClipsByKeyCommand = new RelayCommand<Key>(ExecuteMoveClipsByKey);
         }
+
+        private void ExecuteMoveClipsByKey(Key key)
+        {
+            // 선택된 클립이 없으면 아무것도 하지 않음
+            if (!_selectedClips.Any()) return;
+
+            double timeDelta = 0;
+
+            // 눌린 키에 따라 시간 변화량 설정
+            if (key == Key.Left)
+            {
+                timeDelta = -1.0; // 왼쪽: -1초
+            }
+            else if (key == Key.Right)
+            {
+                timeDelta = 1.0;  // 오른쪽: +1초
+            }
+            else
+            {
+                return; // 다른 키는 무시
+            }
+
+            // --- 그룹 이동 처리 ---
+            // 이동 후 가장 왼쪽에 있는 클립의 시작 위치가 0보다 작아지는지 확인
+            double minCurrentStartPosition = _selectedClips.Min(c => c.StartPosition);
+            if (minCurrentStartPosition + timeDelta < 0)
+            {
+                // 0 이하로 이동해야 한다면, 이동량을 보정하여 가장 왼쪽 클립이 0에 위치하도록 함
+                timeDelta = -minCurrentStartPosition;
+            }
+
+            if (timeDelta == 0) return; // 이동량이 없으면 종료
+
+            // 선택된 모든 클립에 대해 동일한 시간 변화량을 적용
+            foreach (var clip in _selectedClips)
+            {
+                clip.StartPosition += timeDelta;
+            }
+
+            // 변경 사항을 알리기 위해 선택된 클립의 속성을 갱신 (선택 사항이지만 좋은 습관)
+            OnPropertyChanged(nameof(SelectedClip));
+        }
+
+        private void ExecuteSeparateAudio(object? _)
+        {
+            if (!CanExecuteSeparateAudio(null)) return;
+
+            var originalVideoClip = (VideoClip)SelectedClip;
+
+            int audioTrackIndex = originalVideoClip.TrackIndex + 1;
+            if (audioTrackIndex > 4)
+            {
+                MessageBox.Show("클립 바로 아래에 오디오를 추가할 트랙이 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            bool isTrackOccupied = TimelineClips.Any(c =>
+               c.TrackIndex == audioTrackIndex &&
+               originalVideoClip.StartPosition < (c.StartPosition + c.Duration) &&
+               (originalVideoClip.StartPosition + originalVideoClip.Duration) > c.StartPosition
+           );
+
+            if (isTrackOccupied)
+            {
+                MessageBox.Show("클립 바로 아래 트랙의 해당 시간대에 다른 클립이 있어 오디오를 분리할 수 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var videoOnlyClip = (VideoClip)originalVideoClip.Clone();
+            videoOnlyClip.IsMuted = true;
+            videoOnlyClip.Name = $"{originalVideoClip.Name} (영상)";
+
+            var audioOnlyClip = new AudioClip
+            {
+                Name = $"{originalVideoClip.Name} (오디오)",
+                AudioPath = originalVideoClip.VideoPath,
+                StartPosition = originalVideoClip.StartPosition,
+                SourceStartTime = originalVideoClip.SourceStartTime,
+                TrackIndex = audioTrackIndex,
+                Volume = originalVideoClip.Volume,
+                SpeedRatio = originalVideoClip.SpeedRatio,
+                Duration = originalVideoClip.Duration,
+            };
+            audioOnlyClip.UpdateWidth(this.PixelsPerSecond);
+
+            var newGroupId = Guid.NewGuid();
+            videoOnlyClip.GroupId = newGroupId;
+            audioOnlyClip.GroupId = newGroupId;
+
+            TimelineClips.Remove(originalVideoClip);
+            _selectedClips.Remove(originalVideoClip);
+
+            TimelineClips.Add(videoOnlyClip);
+            TimelineClips.Add(audioOnlyClip);
+
+            videoOnlyClip.IsSelected = true;
+            audioOnlyClip.IsSelected = true;
+            _selectedClips.Add(videoOnlyClip);
+            _selectedClips.Add(audioOnlyClip);
+            SelectedClip = videoOnlyClip;
+
+            // 분리 후에는 오디오 분리 커맨드를 비활성화
+            SeparateAudioCommand.NotifyCanExecuteChanged();
+        }
+
+        private bool CanExecuteSeparateAudio(object? _)
+        {
+            return _selectedClips.Count == 1 && SelectedClip is VideoClip vc && !vc.IsMuted;
+        }
+
+        private void ExecuteGroupSelectedClips(object? _)
+        {
+            if (!CanExecuteGroupSelectedClips(null)) return;
+            var newGroupId = Guid.NewGuid();
+            foreach (var clip in _selectedClips)
+            {
+                clip.GroupId = newGroupId;
+            }
+            Debug.WriteLine($"[Group] {_selectedClips.Count}개의 클립이 그룹(ID: {newGroupId})으로 묶였습니다.");
+            UngroupSelectedClipsCommand.NotifyCanExecuteChanged();
+        }
+
+        private bool CanExecuteGroupSelectedClips(object? _)
+        {
+            return _selectedClips.Count >= 2;
+        }
+
+        private void ExecuteUngroupSelectedClips(object? _)
+        {
+            if (!CanExecuteUngroupSelectedClips(null)) return;
+
+            var groupIdsToUngroup = _selectedClips
+                .Where(c => c.GroupId.HasValue)
+                .Select(c => c.GroupId.Value)
+                .Distinct()
+                .ToList();
+
+            var clipsToUngroup = TimelineClips
+                .Where(c => c.GroupId.HasValue && groupIdsToUngroup.Contains(c.GroupId.Value))
+                .ToList();
+
+            foreach (var clip in clipsToUngroup)
+            {
+                clip.GroupId = null;
+            }
+            Debug.WriteLine($"[Group] {clipsToUngroup.Count}개의 클립이 포함된 {groupIdsToUngroup.Count}개의 그룹이 해제되었습니다.");
+            UngroupSelectedClipsCommand.NotifyCanExecuteChanged();
+        }
+
+        private bool CanExecuteUngroupSelectedClips(object? _)
+        {
+            return _selectedClips.Any(c => c.GroupId.HasValue);
+        }
+
 
         private bool CanExecuteCreateSubtitlesFromTranscription(object? _)
         {
@@ -690,51 +856,135 @@ namespace VideoEditor.ViewModels
         private void ExecuteClipMouseDown(MouseButtonEventArgs? e)
         {
             ClipInteractionStarted?.Invoke();
-
-            if (e == null) return;
-
-            if ((e.OriginalSource as FrameworkElement)?.Tag is "ResizeHandle")
-            {
-                return;
-            }
-
-            var itemsControl = (e.Source as FrameworkElement)?.FindAncestor<ItemsControl>();
-            if (itemsControl != null)
-            {
-                itemsControl.Focus();
-            }
+            if (e == null || (e.OriginalSource as FrameworkElement)?.Tag is "ResizeHandle") return;
 
             if ((e.Source as FrameworkElement)?.DataContext is TimelineClipBase clickedClip)
             {
-                if (SelectedClip != null && SelectedClip != clickedClip)
+                bool isCtrlPressed = Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl);
+
+                // 1. 그룹화된 클립을 클릭했는지 확인
+                if (clickedClip.GroupId.HasValue)
                 {
-                    SelectedClip.IsSelected = false;
+                    var groupId = clickedClip.GroupId.Value;
+                    var groupMembers = TimelineClips.Where(c => c.GroupId == groupId).ToList();
+
+                    // Ctrl 키 없이 그룹 클릭 시 : 다른 모든 선택 해제 후 그룹 전체 선택
+                    if (!isCtrlPressed)
+                    {
+                        foreach (var clip in TimelineClips) clip.IsSelected = false;
+                        _selectedClips.Clear();
+
+                        foreach (var member in groupMembers)
+                        {
+                            member.IsSelected = true;
+                            _selectedClips.Add(member);
+                        }
+                    }
+                    else // Ctrl 키 누르고 그룹 클릭 시 : 그룹 전체를 선택 목록에 추가/제거
+                    {
+                        bool isGroupFullySelected = groupMembers.All(m => _selectedClips.Contains(m));
+                        foreach (var member in groupMembers)
+                        {
+                            if (isGroupFullySelected) // 이미 전체 선택됐다면 선택 해제
+                            {
+                                member.IsSelected = false;
+                                _selectedClips.Remove(member);
+                            }
+                            else if (!_selectedClips.Contains(member)) // 선택 안된 멤버만 선택 추가
+                            {
+                                member.IsSelected = true;
+                                _selectedClips.Add(member);
+                            }
+                        }
+                    }
+                }
+                // 2. 그룹이 아닌 클립을 클릭한 경우
+                else
+                {
+                    if (!isCtrlPressed)
+                    {
+                        // 클릭한 클립이 선택 목록에 없거나, 여러 개가 선택된 상태였다면
+                        if (!_selectedClips.Contains(clickedClip) || _selectedClips.Count > 1)
+                        {
+                            foreach (var clip in TimelineClips) clip.IsSelected = false;
+                            _selectedClips.Clear();
+                            clickedClip.IsSelected = true;
+                            _selectedClips.Add(clickedClip);
+                        }
+                    }
+                    else // Ctrl 키 누르고 클릭
+                    {
+                        if (clickedClip.IsSelected)
+                        {
+                            clickedClip.IsSelected = false;
+                            _selectedClips.Remove(clickedClip);
+                        }
+                        else
+                        {
+                            clickedClip.IsSelected = true;
+                            _selectedClips.Add(clickedClip);
+                        }
+                    }
                 }
 
-                clickedClip.IsSelected = true;
-                SelectedClip = clickedClip;
+                // 주 선택 클립(속성창에 표시될 클립) 업데이트
+                SelectedClip = _selectedClips.LastOrDefault();
 
-                DraggedClip = clickedClip;
-                OriginalClipStartPosition = clickedClip.StartPosition;
-                OriginalClipTrackIndex = clickedClip.TrackIndex;
+                // 커맨드 상태 갱신
+                GroupSelectedClipsCommand.NotifyCanExecuteChanged();
+                UngroupSelectedClipsCommand.NotifyCanExecuteChanged();
+                SeparateAudioCommand.NotifyCanExecuteChanged();
 
-                if (itemsControl != null)
+                if (_selectedClips.Any() && _selectedClips.Contains(clickedClip))
                 {
-                    DragStartPoint = e.GetPosition(itemsControl);
+                    IsDraggingClip = true;
+                    var itemsControl = (e.Source as FrameworkElement)?.FindAncestor<ItemsControl>();
+                    if (itemsControl != null) DragStartPoint = e.GetPosition(itemsControl);
+
+                    // 선택된 모든 클립의 현재 상태를 저장
+                    DraggedClipsOriginalState.Clear();
+                    foreach (var clip in _selectedClips)
+                    {
+                        DraggedClipsOriginalState[clip] = (clip.StartPosition, clip.TrackIndex);
+                    }
                 }
-                IsDraggingClip = true;
             }
         }
 
         private void ExecuteClipMouseMove(MouseEventArgs? e)
         {
-            if (_isResizing || e == null || DraggedClip == null || e.LeftButton != MouseButtonState.Pressed) return;
+            if (!IsDraggingClip || _isResizing || e?.LeftButton != MouseButtonState.Pressed)
+            {
+                // 의도치 않게 IsDraggingClip이 true로 남아있는 경우를 방지
+                if (IsDraggingClip)
+                {
+                    IsDraggingClip = false;
+                    DraggedClipsOriginalState.Clear();
+                }
+                return;
+            }
 
-            DataObject dragData = new DataObject("TimelineClip", DraggedClip);
-            DragDrop.DoDragDrop((DependencyObject)e.Source, dragData, DragDropEffects.Move);
+            // [핵심 수정] DataObject에 단일 클립이 아닌 전체 선택 목록(_selectedClips)을 담습니다.
+            // Data key도 복수형("TimelineClips")으로 변경합니다.
+            DataObject dragData = new DataObject("TimelineClips", _selectedClips.ToList());
+            DragDropEffects result = DragDrop.DoDragDrop((DependencyObject)e.Source, dragData, DragDropEffects.Move);
 
-            DraggedClip = null;
+            // 드롭이 취소된 경우 (예: Esc 키 누름), 클립 위치를 원래대로 복원
+            if (result == DragDropEffects.None)
+            {
+                foreach (var clip in _selectedClips)
+                {
+                    if (DraggedClipsOriginalState.TryGetValue(clip, out var originalState))
+                    {
+                        clip.StartPosition = originalState.OriginalStart;
+                        clip.TrackIndex = originalState.OriginalTrack;
+                    }
+                }
+            }
+
+            // 드래그 작업 완료 후 상태 초기화
             IsDraggingClip = false;
+            DraggedClipsOriginalState.Clear();
             ClipInteractionEnded?.Invoke();
         }
 
