@@ -231,23 +231,38 @@ namespace VideoEditor
             if (VideoPlayerHost.ActualWidth <= 0 || VideoPlayerHost.ActualHeight <= 0)
                 return;
 
-            // Get VideoPlayerHost bounds in screen coordinates
-            var hostBounds = new Rect(
+            // --- 여기부터 수정: DPI 스케일링 팩터 가져오기 ---
+            var source = PresentationSource.FromVisual(this);
+            // 창이 아직 완전히 로드되지 않았을 경우를 대비한 예외 처리
+            if (source == null || source.CompositionTarget == null) return;
+
+            // M11 = 수평 DPI 배율, M22 = 수직 DPI 배율
+            var dpiX = source.CompositionTarget.TransformToDevice.M11;
+            var dpiY = source.CompositionTarget.TransformToDevice.M22;
+
+            // Get VideoPlayerHost bounds in screen coordinates (WPF DIPs)
+            var hostBoundsDIP = new Rect(
                 VideoPlayerHost.PointToScreen(new Point(0, 0)),
                 new Size(VideoPlayerHost.ActualWidth, VideoPlayerHost.ActualHeight)
             );
 
-            // Find all HwndHost controls (VLC video windows) in the VideoPlayerHost
+            // DIPs를 실제 물리적 픽셀로 변환
+            var hostBoundsPixels = new Rect(
+                hostBoundsDIP.X * dpiX,
+                hostBoundsDIP.Y * dpiY,
+                hostBoundsDIP.Width * dpiX,
+                hostBoundsDIP.Height * dpiY
+            );
+            // --- 수정 끝 ---
+
             var hwndHosts = FindVisualChildren<System.Windows.Interop.HwndHost>(VideoPlayerHost).ToList();
 
-            // Only update Z-order when needed (on collection changes or track changes)
             if (_needsZOrderUpdate)
             {
                 System.Diagnostics.Debug.WriteLine($"[Z-Order] Updating Z-order for {hwndHosts.Count} HwndHost controls");
 
-                // Create a mapping of HwndHost to VideoClip for Z-order management
                 var hwndToClipMap = new Dictionary<IntPtr, VideoClip>();
-                
+
                 foreach (var hwndHost in hwndHosts)
                 {
                     try
@@ -255,7 +270,6 @@ namespace VideoEditor
                         IntPtr parentHwnd = hwndHost.Handle;
                         if (parentHwnd == IntPtr.Zero) continue;
 
-                        // Try to find the corresponding VideoClip by checking DataContext
                         var frameworkElement = hwndHost as FrameworkElement;
                         if (frameworkElement?.DataContext is VideoClip videoClip)
                         {
@@ -269,24 +283,18 @@ namespace VideoEditor
                     }
                 }
 
-                // Sort video clips by TrackIndex (lower TrackIndex = should appear on top)
-                // We need to reverse the order because SetWindowPos with HWND_TOP places windows from bottom to top
                 var sortedClips = hwndToClipMap.OrderByDescending(kvp => kvp.Value.TrackIndex).ToList();
-
                 System.Diagnostics.Debug.WriteLine($"[Z-Order] Applying Z-order to {sortedClips.Count} video clips");
 
-                // Apply Z-order: Place each window relative to HWND_TOP in order
                 foreach (var kvp in sortedClips)
                 {
                     IntPtr hwnd = kvp.Key;
                     SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
                     System.Diagnostics.Debug.WriteLine($"[Z-Order] Positioned clip '{kvp.Value.Name}' (Track {kvp.Value.TrackIndex})");
                 }
-
-                _needsZOrderUpdate = false; // Reset flag
+                _needsZOrderUpdate = false;
             }
 
-            // Always update clipping regions (this is lightweight)
             foreach (var hwndHost in hwndHosts)
             {
                 try
@@ -294,32 +302,38 @@ namespace VideoEditor
                     IntPtr parentHwnd = hwndHost.Handle;
                     if (parentHwnd == IntPtr.Zero) continue;
 
-                    // Get HwndHost position in screen coordinates
-                    var hwndHostPos = hwndHost.PointToScreen(new Point(0, 0));
-                    var hwndHostBounds = new Rect(hwndHostPos, new Size(hwndHost.ActualWidth, hwndHost.ActualHeight));
+                    // --- 여기부터 수정: HwndHost의 좌표도 픽셀 단위로 변환 ---
+                    var hwndHostPosDIP = hwndHost.PointToScreen(new Point(0, 0));
+                    var hwndHostBoundsDIP = new Rect(hwndHostPosDIP, new Size(hwndHost.ActualWidth, hwndHost.ActualHeight));
 
-                    // Calculate intersection with VideoPlayerHost
-                    var intersection = Rect.Intersect(hostBounds, hwndHostBounds);
-                    
+                    var hwndHostBoundsPixels = new Rect(
+                        hwndHostBoundsDIP.X * dpiX,
+                        hwndHostBoundsDIP.Y * dpiY,
+                        hwndHostBoundsDIP.Width * dpiX,
+                        hwndHostBoundsDIP.Height * dpiY
+                    );
+
+                    // 물리적 픽셀을 기준으로 교차 영역 계산
+                    var intersection = Rect.Intersect(hostBoundsPixels, hwndHostBoundsPixels);
+                    // --- 수정 끝 ---
+
                     if (!intersection.IsEmpty && intersection.Width > 0 && intersection.Height > 0)
                     {
-                        // Convert to HwndHost-relative coordinates
-                        int clipLeft = Math.Max(0, (int)(intersection.Left - hwndHostBounds.Left));
-                        int clipTop = Math.Max(0, (int)(intersection.Top - hwndHostBounds.Top));
-                        int clipRight = (int)(intersection.Right - hwndHostBounds.Left);
-                        int clipBottom = (int)(intersection.Bottom - hwndHostBounds.Top);
+                        // --- 여기부터 수정: 교차 영역을 HwndHost 기준 상대 픽셀 좌표로 변환 ---
+                        int clipLeft = Math.Max(0, (int)(intersection.Left - hwndHostBoundsPixels.Left));
+                        int clipTop = Math.Max(0, (int)(intersection.Top - hwndHostBoundsPixels.Top));
+                        int clipRight = (int)(intersection.Right - hwndHostBoundsPixels.Left);
+                        int clipBottom = (int)(intersection.Bottom - hwndHostBoundsPixels.Top);
+                        // --- 수정 끝 ---
 
-                        // Ensure valid region
                         if (clipRight > clipLeft && clipBottom > clipTop)
                         {
-                            // Apply region to parent HWND
                             IntPtr hRgn = CreateRectRgn(clipLeft, clipTop, clipRight, clipBottom);
                             if (hRgn != IntPtr.Zero)
                             {
                                 SetWindowRgn(parentHwnd, hRgn, true);
                             }
 
-                            // Also apply to all child windows (VLC creates child windows for rendering)
                             EnumChildWindows(parentHwnd, (hwnd, lParam) =>
                             {
                                 IntPtr childRgn = CreateRectRgn(clipLeft, clipTop, clipRight, clipBottom);
@@ -333,7 +347,6 @@ namespace VideoEditor
                     }
                     else
                     {
-                        // Video is completely outside bounds, hide it
                         IntPtr emptyRgn = CreateRectRgn(0, 0, 0, 0);
                         if (emptyRgn != IntPtr.Zero)
                         {

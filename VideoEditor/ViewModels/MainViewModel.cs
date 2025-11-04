@@ -831,6 +831,9 @@ namespace VideoEditor.ViewModels
             _activeVisualClipPlayers.Clear();
             _activeAudioPlayers.Clear();
 
+            ActiveVideoClips.Clear();
+            ActiveWpfOverlays.Clear();
+
             CurrentTimelinePosition = 0;
             IsTimelinePlaying = false;
         }
