@@ -273,6 +273,9 @@ namespace VideoEditor.ViewModels
             TimelineClips.Add(videoOnlyClip);
             TimelineClips.Add(audioOnlyClip);
 
+            // Generate waveform for the separated audio clip
+            _ = GenerateWaveformForClipAsync(audioOnlyClip, audioOnlyClip.AudioPath);
+
             videoOnlyClip.IsSelected = true;
             audioOnlyClip.IsSelected = true;
             _selectedClips.Add(videoOnlyClip);
@@ -712,7 +715,39 @@ namespace VideoEditor.ViewModels
         {
             if (e == null) return;
 
-            if (e.Data.GetDataPresent("TimelineClip"))
+            if (e.Data.GetDataPresent("TimelineClips"))
+            {
+                // Handle multiple clips being dragged
+                if (e.Data.GetData("TimelineClips") is List<TimelineClipBase> droppedClips && e.Source is FrameworkElement dropTarget)
+                {
+                    Point finalDropPosition = e.GetPosition(dropTarget);
+
+                    double deltaX = finalDropPosition.X - DragStartPoint.X;
+                    double deltaTime = deltaX / this.PixelsPerSecond;
+
+                    int deltaTrack = (int)Math.Round((finalDropPosition.Y - DragStartPoint.Y) / 60.0);
+
+                    // Move all dragged clips by the same delta
+                    foreach (var clip in droppedClips)
+                    {
+                        if (DraggedClipsOriginalState.TryGetValue(clip, out var originalState))
+                        {
+                            double desiredStartPosition = originalState.OriginalStart + deltaTime;
+                            int newTrackIndex = Math.Clamp(originalState.OriginalTrack + deltaTrack, 0, 4);
+
+                            clip.StartPosition = Math.Max(0, desiredStartPosition);
+                            clip.TrackIndex = newTrackIndex;
+                        }
+                    }
+                    
+                    // Trigger Z-order update if any video clips were moved
+                    if (droppedClips.Any(c => c is VideoClip))
+                    {
+                        _mainViewModel.TriggerVideoClipZOrderUpdate();
+                    }
+                }
+            }
+            else if (e.Data.GetDataPresent("TimelineClip"))
             {
                 if (e.Data.GetData("TimelineClip") is TimelineClipBase droppedClip && e.Source is FrameworkElement dropTarget)
                 {
@@ -730,6 +765,12 @@ namespace VideoEditor.ViewModels
 
                     droppedClip.StartPosition = adjustedStartPosition;
                     droppedClip.TrackIndex = newTrackIndex;
+                    
+                    // Trigger Z-order update if a video clip was moved
+                    if (droppedClip is VideoClip)
+                    {
+                        _mainViewModel.TriggerVideoClipZOrderUpdate();
+                    }
 
                     //Console.WriteLine($"[Move LOG] '{droppedClip.Name}' 클립이 위치 {droppedClip.StartPosition:F2}초, 트랙 {droppedClip.TrackIndex}로 이동됨");
                 }
@@ -1163,6 +1204,13 @@ namespace VideoEditor.ViewModels
             // 드래그 작업 완료 후 상태 초기화
             IsDraggingClip = false;
             DraggedClipsOriginalState.Clear();
+            
+            // 비디오 클립이 드래그된 경우 Z-order 업데이트 트리거
+            if (_selectedClips.Any(c => c is VideoClip))
+            {
+                _mainViewModel.TriggerVideoClipZOrderUpdate();
+            }
+            
             ClipInteractionEnded?.Invoke();
         }
 

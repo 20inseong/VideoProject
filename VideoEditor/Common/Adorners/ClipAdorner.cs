@@ -16,6 +16,8 @@ namespace VideoEditor.Common.Adorners
         private TimelineClipBase _clip;
         private Point _dragStartPoint;
         private double _initialX, _initialY;
+        private DateTime _lastClipUpdateTime = DateTime.MinValue;
+        private const int CLIP_UPDATE_THROTTLE_MS = 16; // 60fps = ~16ms
 
         public ClipAdorner(UIElement adornedElement, TimelineClipBase clip) : base(adornedElement)
         {
@@ -99,6 +101,8 @@ namespace VideoEditor.Common.Adorners
                 _clip.Y += e.VerticalChange;
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
+                
+                ForceClipUpdate();
             }
         }
 
@@ -112,6 +116,8 @@ namespace VideoEditor.Common.Adorners
                 _clip.Y += e.VerticalChange;
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
+                
+                ForceClipUpdate();
             }
         }
 
@@ -125,6 +131,8 @@ namespace VideoEditor.Common.Adorners
                 _clip.X += e.HorizontalChange;
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
+                
+                ForceClipUpdate();
             }
         }
 
@@ -137,6 +145,32 @@ namespace VideoEditor.Common.Adorners
             {
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
+                
+                ForceClipUpdate();
+            }
+        }
+        
+        private void ForceClipUpdate()
+        {
+            // Force immediate clipping update for video clips during drag
+            if (_clip is VideoClip)
+            {
+                // Throttle updates to max 60fps (16ms interval)
+                var now = DateTime.Now;
+                if ((now - _lastClipUpdateTime).TotalMilliseconds < CLIP_UPDATE_THROTTLE_MS)
+                {
+                    return; // Skip this update, too soon
+                }
+                
+                _lastClipUpdateTime = now;
+                
+                Application.Current?.Dispatcher.InvokeAsync(() =>
+                {
+                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    {
+                        mainWindow.ForceClipVideoViews();
+                    }
+                }, System.Windows.Threading.DispatcherPriority.Render); // Render priority instead of Send
             }
         }
 
@@ -152,11 +186,24 @@ namespace VideoEditor.Common.Adorners
             // Update position based on drag delta
             _clip.X += e.HorizontalChange;
             _clip.Y += e.VerticalChange;
+            
+            ForceClipUpdate();
         }
 
         private void Middle_DragCompleted(object sender, DragCompletedEventArgs e)
         {
-            // Drag completed - position should be final
+            // Force final update when drag completes to ensure accurate clipping
+            if (_clip is VideoClip)
+            {
+                _lastClipUpdateTime = DateTime.MinValue; // Reset throttle
+                Application.Current?.Dispatcher.InvokeAsync(() =>
+                {
+                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    {
+                        mainWindow.ForceClipVideoViews();
+                    }
+                }, System.Windows.Threading.DispatcherPriority.Render);
+            }
         }
 
         protected override Size MeasureOverride(Size constraint)

@@ -82,6 +82,27 @@ namespace VideoEditor
 
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
             
+            // Monitor dragging state to update clipping more frequently
+            _mainViewModel.VideoEditor.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(VideoEditorViewModel.IsDraggingClip))
+                {
+                    if (_mainViewModel.VideoEditor.IsDraggingClip)
+                    {
+                        // During drag, update more frequently (every 16ms ~= 60fps)
+                        _videoClippingTimer.Interval = TimeSpan.FromMilliseconds(16);
+                        _needsZOrderUpdate = true;
+                    }
+                    else
+                    {
+                        // Not dragging, slower update rate is fine
+                        _videoClippingTimer.Interval = TimeSpan.FromMilliseconds(100);
+                        // Force one final update when drag ends
+                        ClipVideoViewsToPlayerHost();
+                    }
+                }
+            };
+            
             // Subscribe to Z-order change events
             _mainViewModel.VideoClipZOrderChanged += (s, e) =>
             {
@@ -257,43 +278,22 @@ namespace VideoEditor
 
             var hwndHosts = FindVisualChildren<System.Windows.Interop.HwndHost>(VideoPlayerHost).ToList();
 
-            if (_needsZOrderUpdate)
+            // Z-order update (only when needed)
+            if (_needsZOrderUpdate && hwndHosts.Count > 0)
             {
-                System.Diagnostics.Debug.WriteLine($"[Z-Order] Updating Z-order for {hwndHosts.Count} HwndHost controls");
-
-                var hwndToClipMap = new Dictionary<IntPtr, VideoClip>();
-
-                foreach (var hwndHost in hwndHosts)
-                {
-                    try
-                    {
-                        IntPtr parentHwnd = hwndHost.Handle;
-                        if (parentHwnd == IntPtr.Zero) continue;
-
-                        var frameworkElement = hwndHost as FrameworkElement;
-                        if (frameworkElement?.DataContext is VideoClip videoClip)
-                        {
-                            hwndToClipMap[parentHwnd] = videoClip;
-                            System.Diagnostics.Debug.WriteLine($"[Z-Order] Mapped HWND to clip '{videoClip.Name}' (Track {videoClip.TrackIndex})");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[Z-Order] Mapping error: {ex.Message}");
-                    }
-                }
-
-                var sortedClips = hwndToClipMap.OrderByDescending(kvp => kvp.Value.TrackIndex).ToList();
-                System.Diagnostics.Debug.WriteLine($"[Z-Order] Applying Z-order to {sortedClips.Count} video clips");
-
-                foreach (var kvp in sortedClips)
-                {
-                    IntPtr hwnd = kvp.Key;
-                    SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-                    System.Diagnostics.Debug.WriteLine($"[Z-Order] Positioned clip '{kvp.Value.Name}' (Track {kvp.Value.TrackIndex})");
-                }
+                UpdateVideoZOrder(hwndHosts);
                 _needsZOrderUpdate = false;
             }
+
+            // Clipping update (always)
+            ApplyClippingToVideoWindows(hwndHosts, hostBoundsPixels, dpiX, dpiY);
+        }
+
+        private void UpdateVideoZOrder(List<System.Windows.Interop.HwndHost> hwndHosts)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Z-Order] Updating Z-order for {hwndHosts.Count} HwndHost controls");
+
+            var hwndToClipMap = new Dictionary<IntPtr, VideoClip>();
 
             foreach (var hwndHost in hwndHosts)
             {
@@ -302,7 +302,58 @@ namespace VideoEditor
                     IntPtr parentHwnd = hwndHost.Handle;
                     if (parentHwnd == IntPtr.Zero) continue;
 
-                    // --- 여기부터 수정: HwndHost의 좌표도 픽셀 단위로 변환 ---
+                    var frameworkElement = hwndHost as FrameworkElement;
+                    if (frameworkElement?.DataContext is VideoClip videoClip)
+                    {
+                        hwndToClipMap[parentHwnd] = videoClip;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Z-Order] Mapping error: {ex.Message}");
+                }
+            }
+
+            // Sort by TrackIndex: higher TrackIndex should be behind (rendered first)
+            // Lower TrackIndex should be in front (rendered last, on top)
+            var sortedClips = hwndToClipMap.OrderBy(kvp => kvp.Value.TrackIndex).ToList();
+
+            // Get the OverlayWindow handle to position video windows below it
+            IntPtr overlayHwnd = IntPtr.Zero;
+            if (_overlayWindow != null && _overlayWindow.IsLoaded)
+            {
+                overlayHwnd = new WindowInteropHelper(_overlayWindow).Handle;
+            }
+
+            // Apply Z-order from back to front
+            IntPtr insertAfter = overlayHwnd != IntPtr.Zero ? overlayHwnd : HWND_TOP;
+            
+            for (int i = sortedClips.Count - 1; i >= 0; i--)
+            {
+                var kvp = sortedClips[i];
+                IntPtr hwnd = kvp.Key;
+                
+                SetWindowPos(hwnd, insertAfter, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                insertAfter = hwnd;
+            }
+            
+            // Ensure OverlayWindow stays on top
+            if (overlayHwnd != IntPtr.Zero)
+            {
+                SetWindowPos(overlayHwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            }
+        }
+
+        private void ApplyClippingToVideoWindows(List<System.Windows.Interop.HwndHost> hwndHosts, Rect hostBoundsPixels, double dpiX, double dpiY)
+        {
+            foreach (var hwndHost in hwndHosts)
+            {
+                try
+                {
+                    IntPtr parentHwnd = hwndHost.Handle;
+                    if (parentHwnd == IntPtr.Zero) continue;
+
+                    // HwndHost의 좌표를 픽셀 단위로 변환
                     var hwndHostPosDIP = hwndHost.PointToScreen(new Point(0, 0));
                     var hwndHostBoundsDIP = new Rect(hwndHostPosDIP, new Size(hwndHost.ActualWidth, hwndHost.ActualHeight));
 
@@ -315,16 +366,17 @@ namespace VideoEditor
 
                     // 물리적 픽셀을 기준으로 교차 영역 계산
                     var intersection = Rect.Intersect(hostBoundsPixels, hwndHostBoundsPixels);
-                    // --- 수정 끝 ---
 
-                    if (!intersection.IsEmpty && intersection.Width > 0 && intersection.Height > 0)
+                    // Check if the HwndHost is completely outside VideoPlayerHost bounds
+                    bool isCompletelyOutside = intersection.IsEmpty || intersection.Width <= 0 || intersection.Height <= 0;
+                    
+                    if (!isCompletelyOutside && intersection.Width > 0 && intersection.Height > 0)
                     {
-                        // --- 여기부터 수정: 교차 영역을 HwndHost 기준 상대 픽셀 좌표로 변환 ---
+                        // 교차 영역을 HwndHost 기준 상대 픽셀 좌표로 변환
                         int clipLeft = Math.Max(0, (int)(intersection.Left - hwndHostBoundsPixels.Left));
                         int clipTop = Math.Max(0, (int)(intersection.Top - hwndHostBoundsPixels.Top));
                         int clipRight = (int)(intersection.Right - hwndHostBoundsPixels.Left);
                         int clipBottom = (int)(intersection.Bottom - hwndHostBoundsPixels.Top);
-                        // --- 수정 끝 ---
 
                         if (clipRight > clipLeft && clipBottom > clipTop)
                         {
@@ -334,6 +386,7 @@ namespace VideoEditor
                                 SetWindowRgn(parentHwnd, hRgn, true);
                             }
 
+                            // Apply to child windows
                             EnumChildWindows(parentHwnd, (hwnd, lParam) =>
                             {
                                 IntPtr childRgn = CreateRectRgn(clipLeft, clipTop, clipRight, clipBottom);
@@ -344,14 +397,14 @@ namespace VideoEditor
                                 return true;
                             }, IntPtr.Zero);
                         }
+                        else
+                        {
+                            HideWindow(parentHwnd);
+                        }
                     }
                     else
                     {
-                        IntPtr emptyRgn = CreateRectRgn(0, 0, 0, 0);
-                        if (emptyRgn != IntPtr.Zero)
-                        {
-                            SetWindowRgn(parentHwnd, emptyRgn, true);
-                        }
+                        HideWindow(parentHwnd);
                     }
                 }
                 catch (Exception ex)
@@ -359,6 +412,33 @@ namespace VideoEditor
                     System.Diagnostics.Debug.WriteLine($"[Clip] Error: {ex.Message}");
                 }
             }
+        }
+
+        private void HideWindow(IntPtr parentHwnd)
+        {
+            // Hide window completely by setting empty region
+            IntPtr emptyRgn = CreateRectRgn(0, 0, 0, 0);
+            if (emptyRgn != IntPtr.Zero)
+            {
+                SetWindowRgn(parentHwnd, emptyRgn, true);
+                
+                // Also hide all child windows
+                EnumChildWindows(parentHwnd, (hwnd, lParam) =>
+                {
+                    IntPtr childEmptyRgn = CreateRectRgn(0, 0, 0, 0);
+                    if (childEmptyRgn != IntPtr.Zero)
+                    {
+                        SetWindowRgn(hwnd, childEmptyRgn, true);
+                    }
+                    return true;
+                }, IntPtr.Zero);
+            }
+        }
+
+        // Public method to force immediate clipping update (called from ClipAdorner during drag)
+        public void ForceClipVideoViews()
+        {
+            ClipVideoViewsToPlayerHost();
         }
 
         private static IEnumerable<T> FindVisualChildren<T>(DependencyObject depObj) where T : DependencyObject

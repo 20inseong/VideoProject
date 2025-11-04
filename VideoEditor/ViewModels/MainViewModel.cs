@@ -75,8 +75,31 @@ namespace VideoEditor.ViewModels
 
 
 
-        public double PlayerHostWidth { get; set; } = 1;
-        public double PlayerHostHeight { get; set; } = 1;
+        private double _playerHostWidth = 1;
+        public double PlayerHostWidth 
+        { 
+            get => _playerHostWidth;
+            set
+            {
+                if (SetProperty(ref _playerHostWidth, value))
+                {
+                    UpdateClipsForPlayerSizeChange();
+                }
+            }
+        }
+
+        private double _playerHostHeight = 1;
+        public double PlayerHostHeight 
+        { 
+            get => _playerHostHeight;
+            set
+            {
+                if (SetProperty(ref _playerHostHeight, value))
+                {
+                    UpdateClipsForPlayerSizeChange();
+                }
+            }
+        }
 
         private bool _isPerformanceWarningVisible;
         public bool IsPerformanceWarningVisible
@@ -720,6 +743,16 @@ namespace VideoEditor.ViewModels
                     SyncPlayersToTimeline();
                 }
             }
+            else if (e.PropertyName == nameof(TimelineClipBase.X) || e.PropertyName == nameof(TimelineClipBase.Y))
+            {
+                // X, Y 위치가 변경되면 비디오 clipping을 즉시 업데이트
+                // 재생 중 드래그 시 비디오가 UI 위로 나타나는 것을 방지
+                if (sender is VideoClip)
+                {
+                    // Force immediate clipping update without waiting for timer
+                    VideoClipZOrderChanged?.Invoke(this, EventArgs.Empty);
+                }
+            }
             else if (e.PropertyName == nameof(TimelineClipBase.Volume))
             {
                 if (sender is TimelineClipBase changedClip && (changedClip is VideoClip || changedClip is AudioClip))
@@ -791,8 +824,8 @@ namespace VideoEditor.ViewModels
         {
             if (_wasPlayingBeforeInteraction)
             {
-                IsTimelinePlaying = true;
-                _timelineTimer.Start();
+                // Use ResyncAndPlay to ensure proper Z-order and player state
+                ResyncAndPlay();
                 _wasPlayingBeforeInteraction = false; 
             }
         }
@@ -909,10 +942,12 @@ namespace VideoEditor.ViewModels
             }
 
             // --- Update Active Players (Playback state) ---
+            bool playbackStateChanged = false;
             foreach (var videoClip in activeVideoClips)
             {
                 if (videoClip.PlayerInstance is MediaPlayer player)
                 {
+                    bool wasPlaying = player.IsPlaying;
                     player.SetRate((float)videoClip.SpeedRatio);
                     double timeWithinClip = CurrentTimelinePosition - videoClip.StartPosition;
                     if (IsScrubbing || VideoEditor.IsDraggingClip)
@@ -923,9 +958,23 @@ namespace VideoEditor.ViewModels
                         if (!player.IsPlaying) player.Play();
                         player.SetPause(true);
                     }
-                    else if (IsTimelinePlaying && !player.IsPlaying) { player.Play(); }
-                    else if (!IsTimelinePlaying && player.IsPlaying) { player.SetPause(true); }
+                    else if (IsTimelinePlaying && !player.IsPlaying) 
+                    { 
+                        player.Play();
+                        if (!wasPlaying) playbackStateChanged = true;
+                    }
+                    else if (!IsTimelinePlaying && player.IsPlaying) 
+                    { 
+                        player.SetPause(true);
+                        playbackStateChanged = true;
+                    }
                 }
+            }
+            
+            // Force Z-order update when playback state changes to ensure proper layering
+            if (playbackStateChanged)
+            {
+                VideoClipZOrderChanged?.Invoke(this, EventArgs.Empty);
             }
 
             // --- Audio Clips Management (Largely unchanged) ---
@@ -1024,6 +1073,91 @@ namespace VideoEditor.ViewModels
             }
         }
 
+        public void TriggerVideoClipZOrderUpdate()
+        {
+            // Trigger Z-order update by raising the event
+            // This will set _needsZOrderUpdate flag in MainWindow which will
+            // apply proper Z-ordering to HwndHost windows
+            VideoClipZOrderChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void UpdateClipsForPlayerSizeChange()
+        {
+            if (PlayerHostWidth <= 1 || PlayerHostHeight <= 1) return;
+
+            const double controlBarHeight = 50;
+            double availableVideoHeight = PlayerHostHeight - controlBarHeight;
+
+            foreach (var clip in VideoEditor.TimelineClips)
+            {
+                if (clip is VideoClip videoClip)
+                {
+                    UpdateVideoClipLayout(videoClip, availableVideoHeight);
+                }
+                else if (clip is ImageClip imageClip)
+                {
+                    UpdateImageClipLayout(imageClip, availableVideoHeight);
+                }
+            }
+        }
+
+        private void UpdateVideoClipLayout(VideoClip videoClip, double availableVideoHeight)
+        {
+            if (videoClip.SourceWidth <= 0 || videoClip.SourceHeight <= 0) return;
+
+            double playerAspectRatio = PlayerHostWidth / availableVideoHeight;
+            double videoAspectRatio = (double)videoClip.SourceWidth / videoClip.SourceHeight;
+
+            double renderWidth, renderHeight, x, y;
+
+            if (playerAspectRatio > videoAspectRatio)
+            {
+                renderHeight = availableVideoHeight;
+                renderWidth = renderHeight * videoAspectRatio;
+            }
+            else
+            {
+                renderWidth = PlayerHostWidth;
+                renderHeight = renderWidth / videoAspectRatio;
+            }
+
+            x = (PlayerHostWidth - renderWidth) / 2;
+            y = (availableVideoHeight - renderHeight) / 2;
+
+            videoClip.X = x;
+            videoClip.Y = y;
+            videoClip.RenderWidth = renderWidth;
+            videoClip.RenderHeight = renderHeight;
+        }
+
+        private void UpdateImageClipLayout(ImageClip imageClip, double availableVideoHeight)
+        {
+            if (imageClip.SourceWidth <= 0 || imageClip.SourceHeight <= 0) return;
+
+            double playerAspectRatio = PlayerHostWidth / availableVideoHeight;
+            double imageAspectRatio = (double)imageClip.SourceWidth / imageClip.SourceHeight;
+
+            double renderWidth, renderHeight, x, y;
+
+            if (playerAspectRatio > imageAspectRatio)
+            {
+                renderHeight = availableVideoHeight;
+                renderWidth = renderHeight * imageAspectRatio;
+            }
+            else
+            {
+                renderWidth = PlayerHostWidth;
+                renderHeight = renderWidth / imageAspectRatio;
+            }
+
+            x = (PlayerHostWidth - renderWidth) / 2;
+            y = (availableVideoHeight - renderHeight) / 2;
+
+            imageClip.X = x;
+            imageClip.Y = y;
+            imageClip.RenderWidth = renderWidth;
+            imageClip.RenderHeight = renderHeight;
+        }
 
         public void Dispose()
         {
