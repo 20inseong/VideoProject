@@ -18,11 +18,27 @@ namespace VideoEditor.Common.Adorners
         private double _initialX, _initialY;
         private DateTime _lastClipUpdateTime = DateTime.MinValue;
         private const int CLIP_UPDATE_THROTTLE_MS = 16; // 60fps = ~16ms
+        private double _aspectRatio = 1.0;
 
         public ClipAdorner(UIElement adornedElement, TimelineClipBase clip) : base(adornedElement)
         {
             _clip = clip;
             _visuals = new VisualCollection(this);
+            
+            // Calculate aspect ratio from source dimensions
+            if (_clip is VideoClip videoClip && videoClip.SourceWidth > 0 && videoClip.SourceHeight > 0)
+            {
+                _aspectRatio = (double)videoClip.SourceWidth / videoClip.SourceHeight;
+            }
+            else if (_clip is ImageClip imageClip && imageClip.SourceWidth > 0 && imageClip.SourceHeight > 0)
+            {
+                _aspectRatio = (double)imageClip.SourceWidth / imageClip.SourceHeight;
+            }
+            else if (_clip.RenderWidth > 0 && _clip.RenderHeight > 0)
+            {
+                _aspectRatio = _clip.RenderWidth / _clip.RenderHeight;
+            }
+            
             BuildAdornerHandles();
             this.DataContext = _clip; // Set DataContext for binding
         }
@@ -93,12 +109,15 @@ namespace VideoEditor.Common.Adorners
         private void TopLeft_DragDelta(object sender, DragDeltaEventArgs e)
         {
             double newWidth = _clip.RenderWidth - e.HorizontalChange;
-            double newHeight = _clip.RenderHeight - e.VerticalChange;
+            double newHeight = newWidth / _aspectRatio;
 
             if (newWidth > 0 && newHeight > 0)
             {
-                _clip.X += e.HorizontalChange;
-                _clip.Y += e.VerticalChange;
+                double widthChange = _clip.RenderWidth - newWidth;
+                double heightChange = _clip.RenderHeight - newHeight;
+                
+                _clip.X += widthChange;
+                _clip.Y += heightChange;
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
                 
@@ -109,11 +128,13 @@ namespace VideoEditor.Common.Adorners
         private void TopRight_DragDelta(object sender, DragDeltaEventArgs e)
         {
             double newWidth = _clip.RenderWidth + e.HorizontalChange;
-            double newHeight = _clip.RenderHeight - e.VerticalChange;
+            double newHeight = newWidth / _aspectRatio;
 
             if (newWidth > 0 && newHeight > 0)
             {
-                _clip.Y += e.VerticalChange;
+                double heightChange = _clip.RenderHeight - newHeight;
+                
+                _clip.Y += heightChange;
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
                 
@@ -124,11 +145,13 @@ namespace VideoEditor.Common.Adorners
         private void BottomLeft_DragDelta(object sender, DragDeltaEventArgs e)
         {
             double newWidth = _clip.RenderWidth - e.HorizontalChange;
-            double newHeight = _clip.RenderHeight + e.VerticalChange;
+            double newHeight = newWidth / _aspectRatio;
 
             if (newWidth > 0 && newHeight > 0)
             {
-                _clip.X += e.HorizontalChange;
+                double widthChange = _clip.RenderWidth - newWidth;
+                
+                _clip.X += widthChange;
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
                 
@@ -139,7 +162,7 @@ namespace VideoEditor.Common.Adorners
         private void BottomRight_DragDelta(object sender, DragDeltaEventArgs e)
         {
             double newWidth = _clip.RenderWidth + e.HorizontalChange;
-            double newHeight = _clip.RenderHeight + e.VerticalChange;
+            double newHeight = newWidth / _aspectRatio;
 
             if (newWidth > 0 && newHeight > 0)
             {

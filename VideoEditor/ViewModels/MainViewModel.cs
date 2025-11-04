@@ -76,6 +76,7 @@ namespace VideoEditor.ViewModels
 
 
         private double _playerHostWidth = 1;
+        private double _previousPlayerHostWidth = 1;
         public double PlayerHostWidth 
         { 
             get => _playerHostWidth;
@@ -84,11 +85,13 @@ namespace VideoEditor.ViewModels
                 if (SetProperty(ref _playerHostWidth, value))
                 {
                     UpdateClipsForPlayerSizeChange();
+                    _previousPlayerHostWidth = value;
                 }
             }
         }
 
         private double _playerHostHeight = 1;
+        private double _previousPlayerHostHeight = 1;
         public double PlayerHostHeight 
         { 
             get => _playerHostHeight;
@@ -97,6 +100,7 @@ namespace VideoEditor.ViewModels
                 if (SetProperty(ref _playerHostHeight, value))
                 {
                     UpdateClipsForPlayerSizeChange();
+                    _previousPlayerHostHeight = value;
                 }
             }
         }
@@ -1084,27 +1088,52 @@ namespace VideoEditor.ViewModels
         private void UpdateClipsForPlayerSizeChange()
         {
             if (PlayerHostWidth <= 1 || PlayerHostHeight <= 1) return;
+            if (_previousPlayerHostWidth <= 1 || _previousPlayerHostHeight <= 1)
+            {
+                // First time initialization
+                _previousPlayerHostWidth = PlayerHostWidth;
+                _previousPlayerHostHeight = PlayerHostHeight;
+            }
 
             const double controlBarHeight = 50;
             double availableVideoHeight = PlayerHostHeight - controlBarHeight;
+            double previousAvailableVideoHeight = _previousPlayerHostHeight - controlBarHeight;
+            
+            // Calculate scale ratios
+            double widthRatio = PlayerHostWidth / _previousPlayerHostWidth;
+            double heightRatio = availableVideoHeight / previousAvailableVideoHeight;
 
             foreach (var clip in VideoEditor.TimelineClips)
             {
                 if (clip is VideoClip videoClip)
                 {
-                    UpdateVideoClipLayout(videoClip, availableVideoHeight);
+                    UpdateVideoClipLayout(videoClip, availableVideoHeight, widthRatio, heightRatio);
                 }
                 else if (clip is ImageClip imageClip)
                 {
-                    UpdateImageClipLayout(imageClip, availableVideoHeight);
+                    UpdateImageClipLayout(imageClip, availableVideoHeight, widthRatio, heightRatio);
                 }
             }
         }
 
-        private void UpdateVideoClipLayout(VideoClip videoClip, double availableVideoHeight)
+        private void UpdateVideoClipLayout(VideoClip videoClip, double availableVideoHeight, double widthRatio, double heightRatio)
         {
             if (videoClip.SourceWidth <= 0 || videoClip.SourceHeight <= 0) return;
 
+            // If user has positioned the clip, scale its position and size proportionally
+            if (videoClip.IsUserPositioned)
+            {
+                // Scale position
+                videoClip.X *= widthRatio;
+                videoClip.Y *= heightRatio;
+                
+                // Scale size
+                videoClip.RenderWidth *= widthRatio;
+                videoClip.RenderHeight *= heightRatio;
+                return;
+            }
+
+            // For clips not yet positioned by user, use default centered layout
             double playerAspectRatio = PlayerHostWidth / availableVideoHeight;
             double videoAspectRatio = (double)videoClip.SourceWidth / videoClip.SourceHeight;
 
@@ -1128,12 +1157,29 @@ namespace VideoEditor.ViewModels
             videoClip.Y = y;
             videoClip.RenderWidth = renderWidth;
             videoClip.RenderHeight = renderHeight;
+            
+            // Mark initial layout as complete
+            videoClip.MarkInitialLayoutComplete();
         }
 
-        private void UpdateImageClipLayout(ImageClip imageClip, double availableVideoHeight)
+        private void UpdateImageClipLayout(ImageClip imageClip, double availableVideoHeight, double widthRatio, double heightRatio)
         {
             if (imageClip.SourceWidth <= 0 || imageClip.SourceHeight <= 0) return;
 
+            // If user has positioned the clip, scale its position and size proportionally
+            if (imageClip.IsUserPositioned)
+            {
+                // Scale position
+                imageClip.X *= widthRatio;
+                imageClip.Y *= heightRatio;
+                
+                // Scale size
+                imageClip.RenderWidth *= widthRatio;
+                imageClip.RenderHeight *= heightRatio;
+                return;
+            }
+
+            // For clips not yet positioned by user, use default centered layout
             double playerAspectRatio = PlayerHostWidth / availableVideoHeight;
             double imageAspectRatio = (double)imageClip.SourceWidth / imageClip.SourceHeight;
 
@@ -1157,6 +1203,9 @@ namespace VideoEditor.ViewModels
             imageClip.Y = y;
             imageClip.RenderWidth = renderWidth;
             imageClip.RenderHeight = renderHeight;
+            
+            // Mark initial layout as complete
+            imageClip.MarkInitialLayoutComplete();
         }
 
         public void Dispose()
