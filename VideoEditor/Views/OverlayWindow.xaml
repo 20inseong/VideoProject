@@ -1,0 +1,70 @@
+<Window x:Class="VideoEditor.Views.OverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:VideoEditor.Views"
+        xmlns:models="clr-namespace:VideoEditor.Models"
+        xmlns:common="clr-namespace:VideoEditor.Common"
+        xmlns:adorners="clr-namespace:VideoEditor.Common.Adorners"
+        mc:Ignorable="d"
+        Title="OverlayWindow"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="False" ShowInTaskbar="False" IsHitTestVisible="True">
+    <Window.Resources>
+        <common:InverseTrackIndexConverter x:Key="InverseTrackIndexConverter" />
+    </Window.Resources>
+    <Grid>
+        <ItemsControl ItemsSource="{Binding ActiveWpfOverlays}">
+            <ItemsControl.Resources>
+                <!-- DataTemplate for ImageClip -->
+                <DataTemplate DataType="{x:Type models:ImageClip}">
+                    <AdornerDecorator>
+                        <Image Source="{Binding ImagePath}"
+                               Width="{Binding RenderWidth}"
+                               Height="{Binding RenderHeight}"
+                               Stretch="Fill"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Top">
+                            <adorners:AdornerService.IsAdornerEnabled>
+                                <Binding Path="IsSelected" />
+                            </adorners:AdornerService.IsAdornerEnabled>
+                        </Image>
+                    </AdornerDecorator>
+                </DataTemplate>
+
+                <!-- DataTemplate for TextClip -->
+                <DataTemplate DataType="{x:Type models:TextClip}">
+                    <AdornerDecorator>
+                        <TextBlock Text="{Binding Text}"
+                                   Width="{Binding RenderWidth}"
+                                   Height="{Binding RenderHeight}"
+                                   Foreground="White"
+                                   FontSize="{Binding FontSize}"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Top">
+                            <adorners:AdornerService.IsAdornerEnabled>
+                                <Binding Path="IsSelected" />
+                            </adorners:AdornerService.IsAdornerEnabled>
+                        </TextBlock>
+                    </AdornerDecorator>
+                </DataTemplate>
+            </ItemsControl.Resources>
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <Canvas />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemContainerStyle>
+                <Style TargetType="ContentPresenter">
+                    <Setter Property="Canvas.Left" Value="{Binding X}" />
+                    <Setter Property="Canvas.Top" Value="{Binding Y}" />
+                    <!-- ZIndex can be used here normally as all items are WPF-native -->
+                    <Setter Property="Canvas.ZIndex" Value="{Binding TrackIndex, Converter={StaticResource InverseTrackIndexConverter}}" />
+                </Style>
+            </ItemsControl.ItemContainerStyle>
+        </ItemsControl>
+    </Grid>
+</Window>

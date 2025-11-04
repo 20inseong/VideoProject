@@ -1,6 +1,19 @@
-﻿################################################################################
-# 이 .gitignore 파일은 Microsoft(R) Visual Studio에서 자동으로 만들어졌습니다.
-################################################################################
 
-/VideoEditor/VideoEditor/ffmpeg/ggml-large-v3-turbo-q5_0.bin
-/VideoEditor/VideoEditor/ffmpeg/emotion_model.onnx
+# Visual Studio cache
+.vs/
+
+# Build results
+# [Bb]in/
+# [Oo]bj/
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+
+!VideoEditor/VideoEditor/ffmpeg/bin/
+!VideoEditor/VideoEditor/ffmpeg/bin/**
+# Whisper model
+**/ggml-base.bin
+**/ggml-large-v3-turbo-q5_0
