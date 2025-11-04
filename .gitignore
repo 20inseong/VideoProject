@@ -5,8 +5,8 @@
 # Build results
 # [Bb]in/
 # [Oo]bj/
-bin/
-obj/
+/VideoEditor/bin/
+/VideoEditor/obj/
 *.user
 *.suo
 .vs/
