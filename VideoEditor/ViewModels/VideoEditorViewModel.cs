@@ -221,7 +221,7 @@ namespace VideoEditor.ViewModels
             OnPropertyChanged(nameof(SelectedClip));
         }
 
-        private void ExecuteSeparateAudio(object? _)
+        private async void ExecuteSeparateAudio(object? _)
         {
             if (!CanExecuteSeparateAudio(null)) return;
 
@@ -281,6 +281,8 @@ namespace VideoEditor.ViewModels
 
             // 분리 후에는 오디오 분리 커맨드를 비활성화
             SeparateAudioCommand.NotifyCanExecuteChanged();
+
+            await GenerateWaveformForClipAsync(audioOnlyClip, audioOnlyClip.AudioPath);
         }
 
         private bool CanExecuteSeparateAudio(object? _)
