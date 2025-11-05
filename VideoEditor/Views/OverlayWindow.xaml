@@ -10,12 +10,25 @@
         mc:Ignorable="d"
         Title="OverlayWindow"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        Topmost="False" ShowInTaskbar="False" IsHitTestVisible="True">
+        Topmost="False" ShowInTaskbar="False">
     <Window.Resources>
         <common:InverseTrackIndexConverter x:Key="InverseTrackIndexConverter" />
+        <common:OpacityPercentToDecimalConverter x:Key="OpacityPercentToDecimalConverter" />
     </Window.Resources>
-    <Grid>
-        <ItemsControl ItemsSource="{Binding ActiveWpfOverlays}">
+    <Grid Background="Transparent">
+        <!-- Grid의 IsHitTestVisible은 항목이 있을 때만 True -->
+        <Grid.Style>
+            <Style TargetType="Grid">
+                <Setter Property="IsHitTestVisible" Value="True"/>
+                <Style.Triggers>
+                    <!-- ActiveWpfOverlays가 비어있으면 마우스 이벤트를 통과시킴 -->
+                    <DataTrigger Binding="{Binding ActiveWpfOverlays.Count}" Value="0">
+                        <Setter Property="IsHitTestVisible" Value="False"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Grid.Style>
+        <ItemsControl ItemsSource="{Binding ActiveWpfOverlays}" Background="Transparent">
             <ItemsControl.Resources>
                 <!-- DataTemplate for ImageClip -->
                 <DataTemplate DataType="{x:Type models:ImageClip}">
@@ -25,7 +38,12 @@
                                Height="{Binding RenderHeight}"
                                Stretch="Fill"
                                HorizontalAlignment="Left"
-                               VerticalAlignment="Top">
+                               VerticalAlignment="Top"
+                               Opacity="{Binding Opacity, Converter={StaticResource OpacityPercentToDecimalConverter}}"
+                               RenderTransformOrigin="0.5,0.5">
+                            <Image.RenderTransform>
+                                <RotateTransform Angle="{Binding Rotation}" />
+                            </Image.RenderTransform>
                             <adorners:AdornerService.IsAdornerEnabled>
                                 <Binding Path="IsSelected" />
                             </adorners:AdornerService.IsAdornerEnabled>
@@ -54,7 +72,7 @@
             </ItemsControl.Resources>
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <Canvas />
+                    <Canvas Background="Transparent"/>
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemContainerStyle>

@@ -243,6 +243,8 @@ namespace VideoEditor.ViewModels
         private readonly DispatcherTimer _timelineTimer;
         private readonly DispatcherTimer _scrubSeekTimer;
         private readonly uint _flatEqIndex;
+        
+        private bool _isSyncingPlayers = false; // Prevent reentrant calls to SyncPlayersToTimeline
 
         private void ScrubSeekTimer_Tick(object? sender, EventArgs e)
         {
@@ -290,7 +292,7 @@ namespace VideoEditor.ViewModels
             _flatEqIndex = flatPresetIndex;
 
             VideoEditor.OnClipAdded += MainViewModel_OnClipAdded;
-            VideoEditor.ClipInteractionStarted += StopPlayback;
+            VideoEditor.ClipInteractionStarted += OnClipInteractionStarted;
             VideoEditor.ClipInteractionEnded += ResumePlaybackIfNeeded;
 
             PlayerViewModel.PropertyChanged += PlayerViewModel_PropertyChanged;
@@ -690,6 +692,14 @@ namespace VideoEditor.ViewModels
                 _timelineTimer.Stop();
                 return;
             }
+            
+            // Stop playback if there are no clips on the timeline
+            if (!VideoEditor.TimelineClips.Any())
+            {
+                ExecuteStopTimeline();
+                CurrentTimelinePosition = 0;
+                return;
+            }
 
             CurrentTimelinePosition += _timelineTimer.Interval.TotalSeconds;
 
@@ -701,7 +711,7 @@ namespace VideoEditor.ViewModels
             }
 
             // If not the end, then sync players for the new position.
-            SyncPlayersToTimeline();
+            if (!VideoEditor.IsDraggingClip) SyncPlayersToTimeline();
         }
 
         private void ResyncAndPlay()
@@ -724,16 +734,18 @@ namespace VideoEditor.ViewModels
         {
             if (e.PropertyName == nameof(TimelineClipBase.StartPosition) || e.PropertyName == nameof(TimelineClipBase.Duration))
             {
+                // 타임라인 총 길이는 드래그/스크럽 중에도 항상 즉시 반영
                 UpdateTotalTimelineDuration();
-                    // StartPosition이 변경되고, 클립이 현재 활성 상태인 경우,
-                    // 올바른 미디어 로딩/탐색을 보장하기 위해 플레이어를 다시 동기화해야함.
+
+                // 드래그/스크럽 중에는 무거운 재동기화만 건너뜀
+                if (VideoEditor.IsDraggingClip || IsScrubbing) return;
+
+                // StartPosition이 변경되고, 클립이 현재 활성 상태인 경우에만 재동기화.
                 if (sender is TimelineClipBase changedClip)
                 {
-                        // 변경된 클립이 현재 활성 상태인지 확인.
                     if (CurrentTimelinePosition >= changedClip.StartPosition &&
                         CurrentTimelinePosition < (changedClip.StartPosition + changedClip.Duration))
                     {
-                                // player.Media가 새 StartPosition으로 재생성되도록 보장하기 위해 강제 재동기화
                         SyncPlayersToTimeline();
                     }
                 }
@@ -744,6 +756,8 @@ namespace VideoEditor.ViewModels
                 if (sender is VideoClip)
                 {
                     VideoClipZOrderChanged?.Invoke(this, EventArgs.Empty);
+                    // 드래그/스크럽 중에는 무거운 동기화 생략
+                    if (VideoEditor.IsDraggingClip || IsScrubbing) return;
                     SyncPlayersToTimeline();
                 }
             }
@@ -828,9 +842,33 @@ namespace VideoEditor.ViewModels
         {
             if (_wasPlayingBeforeInteraction)
             {
-                // Use ResyncAndPlay to ensure proper Z-order and player state
-                ResyncAndPlay();
-                _wasPlayingBeforeInteraction = false; 
+                _wasPlayingBeforeInteraction = false;
+                
+                // Use Dispatcher to avoid blocking the current thread
+                Application.Current?.Dispatcher.InvokeAsync(() =>
+                {
+                    try
+                    {
+                        // Use ResyncAndPlay to ensure proper Z-order and player state
+                        ResyncAndPlay();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[RESUME ERROR] Error resuming playback: {ex.Message}");
+                    }
+                }, System.Windows.Threading.DispatcherPriority.Normal);
+            }
+        }
+
+        private void OnClipInteractionStarted()
+        {
+            // 드래그 시작 시에만 일시정지 플래그 저장 및 타이머/플레이어 일시정지
+            _wasPlayingBeforeInteraction = IsTimelinePlaying;
+            if (IsTimelinePlaying)
+            {
+                _timelineTimer.Stop();
+                PlayerViewModel.PauseAllPlayers();
+                IsTimelinePlaying = false;
             }
         }
 
@@ -847,6 +885,12 @@ namespace VideoEditor.ViewModels
 
         private void ExecutePlayPauseTimeline()
         {
+            // Don't allow playback if there are no clips on the timeline
+            if (!VideoEditor.TimelineClips.Any())
+            {
+                return;
+            }
+            
             if (IsTimelinePlaying)
             {
                 _timelineTimer.Stop();
@@ -883,56 +927,67 @@ namespace VideoEditor.ViewModels
 
         public void SyncPlayersToTimeline()
         {
-            bool hasClips = VideoEditor.TimelineClips.Any();
-            PlayerViewModel.IsControlBarVisible = hasClips;
-            PlayerViewModel.VideoViewBackground = hasClips ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Black) : new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#525252"));
-
-            var activeClipsAtCurrentTime = VideoEditor.TimelineClips
-                .Where(c => c.StartPosition <= CurrentTimelinePosition && (c.StartPosition + c.Duration) > CurrentTimelinePosition)
-                .ToList();
-
-            // --- Separate clips by type ---
-            var activeVideoClips = activeClipsAtCurrentTime.OfType<VideoClip>().OrderBy(c => c.TrackIndex).ToList();
-            var activeWpfOverlays = activeClipsAtCurrentTime.Where(c => c is ImageClip || c is TextClip).OrderBy(c => c.TrackIndex).ToList();
-
-            // --- Video Clips Management ---
-            var videoClipsToDeactivate = ActiveVideoClips.Except(activeVideoClips).ToList();
-            foreach (var clip in videoClipsToDeactivate)
+            // Prevent reentrant calls - if already syncing, skip this call
+            if (_isSyncingPlayers)
             {
-                if (clip is VideoClip videoClip && videoClip.PlayerInstance != null)
-                {
-                    videoClip.PlayerInstance.Stop();
-                    videoClip.PlayerInstance.Media = null;
-                    videoClip.PlayerInstance = null;
-                }
-                ActiveVideoClips.Remove(clip);
+                Debug.WriteLine("[SYNC] SyncPlayersToTimeline skipped - already syncing");
+                return;
             }
 
-            foreach (var videoClip in activeVideoClips)
+            _isSyncingPlayers = true;
+            
+            try
             {
-                if (!ActiveVideoClips.Contains(videoClip))
-                {
-                    var availablePlayer = PlayerViewModel.VideoPlayers.FirstOrDefault(p => p.Media == null);
-                    if (availablePlayer != null)
-                    {
-                        videoClip.PlayerInstance = availablePlayer;
-                        double timeWithinClip = CurrentTimelinePosition - videoClip.StartPosition;
-                        if (!string.IsNullOrEmpty(videoClip.VideoPath))
-                        {
-                            // FIXED: Include SourceStartTime in the seek position
-                            double seekTime = videoClip.SourceStartTime + (timeWithinClip * videoClip.SpeedRatio);
-                            var media = PlayerViewModel.PrepareMedia(videoClip.VideoPath, seekTime, videoOnly: true, audioOnly: false);
-                            videoClip.PlayerInstance.Media = media;
-                            videoClip.PlayerInstance.SetRate((float)videoClip.SpeedRatio);
+                bool hasClips = VideoEditor.TimelineClips.Any();
+                PlayerViewModel.IsControlBarVisible = hasClips;
+                PlayerViewModel.VideoViewBackground = hasClips ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Black) : new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#525252"));
 
-                            // Pre-warm the player to initialize resources before adding to UI
-                            if (videoClip.PlayerInstance.Play())
+                var activeClipsAtCurrentTime = VideoEditor.TimelineClips
+                    .Where(c => c.StartPosition <= CurrentTimelinePosition && (c.StartPosition + c.Duration) > CurrentTimelinePosition)
+                    .ToList();
+
+                // --- Separate clips by type ---
+                var activeVideoClips = activeClipsAtCurrentTime.OfType<VideoClip>().OrderBy(c => c.TrackIndex).ToList();
+                var activeWpfOverlays = activeClipsAtCurrentTime.Where(c => c is ImageClip || c is TextClip).OrderBy(c => c.TrackIndex).ToList();
+
+                // --- Video Clips Management ---
+                var videoClipsToDeactivate = ActiveVideoClips.Except(activeVideoClips).ToList();
+                foreach (var clip in videoClipsToDeactivate)
+                {
+                    if (clip is VideoClip videoClip && videoClip.PlayerInstance != null)
+                    {
+                        videoClip.PlayerInstance.Stop();
+                        videoClip.PlayerInstance.Media = null;
+                        videoClip.PlayerInstance = null;
+                    }
+                    ActiveVideoClips.Remove(clip);
+                }
+
+                foreach (var videoClip in activeVideoClips)
+                {
+                    if (!ActiveVideoClips.Contains(videoClip))
+                    {
+                        var availablePlayer = PlayerViewModel.VideoPlayers.FirstOrDefault(p => p.Media == null);
+                        if (availablePlayer != null)
+                        {
+                            videoClip.PlayerInstance = availablePlayer;
+                            double timeWithinClip = CurrentTimelinePosition - videoClip.StartPosition;
+                            if (!string.IsNullOrEmpty(videoClip.VideoPath))
                             {
-                                videoClip.PlayerInstance.SetPause(true);
+                                // FIXED: Include SourceStartTime in the seek position
+                                double seekTime = videoClip.SourceStartTime + (timeWithinClip * videoClip.SpeedRatio);
+                                var media = PlayerViewModel.PrepareMedia(videoClip.VideoPath, seekTime, videoOnly: true, audioOnly: false);
+                                videoClip.PlayerInstance.Media = media;
+                                videoClip.PlayerInstance.SetRate((float)videoClip.SpeedRatio);
+
+                                // Pre-warm the player to initialize resources before adding to UI
+                                if (videoClip.PlayerInstance.Play())
+                                {
+                                    videoClip.PlayerInstance.SetPause(true);
+                                }
                             }
                         }
-                    }
-                    ActiveVideoClips.Add(videoClip);
+                        ActiveVideoClips.Add(videoClip);
                 }
             }
 
@@ -1028,6 +1083,15 @@ namespace VideoEditor.ViewModels
                     else if (IsTimelinePlaying && !player.IsPlaying) { player.Play(); }
                     else if (!IsTimelinePlaying && player.IsPlaying) { player.SetPause(true); }
                 }
+            }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[SYNC ERROR] SyncPlayersToTimeline error: {ex.Message}");
+            }
+            finally
+            {
+                _isSyncingPlayers = false;
             }
         }
 

@@ -10,7 +10,7 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize"
         ShowInTaskbar="True"
-        Topmost="True"
+        Topmost="False"
         Closing="ExportProgressWindow_Closing">
     <Grid Margin="15">
         <!-- "진행 중" 상태일 때 보여줄 UI -->

@@ -210,6 +210,9 @@ namespace VideoEditor.Services
 
             var audioStreamsToMix = new List<string> { "[base_a]" };
             var clipIdToProcessedStreamMap = new Dictionary<Guid, string>();
+            
+            // 회전으로 인한 크기 변화를 추적 (위치 보정에 사용)
+            var rotatedSizeOffsets = new Dictionary<Guid, (double offsetX, double offsetY)>();
 
             foreach (var clip in clips)
             {
@@ -253,13 +256,85 @@ namespace VideoEditor.Services
                             double scaleX = OutputWidth / PreviewWidth;
                             double scaleY = OutputHeight / PreviewHeight;
 
-                            double targetWidth = ic.RenderWidth * scaleX;
-                            double targetHeight = ic.RenderHeight * scaleY;
+                            double targetWidth, targetHeight;
+                            
+                            // CustomWidth/Height는 원본 픽셀 단위의 절대값
+                            // RenderWidth/Height는 미리보기에서의 표시 크기
+                            // 미리보기와 동일한 비율로 출력하려면:
+                            // 1. RenderWidth/Height를 출력 해상도로 스케일 (기본)
+                            // 2. CustomWidth/Height가 설정되어 있으면, 그 비율을 적용
+                            
+                            if (ic.CustomWidth > 0 && ic.CustomHeight > 0 && ic.InitialRenderWidth > 0 && ic.InitialRenderHeight > 0)
+                            {
+                                // CustomWidth/Height가 SourceWidth/Height 대비 몇 배인지 계산
+                                double widthRatio = ic.CustomWidth / ic.SourceWidth;
+                                double heightRatio = ic.CustomHeight / ic.SourceHeight;
+                                
+                                // InitialRenderWidth/Height에 비율을 적용한 후 출력 해상도로 스케일
+                                targetWidth = ic.InitialRenderWidth * widthRatio * scaleX;
+                                targetHeight = ic.InitialRenderHeight * heightRatio * scaleY;
+                            }
+                            else
+                            {
+                                // CustomWidth/Height가 설정되지 않았으면 현재 RenderWidth/Height 사용
+                                targetWidth = ic.RenderWidth * scaleX;
+                                targetHeight = ic.RenderHeight * scaleY;
+                            }
 
-                            string userResizeFilter = $"scale={targetWidth.ToString("F0", culture)}:{targetHeight.ToString("F0", culture)}";
-                            string videoStreamFilter = $"loop=loop=-1:size=1,trim=duration={totalDurationSeconds.ToString("F6", culture)},setpts=PTS-STARTPTS,";
+                            // 회전 시 위치 오프셋 계산
+                            double offsetX = 0;
+                            double offsetY = 0;
+                            
+                            if (Math.Abs(ic.Rotation) > 0.01)
+                            {
+                                // 회전 후 크기: hypot(w, h) = sqrt(w^2 + h^2)
+                                double rotatedSize = Math.Sqrt(targetWidth * targetWidth + targetHeight * targetHeight);
+                                
+                                // 회전으로 인한 크기 증가분
+                                double widthIncrease = rotatedSize - targetWidth;
+                                double heightIncrease = rotatedSize - targetHeight;
+                                
+                                // 중심을 유지하기 위해 offset 조정 (크기 증가의 절반만큼 뒤로 이동)
+                                offsetX = -widthIncrease / 2.0;
+                                offsetY = -heightIncrease / 2.0;
+                                
+                                rotatedSizeOffsets[ic.Id] = (offsetX, offsetY);
+                            }
 
-                            filterComplex.AppendLine($"[{fileIndex}:v] {videoStreamFilter} {userResizeFilter}, setsar=1 [processed_{clipId}];");
+                            // 필터 빌드 순서:
+                            // 1. 투명도 먼저 적용 (원본 이미지에)
+                            // 2. 크기 조절
+                            // 3. 회전 (투명 배경 사용)
+                            var filterParts = new List<string>();
+                            
+                            // 투명도 필터를 가장 먼저 적용 (100%가 아닌 경우에만)
+                            if (Math.Abs(ic.Opacity - 100.0) > 0.01)
+                            {
+                                double alphaValue = ic.Opacity / 100.0;
+                                string alphaFilter = $"colorchannelmixer=aa={alphaValue.ToString("F2", culture)}";
+                                filterParts.Add(alphaFilter);
+                            }
+                            
+                            // 크기 조절
+                            string resizeFilter = $"scale={targetWidth.ToString("F0", culture)}:{targetHeight.ToString("F0", culture)}";
+                            filterParts.Add(resizeFilter);
+                            
+                            // 회전 필터 추가 (0도가 아닌 경우에만)
+                            if (Math.Abs(ic.Rotation) > 0.01)
+                            {
+                                // 회전 각도를 라디안으로 변환
+                                double rotationRadians = ic.Rotation * Math.PI / 180.0;
+                                // 투명 배경 사용 (0x00000000 = 완전 투명)
+                                // fillcolor 옵션으로 투명 배경 설정
+                                string rotateFilter = $"rotate={rotationRadians.ToString("F6", culture)}:c=none:ow='hypot(iw,ih)':oh='hypot(iw,ih)'";
+                                filterParts.Add(rotateFilter);
+                            }
+                            
+                            string videoStreamFilter = $"loop=loop=-1:size=1,trim=duration={totalDurationSeconds.ToString("F6", culture)},setpts=PTS-STARTPTS";
+                            
+                            string combinedFilters = videoStreamFilter + "," + string.Join(",", filterParts) + ", setsar=1";
+                            
+                            filterComplex.AppendLine($"[{fileIndex}:v] {combinedFilters} [processed_{clipId}];");
                             clipIdToProcessedStreamMap[ic.Id] = $"[processed_{clipId}]";
                             break;
                         }
@@ -284,7 +359,6 @@ namespace VideoEditor.Services
                 }
             }
 
-            var sortedClips = clips.Where(c => clipIdToProcessedStreamMap.ContainsKey(c.Id)).OrderByDescending(c => c.TrackIndex).ToList();
             string lastVideoStream = "[base_v]";
             int overlayCounter = 0;
 
@@ -294,83 +368,101 @@ namespace VideoEditor.Services
             // 한글 폰트(맑은 고딕)를 사용하도록 수정합니다.
             string fontPath = "C:/Windows/Fonts/malgun.ttf".Replace(":", "\\:");
 
+            // Z-order 관리: 비디오 클립 → (이미지 + 텍스트 혼합) 순서
+            // 비디오는 항상 맨 아래, 이미지와 텍스트는 TrackIndex에 따라 함께 정렬
+            // TrackIndex 오름차순 정렬: Track 4 → 3 → 2 → 1 → 0 순서로 오버레이
+            // 나중에 오버레이될수록 위에 표시되므로 Track 0이 맨 위에 표시됨
+            
+            // 1. 비디오 클립들 (TrackIndex 오름차순)
+            var videoClips = clips
+                .OfType<VideoClip>()
+                .Where(c => clipIdToProcessedStreamMap.ContainsKey(c.Id))
+                .OrderBy(c => c.TrackIndex)
+                .ToList();
+
+            // 2. 이미지와 텍스트 클립들을 함께 정렬 (TrackIndex 오름차순)
             var overlayClips = clips
-                .Where(c => (c is VideoClip || c is ImageClip) && clipIdToProcessedStreamMap.ContainsKey(c.Id))
-                .OrderByDescending(c => c.TrackIndex)
+                .Where(c => (c is ImageClip || c is TextClip) && clipIdToProcessedStreamMap.ContainsKey(c.Id))
+                .OrderBy(c => c.TrackIndex)
                 .ToList();
 
-            var textClips = clips
-                .OfType<TextClip>()
-                .OrderByDescending(c => c.TrackIndex) // 텍스트끼리의 순서도 중요할 수 있음
-                .ToList();
+            // 1단계: 비디오 클립들 먼저 오버레이 (맨 아래)
+            foreach (var videoClip in videoClips)
+            {
+                string nextVideoStream = $"[final_v_{overlayCounter}]";
+                string streamToOverlay = clipIdToProcessedStreamMap[videoClip.Id];
+                double targetX = videoClip.X * positionScaleX;
+                double targetY = videoClip.Y * positionScaleY;
+                string ffmpegX = targetX.ToString("F2", culture);
+                string ffmpegY = targetY.ToString("F2", culture);
+                string enableOption = $"enable='between(t,{videoClip.StartPosition.ToString("F6", culture)},{(videoClip.StartPosition + videoClip.Duration).ToString("F6", culture)})'";
+                filterComplex.AppendLine($"{lastVideoStream}{streamToOverlay} overlay=x={ffmpegX}:y={ffmpegY}:{enableOption} {nextVideoStream};");
+                
+                lastVideoStream = nextVideoStream;
+                overlayCounter++;
+            }
 
+            // 2단계: 이미지와 텍스트 클립들을 TrackIndex 순서대로 오버레이
+            int textFileCounter = 0;
             foreach (var clip in overlayClips)
             {
                 string nextVideoStream = $"[final_v_{overlayCounter}]";
 
-                if (clip is VideoClip videoClip)
+                if (clip is ImageClip imageClip)
                 {
-                    // [비디오: 이제 이미지와 동일하게 좌측 상단 기준]
-                    string streamToOverlay = clipIdToProcessedStreamMap[videoClip.Id];
-                    double targetX = videoClip.X * positionScaleX;
-                    double targetY = videoClip.Y * positionScaleY;
-                    string ffmpegX = targetX.ToString("F2", culture);
-                    string ffmpegY = targetY.ToString("F2", culture);
-                    string enableOption = $"enable='between(t,{videoClip.StartPosition.ToString("F6", culture)},{(videoClip.StartPosition + videoClip.Duration).ToString("F6", culture)})'";
-                    filterComplex.AppendLine($"{lastVideoStream}{streamToOverlay} overlay=x={ffmpegX}:y={ffmpegY}:{enableOption} {nextVideoStream};");
-                }
-                else if (clip is ImageClip imageClip)
-                {
-                    // [이미지: 좌측 상단 기준]
                     string streamToOverlay = clipIdToProcessedStreamMap[imageClip.Id];
                     double targetX = imageClip.X * positionScaleX;
                     double targetY = imageClip.Y * positionScaleY;
+                    
+                    // 회전으로 인한 오프셋 적용
+                    if (rotatedSizeOffsets.TryGetValue(imageClip.Id, out var offset))
+                    {
+                        targetX += offset.offsetX;
+                        targetY += offset.offsetY;
+                    }
+                    
                     string ffmpegX = targetX.ToString("F2", culture);
                     string ffmpegY = targetY.ToString("F2", culture);
                     string enableOption = $"enable='between(t,{imageClip.StartPosition.ToString("F6", culture)},{(imageClip.StartPosition + imageClip.Duration).ToString("F6", culture)})'";
                     filterComplex.AppendLine($"{lastVideoStream}{streamToOverlay} overlay=x={ffmpegX}:y={ffmpegY}:{enableOption} {nextVideoStream};");
                 }
-
-                lastVideoStream = nextVideoStream;
-                overlayCounter++;
-            }
-
-            int textFileCounter = 0;
-            foreach (var textClip in textClips)
-            {
-                string nextVideoStream = $"[final_v_{overlayCounter}]";
-
-                double targetX = textClip.X * positionScaleX;
-                double targetY = textClip.Y * positionScaleY;
-                
-                string ffmpegX_text = targetX.ToString("F2", culture);
-                string ffmpegY_text = targetY.ToString("F2", culture);
-
-                // 사용자가 설정한 폰트 크기 사용 (기본값: 24)
-                double finalFontSize = textClip.FontSize * positionScaleY;
-
-                string enable_text = $"enable='between(t,{textClip.StartPosition.ToString("F6", culture)},{(textClip.StartPosition + textClip.Duration).ToString("F6", culture)})'";
-                
-                // 텍스트를 이미지로 렌더링하여 오버레이
-                string textImagePath = await RenderTextToImage(textClip, tempDirectory, textFileCounter, positionScaleX, positionScaleY);
-                
-                if (!string.IsNullOrEmpty(textImagePath))
+                else if (clip is TextClip textClip)
                 {
-                    // 이미지를 입력 파일로 추가
-                    int textImageIndex = inputFiles.Count;
-                    inputFiles.Add(textImagePath);
-                    inputArguments.Append($"-i \"{textImagePath}\" ");
-
-                    // 이미지를 비디오 스트림으로 변환하고 오버레이
-                    string textStreamId = $"text_img_{textFileCounter}";
-                    filterComplex.AppendLine($"[{textImageIndex}:v] loop=loop=-1:size=1,trim=duration={totalDurationSeconds.ToString("F6", culture)},setpts=PTS-STARTPTS [{textStreamId}];");
-                    filterComplex.AppendLine($"{lastVideoStream}[{textStreamId}] overlay=x={ffmpegX_text}:y={ffmpegY_text}:{enable_text} {nextVideoStream};");
+                    double targetX = textClip.X * positionScaleX;
+                    double targetY = textClip.Y * positionScaleY;
                     
-                    lastVideoStream = nextVideoStream;
-                    overlayCounter++;
+                    string ffmpegX_text = targetX.ToString("F2", culture);
+                    string ffmpegY_text = targetY.ToString("F2", culture);
+
+                    // 사용자가 설정한 폰트 크기 사용 (기본값: 24)
+                    double finalFontSize = textClip.FontSize * positionScaleY;
+
+                    string enable_text = $"enable='between(t,{textClip.StartPosition.ToString("F6", culture)},{(textClip.StartPosition + textClip.Duration).ToString("F6", culture)})'";
+                    
+                    // 텍스트를 이미지로 렌더링하여 오버레이
+                    string textImagePath = await RenderTextToImage(textClip, tempDirectory, textFileCounter, positionScaleX, positionScaleY);
+                    
+                    if (!string.IsNullOrEmpty(textImagePath))
+                    {
+                        // 이미지를 입력 파일로 추가
+                        int textImageIndex = inputFiles.Count;
+                        inputFiles.Add(textImagePath);
+                        inputArguments.Append($"-i \"{textImagePath}\" ");
+
+                        // 이미지를 비디오 스트림으로 변환하고 오버레이
+                        string textStreamId = $"text_img_{textFileCounter}";
+                        filterComplex.AppendLine($"[{textImageIndex}:v] loop=loop=-1:size=1,trim=duration={totalDurationSeconds.ToString("F6", culture)},setpts=PTS-STARTPTS [{textStreamId}];");
+                        filterComplex.AppendLine($"{lastVideoStream}[{textStreamId}] overlay=x={ffmpegX_text}:y={ffmpegY_text}:{enable_text} {nextVideoStream};");
+                        
+                        lastVideoStream = nextVideoStream;
+                        overlayCounter++;
+                    }
+                    
+                    textFileCounter++;
                 }
                 
-                textFileCounter++;
+                lastVideoStream = nextVideoStream;
+                overlayCounter++;
             }
             filterComplex.AppendLine($"{lastVideoStream}trim=duration={totalDurationSeconds.ToString("F6", culture)}[final_v];");
             filterComplex.AppendLine($"{string.Join("", audioStreamsToMix)}amix=inputs={audioStreamsToMix.Count}:duration=first:dropout_transition=3[final_a];");

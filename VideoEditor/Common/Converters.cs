@@ -202,4 +202,25 @@ namespace VideoEditor.Common
             throw new NotImplementedException();
         }
     }
+
+    public class OpacityPercentToDecimalConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is double percent)
+            {
+                return percent / 100.0;
+            }
+            return 1.0; // Default to fully opaque
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is double decimal_value)
+            {
+                return decimal_value * 100.0;
+            }
+            return 100.0;
+        }
+    }
 }

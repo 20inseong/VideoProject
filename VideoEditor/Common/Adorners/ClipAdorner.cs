@@ -121,6 +121,12 @@ namespace VideoEditor.Common.Adorners
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
                 
+                // ImageClip인 경우 CustomWidth/Height도 업데이트
+                if (_clip is ImageClip imageClip)
+                {
+                    imageClip.UpdateCustomSizeFromRenderSize();
+                }
+                
                 ForceClipUpdate();
             }
         }
@@ -137,6 +143,12 @@ namespace VideoEditor.Common.Adorners
                 _clip.Y += heightChange;
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
+                
+                // ImageClip인 경우 CustomWidth/Height도 업데이트
+                if (_clip is ImageClip imageClip)
+                {
+                    imageClip.UpdateCustomSizeFromRenderSize();
+                }
                 
                 ForceClipUpdate();
             }
@@ -155,6 +167,12 @@ namespace VideoEditor.Common.Adorners
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
                 
+                // ImageClip인 경우 CustomWidth/Height도 업데이트
+                if (_clip is ImageClip imageClip)
+                {
+                    imageClip.UpdateCustomSizeFromRenderSize();
+                }
+                
                 ForceClipUpdate();
             }
         }
@@ -168,6 +186,12 @@ namespace VideoEditor.Common.Adorners
             {
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
+                
+                // ImageClip인 경우 CustomWidth/Height도 업데이트
+                if (_clip is ImageClip imageClip)
+                {
+                    imageClip.UpdateCustomSizeFromRenderSize();
+                }
                 
                 ForceClipUpdate();
             }

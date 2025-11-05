@@ -136,6 +136,7 @@ namespace VideoEditor
             {
                 ClipVideoViewsToPlayerHost();
                 // OverlayWindow를 주기적으로 최상위로 유지 (비디오 HwndHost가 위로 올라오는 것 방지)
+                // 단, MainWindow가 활성화되어 있을 때만
                 BringOverlayToFront();
             };
             _videoClippingTimer.Start();
@@ -167,6 +168,14 @@ namespace VideoEditor
             };
 
             TimelineRulerCanvas.PreviewMouseLeftButtonDown += TimelineRulerCanvas_PreviewMouseLeftButtonDown;
+            TimelineRulerCanvas.PreviewMouseMove += TimelineRulerCanvas_PreviewMouseMove;
+            TimelineRulerCanvas.PreviewMouseLeftButtonUp += TimelineRulerCanvas_PreviewMouseLeftButtonUp;
+
+            // Enable scrubbing via playhead area as well
+            PlayheadCanvas.PreviewMouseLeftButtonDown += PlayheadCanvas_PreviewMouseLeftButtonDown;
+            PlayheadCanvas.PreviewMouseMove += PlayheadCanvas_PreviewMouseMove;
+            PlayheadCanvas.PreviewMouseLeftButtonUp += PlayheadCanvas_PreviewMouseLeftButtonUp;
+
             TimelineCanvas.PreviewMouseMove += TimelineCanvas_PreviewMouseMove;
             TimelineCanvas.PreviewMouseLeftButtonUp += TimelineCanvas_PreviewMouseLeftButtonUp;
 
@@ -615,21 +624,19 @@ namespace VideoEditor
                 double deltaTime = (position.X - vm.VideoEditor.DragStartPoint.X) / vm.VideoEditor.PixelsPerSecond;
                 int deltaTrack = (int)Math.Round((position.Y - vm.VideoEditor.DragStartPoint.Y) / 60.0);
 
-                // [핵심 수정] 리스트의 모든 클립에 대해 위치를 업데이트합니다.
+                // 실시간 미리보기: 속성 변경 이벤트 폭주를 줄이기 위해 배치 업데이트
                 foreach (var clip in draggedClips)
                 {
-                    // 각 클립의 원본 상태를 ViewModel의 Dictionary에서 가져옵니다.
                     if (vm.VideoEditor.DraggedClipsOriginalState.TryGetValue(clip, out var originalState))
                     {
                         double desiredStart = originalState.OriginalStart + deltaTime;
                         int desiredTrack = Math.Clamp(originalState.OriginalTrack + deltaTrack, 0, 4);
-
-                        // 실시간 미리보기를 위해 클립 속성 업데이트
                         clip.StartPosition = Math.Max(0, desiredStart);
                         clip.TrackIndex = desiredTrack;
                     }
                 }
-                // SyncPlayersToTimeline() 호출은 성능 저하를 유발할 수 있으므로 여기서는 제거합니다.
+                // 드래그 중에도 눈금/폭은 즉시 반영되도록 총 길이 바인딩은 이미 ViewModel에서 업데이트됨
+                // 무거운 동기화는 드랍 완료 시에만 수행
             }
             else if (e.Data.GetDataPresent("Myvideo"))
             {
@@ -776,7 +783,8 @@ namespace VideoEditor
         private void BringOverlayToFront()
         {
             // OverlayWindow의 핸들을 가져와서 Z-Order를 최상위로 설정
-            if (_overlayWindow != null && _overlayWindow.IsLoaded)
+            // 하지만 MainWindow가 활성화되어 있을 때만 적용
+            if (_overlayWindow != null && _overlayWindow.IsLoaded && this.IsActive)
             {
                 var overlayHandle = new WindowInteropHelper(_overlayWindow).Handle;
                 SetWindowPos(overlayHandle, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
@@ -862,6 +870,31 @@ namespace VideoEditor
             }
         }
 
+        private void PlayheadCanvas_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            PlayheadCanvas.CaptureMouse();
+            UpdatePlayheadFromMouseEvent(e);
+            e.Handled = true;
+        }
+
+        private void PlayheadCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (Mouse.Captured == PlayheadCanvas)
+            {
+                UpdatePlayheadFromMouseEvent(e);
+                e.Handled = true;
+            }
+        }
+
+        private void PlayheadCanvas_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (Mouse.Captured == PlayheadCanvas)
+            {
+                PlayheadCanvas.ReleaseMouseCapture();
+                e.Handled = true;
+            }
+        }
+
         private void TimelineRulerCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
         {
             if (Mouse.Captured == TimelineRulerCanvas)
@@ -892,10 +925,12 @@ namespace VideoEditor
 
         private void UpdatePlayheadFromMouseEvent(MouseEventArgs e)
         {
-            if (Mouse.Captured != TimelineRulerCanvas) return; // Only when ruler captured
+            if (Mouse.Captured != TimelineRulerCanvas && Mouse.Captured != PlayheadCanvas) return; // Only while captured
             if ((DateTime.Now - _lastDragUpdateTime).TotalMilliseconds < DRAG_UPDATE_THROTTLE_MS) return;
             _lastDragUpdateTime = DateTime.Now;
-            Point position = e.GetPosition(TimelineRulerCanvas);
+
+            IInputElement relativeTo = Mouse.Captured == TimelineRulerCanvas ? (IInputElement)TimelineRulerCanvas : (IInputElement)PlayheadCanvas;
+            Point position = e.GetPosition(relativeTo);
             double clickedTimeSec = position.X / _mainViewModel.VideoEditor.PixelsPerSecond;
             _mainViewModel.CurrentTimelineTimeMs = (long)(clickedTimeSec * 1000);
         }
