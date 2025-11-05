@@ -12,21 +12,20 @@ namespace VideoEditor.Common
             if (value is long milliseconds)
             {
                 TimeSpan timeSpan = TimeSpan.FromMilliseconds(milliseconds);
-                // 1시간 이상이면 hh:mm:ss, 아니면 mm:ss 형식으로 표시
-                if (timeSpan.TotalHours >= 1)
-                {
-                    return timeSpan.ToString(@"hh\:mm\:ss");
-                }
-                else
-                {
-                    return timeSpan.ToString(@"mm\:ss");
-                }
+                return timeSpan.ToString(@"hh\:mm\:ss\.ff");
             }
-            return "00:00"; // 기본값
+            return "00:00:00"; // 기본값
         }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            throw new NotImplementedException();
+            if (value is string timeString)
+            {
+                if (TimeSpan.TryParse(timeString, out TimeSpan timeSpan))
+                {
+                    return (long)timeSpan.TotalMilliseconds;
+                }
+            }
+            return 0L;
         }
 
     }

@@ -15,14 +15,18 @@ namespace VideoEditor.Models
             {
                 Name = this.Name + " (복사본)",
                 AudioPath = this.AudioPath,
-                SourceStartTime = this.SourceStartTime,
-                StartPosition = this.StartPosition,
-                Duration = this.Duration,
-                Width = this.Width,
-                TrackIndex = this.TrackIndex,
-                Volume = this.Volume,
-                IsSelected = false
+                SourceStartTime = this.SourceStartTime
             };
+            
+            // Copy transcription data
+            foreach (var segment in this.Transcription)
+            {
+                newClip.Transcription.Add(segment);
+            }
+            
+            // Copy all base properties including duration/speed
+            newClip.CopyBaseProperties(this);
+            
             return newClip;
         }
     }

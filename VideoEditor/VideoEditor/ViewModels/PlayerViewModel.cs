@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Collections.ObjectModel;
 using LibVLCSharp.Shared;
 using System.Windows.Input;
 using VideoEditor.Common;
@@ -18,8 +17,6 @@ namespace VideoEditor.ViewModels
 
         public List<MediaPlayer> VideoPlayers { get; }
         public List<MediaPlayer> AudioOnlyPlayers { get; }
-
-        public ObservableCollection<PlayerStateViewModel> VideoPlayerStates { get; }
 
         private const int VIDEO_PLAYER_COUNT = 5;
         private const int AUDIO_PLAYER_COUNT = 5;
@@ -111,15 +108,12 @@ namespace VideoEditor.ViewModels
         public PlayerViewModel()
         {
             Core.Initialize();
-            _libVLC = new LibVLC("--input-fast-seek", "--file-caching=1500");
+                                    _libVLC = new LibVLC("--input-fast-seek", "--file-caching=1500");
 
             VideoPlayers = new List<MediaPlayer>();
-            VideoPlayerStates = new ObservableCollection<PlayerStateViewModel>();
-
             for (int i = 0; i < VIDEO_PLAYER_COUNT; i++)
             {
                 VideoPlayers.Add(new MediaPlayer(_libVLC));
-                VideoPlayerStates.Add(new PlayerStateViewModel());
             }
 
             AudioOnlyPlayers = new List<MediaPlayer>();
@@ -203,7 +197,6 @@ namespace VideoEditor.ViewModels
 
             if (videoOnly)
             {
-                // [수정] videoOnly가 true일 때, 오디오를 끄는 옵션을 명시적으로 추가합니다.
                 options.Add(":no-audio");
             }
 

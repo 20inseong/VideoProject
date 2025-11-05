@@ -3,9 +3,17 @@
 .vs/
 
 # Build results
-[Bb]in/
-[Oo]bj/
+# [Bb]in/
+# [Oo]bj/
+/VideoEditor/bin/
+/VideoEditor/obj/
+*.user
+*.suo
+.vs/
 
+
+!VideoEditor/VideoEditor/ffmpeg/bin/
+!VideoEditor/VideoEditor/ffmpeg/bin/**
 # Whisper model
 **/ggml-base.bin
 **/ggml-large-v3-turbo-q5_0

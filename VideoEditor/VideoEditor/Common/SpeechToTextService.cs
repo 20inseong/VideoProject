@@ -37,7 +37,6 @@ namespace VideoEditor.Common
                     .WithProgressHandler(p => progress.Report(p))
                     .Build();
 
-                        // 파일 불러오기 재시도 
                 FileStream? fileStream = null;
                 const int maxRetries = 5;
                 const int delayOnRetry = 300; // milliseconds

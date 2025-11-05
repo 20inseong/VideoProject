@@ -16,6 +16,13 @@ namespace VideoEditor.ViewModels
             CancelCommand = new CommunityToolkit.Mvvm.Input.RelayCommand(cancelAction);
         }
 
+        private bool _isFinished;
+        public bool IsFinished
+        {
+            get => _isFinished;
+            set => SetProperty(ref _isFinished, value);
+        }
+
         private string _statusMessage = "준비 중...";
         public string StatusMessage
         {
