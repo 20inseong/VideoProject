@@ -13,6 +13,7 @@ using System.Windows.Media.Imaging;
 using VideoEditor.Models;
 using VideoEditor.Common;
 using VideoEditor.ViewModels;
+using System.Windows.Controls;
 
 namespace VideoEditor.Services
 {
@@ -111,93 +112,45 @@ namespace VideoEditor.Services
             }
         }
 
-                        private async Task<(string inputArguments, string filterComplex)> BuildFFmpegArguments(
+        private async Task<(string inputArguments, string filterComplex)> BuildFFmpegArguments(
+            ICollection<TimelineClipBase> clips,
+            double totalDurationSeconds,
+            string tempDirectory,
+            CancellationToken cancellationToken)
+            {
+                Console.WriteLine("\n--- BEGIN TIMELINE CLIP DATA DUMP (Passed to FFmpeg Service) ---");
+                foreach (var clip in clips.OrderBy(c => c.StartPosition))
+                {
+                    var sb = new StringBuilder();
+                    sb.AppendLine($"Clip: '{clip.Name}' ({clip.GetType().Name})");
+                    sb.AppendLine($"  - StartPosition: {clip.StartPosition:F3}s");
+                    sb.AppendLine($"  - Duration: {clip.Duration:F3}s");
+                    sb.AppendLine($"  - SpeedRatio: {clip.SpeedRatio:F2}x");
 
-                            ICollection<TimelineClipBase> clips,
-
-                            double totalDurationSeconds,
-
-                            string tempDirectory,
-
-                            CancellationToken cancellationToken)
-
-                        {
-
-                
-
-                            Console.WriteLine("\n--- BEGIN TIMELINE CLIP DATA DUMP (Passed to FFmpeg Service) ---");
-
-                            foreach (var clip in clips.OrderBy(c => c.StartPosition))
-
-                            {
-
-                                var sb = new StringBuilder();
-
-                                sb.AppendLine($"Clip: '{clip.Name}' ({clip.GetType().Name})");
-
-                                sb.AppendLine($"  - StartPosition: {clip.StartPosition:F3}s");
-
-                                sb.AppendLine($"  - Duration: {clip.Duration:F3}s");
-
-                                sb.AppendLine($"  - SpeedRatio: {clip.SpeedRatio:F2}x");
-
-                
-
-                                if (clip is ImageClip ic)
-
-                                {
-
-                                    sb.AppendLine($"  - Source W/H: {ic.SourceWidth}x{ic.SourceHeight}");
-
-                                    sb.AppendLine($"  - Render W/H: {ic.RenderWidth:F2}x{ic.RenderHeight:F2}"); // 실시간 크기
-
-                                    sb.AppendLine($"  - Position X/Y: {ic.X:F2}, {ic.Y:F2}");                   // 실시간 위치
-
-                                    sb.AppendLine($"  - Stored Scale: {ic.Scale:P2}");                          // 저장된 배율
-
-                                }
-
-                
-
-                                else if (clip is VideoClip vc)
-
-                                {
-
-                                    sb.AppendLine($"  - SourceResolution: {vc.SourceWidth}x{vc.SourceHeight}");
-
-                                }
-
-                
-
-                                sb.AppendLine($"  - Transform: Scale={clip.Scale:P0}, X={clip.X}, Y={clip.Y}");
-
-                                Console.WriteLine(sb.ToString());
-
-                            }
-
-                            Console.WriteLine("--- END TIMELINE CLIP DATA DUMP ---\n");
-
-                
-
-                            var inputFiles = clips.Select(c => c switch
-
-                            {
-
-                                VideoClip vc => vc.VideoPath,
-
-                                AudioClip ac => ac.AudioPath,
-
-                                ImageClip ic => ic.ImagePath,
-
-                                _ => null
-
-                            }).Where(path => !string.IsNullOrEmpty(path)).Distinct().ToList();
-
-                
-
-                            var inputArguments = new StringBuilder();
-
-                            for (int i = 0; i < inputFiles.Count; i++) { inputArguments.Append($"-i \"{inputFiles[i]}\" "); }
+                    if (clip is ImageClip ic)
+                    {
+                        sb.AppendLine($"  - Source W/H: {ic.SourceWidth}x{ic.SourceHeight}");
+                        sb.AppendLine($"  - Render W/H: {ic.RenderWidth:F2}x{ic.RenderHeight:F2}"); // 실시간 크기
+                        sb.AppendLine($"  - Position X/Y: {ic.X:F2}, {ic.Y:F2}");                   // 실시간 위치
+                        sb.AppendLine($"  - Stored Scale: {ic.Scale:P2}");                          // 저장된 배율
+                    }            
+                    else if (clip is VideoClip vc)
+                    {
+                        sb.AppendLine($"  - SourceResolution: {vc.SourceWidth}x{vc.SourceHeight}");
+                    }
+                        sb.AppendLine($"  - Transform: Scale={clip.Scale:P0}, X={clip.X}, Y={clip.Y}");
+                        Console.WriteLine(sb.ToString());
+                }
+            Console.WriteLine("--- END TIMELINE CLIP DATA DUMP ---\n");      
+            var inputFiles = clips.Select(c => c switch
+            {
+                VideoClip vc => vc.VideoPath,
+                AudioClip ac => ac.AudioPath,
+                ImageClip ic => ic.ImagePath,
+                _ => null
+            }).Where(path => !string.IsNullOrEmpty(path)).Distinct().ToList();
+            var inputArguments = new StringBuilder();
+            for (int i = 0; i < inputFiles.Count; i++) { inputArguments.Append($"-i \"{inputFiles[i]}\" "); }
 
             var filterComplex = new StringBuilder();
             var culture = CultureInfo.InvariantCulture;
@@ -210,6 +163,11 @@ namespace VideoEditor.Services
 
             var audioStreamsToMix = new List<string> { "[base_a]" };
             var clipIdToProcessedStreamMap = new Dictionary<Guid, string>();
+
+            int renderedFileCounter = 0;
+
+            double positionScaleX = OutputWidth / PreviewWidth;
+            double positionScaleY = OutputHeight / PreviewHeight;
 
             foreach (var clip in clips)
             {
@@ -248,19 +206,24 @@ namespace VideoEditor.Services
                         }
                     case ImageClip ic:
                         {
-                            int fileIndex = inputFiles.IndexOf(ic.ImagePath);
+                            // 1. WPF에서 투명도/회전이 적용된 새 이미지 렌더링
+                            string renderedImagePath = await RenderImageToImage(ic, tempDirectory, renderedFileCounter, positionScaleX, positionScaleY);
 
-                            double scaleX = OutputWidth / PreviewWidth;
-                            double scaleY = OutputHeight / PreviewHeight;
+                            if (!string.IsNullOrEmpty(renderedImagePath))
+                            {
+                                // 2. 렌더링된 이미지를 FFmpeg의 새 입력(-i)으로 추가
+                                int imageIndex = inputFiles.Count;
+                                inputFiles.Add(renderedImagePath); // 입력 파일 목록에 추가
+                                inputArguments.Append($"-i \"{renderedImagePath}\" "); // 명령어에 -i 옵션 추가
 
-                            double targetWidth = ic.RenderWidth * scaleX;
-                            double targetHeight = ic.RenderHeight * scaleY;
+                                // 3. 이 새 입력을 비디오 스트림으로 변환하고 맵에 등록
+                                string streamId = $"rendered_img_{renderedFileCounter}";
+                                // 원본 이미지 필터링 대신, 새로 생성된 이미지를 무한 루프 스트림으로 만듭니다.
+                                filterComplex.AppendLine($"[{imageIndex}:v] loop=loop=-1:size=1,trim=duration={totalDurationSeconds.ToString("F6", culture)},setpts=PTS-STARTPTS,setsar=1 [{streamId}];");
+                                clipIdToProcessedStreamMap[ic.Id] = $"[{streamId}]";
 
-                            string userResizeFilter = $"scale={targetWidth.ToString("F0", culture)}:{targetHeight.ToString("F0", culture)}";
-                            string videoStreamFilter = $"loop=loop=-1:size=1,trim=duration={totalDurationSeconds.ToString("F6", culture)},setpts=PTS-STARTPTS,";
-
-                            filterComplex.AppendLine($"[{fileIndex}:v] {videoStreamFilter} {userResizeFilter}, setsar=1 [processed_{clipId}];");
-                            clipIdToProcessedStreamMap[ic.Id] = $"[processed_{clipId}]";
+                                renderedFileCounter++; // 다음 파일을 위해 카운터 증가
+                            }
                             break;
                         }
                     case AudioClip audioClip:
@@ -288,8 +251,7 @@ namespace VideoEditor.Services
             string lastVideoStream = "[base_v]";
             int overlayCounter = 0;
 
-            double positionScaleX = OutputWidth / PreviewWidth;
-            double positionScaleY = OutputHeight / PreviewHeight;
+            
 
             // 한글 폰트(맑은 고딕)를 사용하도록 수정합니다.
             string fontPath = "C:/Windows/Fonts/malgun.ttf".Replace(":", "\\:");
@@ -494,6 +456,56 @@ namespace VideoEditor.Services
             }
         }
 
+        private async Task<string> RenderImageToImage(ImageClip imageClip, string tempDirectory, int counter, double scaleX, double scaleY)
+        {
+            try
+            {
+                string imagePath = Path.Combine(tempDirectory, $"image_{counter}.png");
+
+                await UIDispatcher.InvokeAsync(() =>
+                {
+                    double renderWidth = imageClip.RenderWidth * scaleX;
+                    double renderHeight = imageClip.RenderHeight * scaleY;
+
+                    // 메모리상에 Image 컨트롤 생성
+                    var imageToRender = new Image
+                    {
+                        Source = new BitmapImage(new Uri(imageClip.ImagePath)),
+                        Width = renderWidth,
+                        Height = renderHeight,
+                        Stretch = Stretch.Fill,
+                        Opacity = imageClip.Opacity,
+                        RenderTransform = new RotateTransform(imageClip.Rotation, renderWidth / 2, renderHeight / 2)
+                    };
+
+                    // 컨트롤의 크기를 강제로 계산하도록 함
+                    imageToRender.Measure(new Size(renderWidth, renderHeight));
+                    imageToRender.Arrange(new Rect(new Size(renderWidth, renderHeight)));
+
+                    // RenderTargetBitmap으로 이미지 캡처
+                    var renderBitmap = new RenderTargetBitmap(
+                        (int)Math.Ceiling(renderWidth), (int)Math.Ceiling(renderHeight),
+                        96, 96, PixelFormats.Pbgra32);
+                    renderBitmap.Render(imageToRender);
+
+                    // PNG로 저장
+                    using (var fileStream = new FileStream(imagePath, FileMode.Create))
+                    {
+                        var encoder = new PngBitmapEncoder();
+                        encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
+                        encoder.Save(fileStream);
+                    }
+                });
+
+                return imagePath;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[EXPORT] Failed to render image to image: {ex.Message}");
+                return null;
+            }
+        }
+
         private async Task<string> RenderTextToImage(TextClip textClip, string tempDirectory, int counter, double scaleX, double scaleY)
         {
             try
@@ -507,24 +519,29 @@ namespace VideoEditor.Services
                     double renderHeight = textClip.RenderHeight * scaleY;
                     double fontSize = textClip.FontSize * scaleY;
 
-                    // DrawingVisual을 사용하여 텍스트 렌더링
                     var drawingVisual = new DrawingVisual();
                     using (DrawingContext drawingContext = drawingVisual.RenderOpen())
                     {
-                        // 배경 (검은색 반투명 박스)
+                        // 배경 (반투명 검은색 박스 등, 필요에 따라 수정)
                         var backgroundBrush = new SolidColorBrush(Color.FromArgb(128, 0, 0, 0));
-                        var backgroundPen = new Pen(backgroundBrush, 10);
-                        drawingContext.DrawRectangle(backgroundBrush, backgroundPen, new Rect(0, 0, renderWidth, renderHeight));
+                        drawingContext.DrawRectangle(backgroundBrush, null, new Rect(0, 0, renderWidth, renderHeight));
 
-                        // 텍스트
+                        // 1. Typeface 객체 생성: FontFamily 문자열로부터 폰트 정보를 생성합니다.
+                        var typeface = new Typeface(new FontFamily(textClip.FontFamily), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
+
+                        // 2. Brush 객체 생성: ForegroundColor로부터 브러시를 생성합니다.
+                        var textBrush = new SolidColorBrush(textClip.ForegroundColor);
+                        textBrush.Freeze(); // 성능 최적화
+
+                        // FormattedText 객체를 생성할 때 위에서 만든 typeface와 textBrush를 전달합니다.
                         var formattedText = new FormattedText(
                             textClip.Text,
                             CultureInfo.CurrentCulture,
                             FlowDirection.LeftToRight,
-                            new Typeface("Malgun Gothic"),
+                            typeface,       // 수정됨
                             fontSize,
-                            Brushes.White,
-                            VisualTreeHelper.GetDpi(drawingVisual).PixelsPerDip)
+                            textBrush,      // 수정됨
+                            VisualTreeHelper.GetDpi(Application.Current.MainWindow).PixelsPerDip)
                         {
                             MaxTextWidth = renderWidth,
                             MaxTextHeight = renderHeight,
@@ -538,7 +555,7 @@ namespace VideoEditor.Services
                         drawingContext.DrawText(formattedText, new Point(textX, textY));
                     }
 
-                    // RenderTargetBitmap으로 비트맵 생성
+                    // RenderTargetBitmap으로 비트맵 생성 및 PNG로 저장
                     var renderBitmap = new RenderTargetBitmap(
                         (int)Math.Ceiling(renderWidth),
                         (int)Math.Ceiling(renderHeight),
@@ -546,7 +563,6 @@ namespace VideoEditor.Services
                         PixelFormats.Pbgra32);
                     renderBitmap.Render(drawingVisual);
 
-                    // PNG로 저장
                     using (var fileStream = new FileStream(imagePath, FileMode.Create))
                     {
                         var encoder = new PngBitmapEncoder();

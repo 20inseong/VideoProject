@@ -16,11 +16,29 @@ namespace VideoEditor.Common.Adorners
         private TimelineClipBase _clip;
         private Point _dragStartPoint;
         private double _initialX, _initialY;
+        private DateTime _lastClipUpdateTime = DateTime.MinValue;
+        private const int CLIP_UPDATE_THROTTLE_MS = 16; // 60fps = ~16ms
+        private double _aspectRatio = 1.0;
 
         public ClipAdorner(UIElement adornedElement, TimelineClipBase clip) : base(adornedElement)
         {
             _clip = clip;
             _visuals = new VisualCollection(this);
+            
+            // Calculate aspect ratio from source dimensions
+            if (_clip is VideoClip videoClip && videoClip.SourceWidth > 0 && videoClip.SourceHeight > 0)
+            {
+                _aspectRatio = (double)videoClip.SourceWidth / videoClip.SourceHeight;
+            }
+            else if (_clip is ImageClip imageClip && imageClip.SourceWidth > 0 && imageClip.SourceHeight > 0)
+            {
+                _aspectRatio = (double)imageClip.SourceWidth / imageClip.SourceHeight;
+            }
+            else if (_clip.RenderWidth > 0 && _clip.RenderHeight > 0)
+            {
+                _aspectRatio = _clip.RenderWidth / _clip.RenderHeight;
+            }
+            
             BuildAdornerHandles();
             this.DataContext = _clip; // Set DataContext for binding
         }
@@ -91,52 +109,91 @@ namespace VideoEditor.Common.Adorners
         private void TopLeft_DragDelta(object sender, DragDeltaEventArgs e)
         {
             double newWidth = _clip.RenderWidth - e.HorizontalChange;
-            double newHeight = _clip.RenderHeight - e.VerticalChange;
+            double newHeight = newWidth / _aspectRatio;
 
             if (newWidth > 0 && newHeight > 0)
             {
-                _clip.X += e.HorizontalChange;
-                _clip.Y += e.VerticalChange;
+                double widthChange = _clip.RenderWidth - newWidth;
+                double heightChange = _clip.RenderHeight - newHeight;
+                
+                _clip.X += widthChange;
+                _clip.Y += heightChange;
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
+                
+                ForceClipUpdate();
             }
         }
 
         private void TopRight_DragDelta(object sender, DragDeltaEventArgs e)
         {
             double newWidth = _clip.RenderWidth + e.HorizontalChange;
-            double newHeight = _clip.RenderHeight - e.VerticalChange;
+            double newHeight = newWidth / _aspectRatio;
 
             if (newWidth > 0 && newHeight > 0)
             {
-                _clip.Y += e.VerticalChange;
+                double heightChange = _clip.RenderHeight - newHeight;
+                
+                _clip.Y += heightChange;
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
+                
+                ForceClipUpdate();
             }
         }
 
         private void BottomLeft_DragDelta(object sender, DragDeltaEventArgs e)
         {
             double newWidth = _clip.RenderWidth - e.HorizontalChange;
-            double newHeight = _clip.RenderHeight + e.VerticalChange;
+            double newHeight = newWidth / _aspectRatio;
 
             if (newWidth > 0 && newHeight > 0)
             {
-                _clip.X += e.HorizontalChange;
+                double widthChange = _clip.RenderWidth - newWidth;
+                
+                _clip.X += widthChange;
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
+                
+                ForceClipUpdate();
             }
         }
 
         private void BottomRight_DragDelta(object sender, DragDeltaEventArgs e)
         {
             double newWidth = _clip.RenderWidth + e.HorizontalChange;
-            double newHeight = _clip.RenderHeight + e.VerticalChange;
+            double newHeight = newWidth / _aspectRatio;
 
             if (newWidth > 0 && newHeight > 0)
             {
                 _clip.RenderWidth = newWidth;
                 _clip.RenderHeight = newHeight;
+                
+                ForceClipUpdate();
+            }
+        }
+        
+        private void ForceClipUpdate()
+        {
+            // Force immediate clipping update for video clips during drag
+            if (_clip is VideoClip)
+            {
+                // Throttle updates to max 60fps (16ms interval)
+                var now = DateTime.Now;
+                if ((now - _lastClipUpdateTime).TotalMilliseconds < CLIP_UPDATE_THROTTLE_MS)
+                {
+                    return; // Skip this update, too soon
+                }
+                
+                _lastClipUpdateTime = now;
+                
+                Application.Current?.Dispatcher.InvokeAsync(() =>
+                {
+                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    {
+                        mainWindow.ForceClipVideoViews();
+                    }
+                }, System.Windows.Threading.DispatcherPriority.Render); // Render priority instead of Send
             }
         }
 
@@ -152,11 +209,24 @@ namespace VideoEditor.Common.Adorners
             // Update position based on drag delta
             _clip.X += e.HorizontalChange;
             _clip.Y += e.VerticalChange;
+            
+            ForceClipUpdate();
         }
 
         private void Middle_DragCompleted(object sender, DragCompletedEventArgs e)
         {
-            // Drag completed - position should be final
+            // Force final update when drag completes to ensure accurate clipping
+            if (_clip is VideoClip)
+            {
+                _lastClipUpdateTime = DateTime.MinValue; // Reset throttle
+                Application.Current?.Dispatcher.InvokeAsync(() =>
+                {
+                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    {
+                        mainWindow.ForceClipVideoViews();
+                    }
+                }, System.Windows.Threading.DispatcherPriority.Render);
+            }
         }
 
         protected override Size MeasureOverride(Size constraint)

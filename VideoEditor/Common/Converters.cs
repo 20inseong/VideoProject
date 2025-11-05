@@ -3,6 +3,8 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
+using System.Windows.Markup;
+using System.Windows.Media;
 using VideoEditor.Models;
 using VideoEditor.ViewModels;
 
@@ -197,6 +199,80 @@ namespace VideoEditor.Common
             return 0;
         }
 
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class ColorToBrushConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is Color color)
+            {
+                return new SolidColorBrush(color);
+            }
+            return Brushes.Transparent;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class FontFamilyConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is string fontFamilyName)
+            {
+                try
+                {
+                    return new FontFamily(fontFamilyName);
+                }
+                catch (Exception)
+                {
+                    return SystemFonts.MessageFontFamily;
+                }
+            }
+            return Binding.DoNothing;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is FontFamily fontFamily)
+            {
+                // --- ★★★ 핵심 수정 부분 ★★★ ---
+
+                // 1. 현재 UI 문화권(한국어)에 맞는 이름을 우선적으로 찾습니다.
+                if (fontFamily.FamilyNames.TryGetValue(XmlLanguage.GetLanguage(CultureInfo.CurrentUICulture.Name), out string localizedName))
+                {
+                    return localizedName;
+                }
+
+                // 2. 만약 한국어 이름이 없다면, '미국 영어(en-US)' 이름을 찾습니다.
+                //    Wingdings 같은 심볼 폰트들은 보통 여기에 이름을 가지고 있습니다.
+                if (fontFamily.FamilyNames.TryGetValue(XmlLanguage.GetLanguage("en-US"), out string englishName))
+                {
+                    return englishName;
+                }
+
+                // 3. 위 두 가지 방법으로도 이름을 찾지 못했다면, 최후의 수단으로 Source 속성을 사용합니다.
+                return fontFamily.Source.Split(',').FirstOrDefault()?.Trim();
+            }
+            return Binding.DoNothing;
+        }
+    }
+
+    public class HalfValueConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is double val) { return val / 2.0; }
+            return 0;
+        }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();

@@ -6,6 +6,7 @@
              xmlns:local="clr-namespace:VideoEditor.Views"
              xmlns:models="clr-namespace:VideoEditor.Models"
              xmlns:common="clr-namespace:VideoEditor.Common"
+             xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="300">
 
@@ -14,8 +15,7 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <common:InverseBooleanConverter x:Key="InverseBooleanConverter" />
         <common:IsAudioClipInGroupConverter x:Key="IsAudioClipInGroupConverter" />
-        
-        <!-- 음소거 상태에 따라 볼륨 텍스트 박스의 스타일을 변경하는 스타일 -->
+
         <Style x:Key="MutedStateTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsMuted}" Value="True">
@@ -25,14 +25,11 @@
             </Style.Triggers>
         </Style>
 
-        <!-- 오디오 분리 상태에 따라 음소거 체크박스를 비활성화하는 스타일 -->
         <Style x:Key="MuteCheckBoxStyle" TargetType="CheckBox">
-            <!-- 기본 상태: 활성화, 흰색 글씨, 클릭 가능 -->
             <Setter Property="IsEnabled" Value="True"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="IsHitTestVisible" Value="True"/>
             <Style.Triggers>
-                <!-- 오디오가 분리된 그룹에 속해 있을 경우 아래 Setter들이 적용됨 -->
                 <DataTrigger Value="True">
                     <DataTrigger.Binding>
                         <MultiBinding Converter="{StaticResource IsAudioClipInGroupConverter}">
@@ -40,14 +37,92 @@
                             <Binding Path="DataContext.VideoEditor.TimelineClips" RelativeSource="{RelativeSource AncestorType=Window}"/>
                         </MultiBinding>
                     </DataTrigger.Binding>
-                    <!-- 1. 컨트롤 비활성화 (논리적) -->
                     <Setter Property="IsEnabled" Value="False"/>
-                    <!-- 2. 시각적 피드백 강화: 글자색을 회색으로 변경 -->
                     <Setter Property="Foreground" Value="Gray"/>
-                    <!-- 3. 물리적 클릭 방지: 마우스 이벤트를 완전히 무시하도록 설정 -->
                     <Setter Property="IsHitTestVisible" Value="False"/>
                 </DataTrigger>
             </Style.Triggers>
+        </Style>
+
+        <Style x:Key="WpfUiLikeColorPickerStyle" TargetType="{x:Type xctk:ColorPicker}">
+            <Setter Property="Background" Value="#3D3D3D" />
+            <Setter Property="BorderBrush" Value="#888888" />
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type xctk:ColorPicker}">
+                        <Grid x:Name="templateRoot">
+
+                            <!-- 1. 컨트롤의 핵심인 ToggleButton (원본 구조 유지) -->
+                            <ToggleButton x:Name="PART_ColorPickerToggleButton"
+                                      IsChecked="{Binding IsOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                      Style="{x:Null}">
+                                <!-- 기본 토글버튼 스타일 제거 -->
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="MainBorder"
+                                            Background="{Binding Background, RelativeSource={RelativeSource AncestorType=xctk:ColorPicker}}"
+                                            BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=xctk:ColorPicker}}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="3">
+                                            <Grid Margin="5,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <Border Grid.Column="0" Width="18" Height="18"
+                                                    BorderBrush="#AAAAAA" BorderThickness="1" CornerRadius="2"
+                                                    Background="{Binding SelectedColor, RelativeSource={RelativeSource AncestorType=xctk:ColorPicker}, Converter={StaticResource ColorToBrushConverter}}"/>
+
+                                                <TextBlock Grid.Column="1"
+                                                       Text="{Binding SelectedColorText, RelativeSource={RelativeSource AncestorType=xctk:ColorPicker}}"
+                                                       Foreground="White"
+                                                       VerticalAlignment="Center"
+                                                       Margin="8,0,0,0" />
+
+                                                <Path Grid.Column="2" Data="M 0 0 L 4 4 L 8 0 Z" Fill="#DDDDDD"
+                                                  HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+
+                            <!-- 2. 컨트롤의 핵심인 Popup (원본 구조 유지) -->
+                            <Popup x:Name="PART_Popup"
+                               IsOpen="{Binding IsOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                               AllowsTransparency="True"
+                               StaysOpen="False"
+                               Placement="Bottom"
+                               PlacementTarget="{Binding ElementName=PART_ColorPickerToggleButton}">
+                                <!-- 팝업 내부 UI 스타일링 -->
+                                <Border Background="#2B2B2B" BorderBrush="#888888" BorderThickness="1" Padding="5" CornerRadius="3">
+                                    <xctk:ColorCanvas x:Name="PART_ColorCanvas"
+                                                  SelectedColor="{Binding SelectedColor, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" />
+                                </Border>
+                            </Popup>
+                        </Grid>
+
+                        <!-- 3. 상태 변화에 따른 시각적 효과 (Triggers) -->
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="White" />
+                            </Trigger>
+                            <Trigger Property="IsOpen" Value="True">
+                                <Setter Property="BorderBrush" Value="#007ACC" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </UserControl.Resources>
 
@@ -70,6 +145,27 @@
                         <Slider Grid.Column="0" Minimum="12" Maximum="72" Value="{Binding FontSize, Mode=TwoWay}" VerticalAlignment="Center"/>
                         <TextBox Grid.Column="1" Text="{Binding FontSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F0}}" Margin="10,0,0,0" VerticalAlignment="Center" Width="50"/>
                     </Grid>
+
+                    <TextBlock Text="글꼴:" Foreground="White" Margin="0,10,0,5" FontWeight="Bold"/>
+                    <ComboBox ItemsSource="{Binding Source={x:Static Fonts.SystemFontFamilies}}"
+                              SelectedItem="{Binding FontFamily, Converter={StaticResource FontFamilyConverter}}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" FontFamily="{Binding}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <TextBlock Text="색상 (Hex):" Foreground="White" Margin="0,10,0,5" FontWeight="Bold"/>
+                    <xctk:ColorPicker SelectedColor="{Binding ForegroundColor, Mode=TwoWay}"
+                                      DisplayColorAndName="True"
+                                      Style="{StaticResource WpfUiLikeColorPickerStyle}"/>
+
+                    <TextBlock Text="투명도:" Foreground="White" Margin="0,10,0,5" FontWeight="Bold"/>
+                    <Slider Minimum="0.0" Maximum="1.0" Value="{Binding Opacity, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" />
+
+                    <TextBlock Text="회전 (각도):" Foreground="White" Margin="0,10,0,5" FontWeight="Bold"/>
+                    <Slider Minimum="0" Maximum="360" Value="{Binding Rotation, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" />
                 </StackPanel>
             </DataTemplate>
 
@@ -258,6 +354,13 @@
                     <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
                     <TextBlock Text="길이 (초):" Foreground="White" Margin="0,0,0,5" FontWeight="Bold"/>
                     <TextBox Text="{Binding Duration, Mode=TwoWay, StringFormat={}{0:F2}, UpdateSourceTrigger=PropertyChanged}"/>
+
+                    <TextBlock Text="투명도:" Foreground="White" Margin="0,10,0,5" FontWeight="Bold"/>
+                    <Slider Minimum="0.0" Maximum="1.0" Value="{Binding Opacity, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" />
+
+                    <TextBlock Text="회전 (각도):" Foreground="White" Margin="0,10,0,5" FontWeight="Bold"/>
+                    <Slider Minimum="0" Maximum="360" Value="{Binding Rotation, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" />
+
                 </StackPanel>
             </DataTemplate>
 

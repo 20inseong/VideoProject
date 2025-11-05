@@ -12,6 +12,12 @@ namespace VideoEditor.Models
         public int SourceWidth { get; set; }
         public int SourceHeight { get; set; }
 
+        private double _opacity = 1.0;
+        public double Opacity { get => _opacity; set => SetProperty(ref _opacity, value); }
+
+        private double _rotation = 0.0;
+        public double Rotation { get => _rotation; set => SetProperty(ref _rotation, value); }
+
         public override TimelineClipBase Clone()
         {
             var newClip = new ImageClip
@@ -20,7 +26,9 @@ namespace VideoEditor.Models
                 ImagePath = this.ImagePath,
                 Thumbnail = this.Thumbnail,
                 SourceWidth = this.SourceWidth,
-                SourceHeight = this.SourceHeight
+                SourceHeight = this.SourceHeight,
+                Opacity = this.Opacity,
+                Rotation = this.Rotation
             };
             
             // Copy all base properties including duration/speed

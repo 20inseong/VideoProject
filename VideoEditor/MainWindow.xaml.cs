@@ -81,23 +81,44 @@ namespace VideoEditor
             _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
 
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
-            
+
+            // Monitor dragging state to update clipping more frequently
+            _mainViewModel.VideoEditor.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(VideoEditorViewModel.IsDraggingClip))
+                {
+                    if (_mainViewModel.VideoEditor.IsDraggingClip)
+                    {
+                        // During drag, update more frequently (every 16ms ~= 60fps)
+                        _videoClippingTimer.Interval = TimeSpan.FromMilliseconds(16);
+                        _needsZOrderUpdate = true;
+                    }
+                    else
+                    {
+                        // Not dragging, slower update rate is fine
+                        _videoClippingTimer.Interval = TimeSpan.FromMilliseconds(100);
+                        // Force one final update when drag ends
+                        ClipVideoViewsToPlayerHost();
+                    }
+                }
+            };
+
             // Subscribe to Z-order change events
             _mainViewModel.VideoClipZOrderChanged += (s, e) =>
             {
                 _needsZOrderUpdate = true;
             };
-            
+
             // Subscribe to ActiveVideoClips changes to apply clipping and Z-order
-            _mainViewModel.ActiveVideoClips.CollectionChanged += (s, e) => 
+            _mainViewModel.ActiveVideoClips.CollectionChanged += (s, e) =>
             {
                 _needsZOrderUpdate = true; // Mark that Z-order needs update
-                Dispatcher.BeginInvoke(new Action(() => 
+                Dispatcher.BeginInvoke(new Action(() =>
                 {
                     ClipVideoViewsToPlayerHost();
                 }), DispatcherPriority.Loaded);
             };
-            
+
             // Also clip when video clips properties change (position, size, etc.)
             _mainViewModel.PropertyChanged += (s, e) =>
             {
@@ -107,7 +128,7 @@ namespace VideoEditor
                     Dispatcher.BeginInvoke(new Action(() => ClipVideoViewsToPlayerHost()), DispatcherPriority.Loaded);
                 }
             };
-            
+
             // Periodically check and apply video clipping (especially during drag operations)
             // But only update Z-order when needed
             _videoClippingTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
@@ -146,6 +167,14 @@ namespace VideoEditor
             };
 
             TimelineRulerCanvas.PreviewMouseLeftButtonDown += TimelineRulerCanvas_PreviewMouseLeftButtonDown;
+            TimelineRulerCanvas.PreviewMouseMove += TimelineRulerCanvas_PreviewMouseMove;
+            TimelineRulerCanvas.PreviewMouseLeftButtonUp += TimelineRulerCanvas_PreviewMouseLeftButtonUp;
+
+            // Enable scrubbing via playhead area as well
+            PlayheadCanvas.PreviewMouseLeftButtonDown += PlayheadCanvas_PreviewMouseLeftButtonDown;
+            PlayheadCanvas.PreviewMouseMove += PlayheadCanvas_PreviewMouseMove;
+            PlayheadCanvas.PreviewMouseLeftButtonUp += PlayheadCanvas_PreviewMouseLeftButtonUp;
+
             TimelineCanvas.PreviewMouseMove += TimelineCanvas_PreviewMouseMove;
             TimelineCanvas.PreviewMouseLeftButtonUp += TimelineCanvas_PreviewMouseLeftButtonUp;
 
@@ -205,10 +234,10 @@ namespace VideoEditor
                 _overlayWindow.Top = location.Y;
                 _overlayWindow.Width = VideoPlayerHost.ActualWidth;
                 _overlayWindow.Height = VideoPlayerHost.ActualHeight;
-                
+
                 // OverlayWindow를 항상 최상위로 유지
                 BringOverlayToFront();
-                
+
                 // Apply clipping to video views to ensure they don't render outside VideoPlayerHost
                 Dispatcher.BeginInvoke(new Action(() => ClipVideoViewsToPlayerHost()), DispatcherPriority.Normal);
             }
@@ -231,62 +260,49 @@ namespace VideoEditor
             if (VideoPlayerHost.ActualWidth <= 0 || VideoPlayerHost.ActualHeight <= 0)
                 return;
 
-            // Get VideoPlayerHost bounds in screen coordinates
-            var hostBounds = new Rect(
+            // --- 여기부터 수정: DPI 스케일링 팩터 가져오기 ---
+            var source = PresentationSource.FromVisual(this);
+            // 창이 아직 완전히 로드되지 않았을 경우를 대비한 예외 처리
+            if (source == null || source.CompositionTarget == null) return;
+
+            // M11 = 수평 DPI 배율, M22 = 수직 DPI 배율
+            var dpiX = source.CompositionTarget.TransformToDevice.M11;
+            var dpiY = source.CompositionTarget.TransformToDevice.M22;
+
+            // Get VideoPlayerHost bounds in screen coordinates (WPF DIPs)
+            var hostBoundsDIP = new Rect(
                 VideoPlayerHost.PointToScreen(new Point(0, 0)),
                 new Size(VideoPlayerHost.ActualWidth, VideoPlayerHost.ActualHeight)
             );
 
-            // Find all HwndHost controls (VLC video windows) in the VideoPlayerHost
+            // DIPs를 실제 물리적 픽셀로 변환
+            var hostBoundsPixels = new Rect(
+                hostBoundsDIP.X * dpiX,
+                hostBoundsDIP.Y * dpiY,
+                hostBoundsDIP.Width * dpiX,
+                hostBoundsDIP.Height * dpiY
+            );
+            // --- 수정 끝 ---
+
             var hwndHosts = FindVisualChildren<System.Windows.Interop.HwndHost>(VideoPlayerHost).ToList();
 
-            // Only update Z-order when needed (on collection changes or track changes)
-            if (_needsZOrderUpdate)
+            // Z-order update (only when needed)
+            if (_needsZOrderUpdate && hwndHosts.Count > 0)
             {
-                System.Diagnostics.Debug.WriteLine($"[Z-Order] Updating Z-order for {hwndHosts.Count} HwndHost controls");
-
-                // Create a mapping of HwndHost to VideoClip for Z-order management
-                var hwndToClipMap = new Dictionary<IntPtr, VideoClip>();
-                
-                foreach (var hwndHost in hwndHosts)
-                {
-                    try
-                    {
-                        IntPtr parentHwnd = hwndHost.Handle;
-                        if (parentHwnd == IntPtr.Zero) continue;
-
-                        // Try to find the corresponding VideoClip by checking DataContext
-                        var frameworkElement = hwndHost as FrameworkElement;
-                        if (frameworkElement?.DataContext is VideoClip videoClip)
-                        {
-                            hwndToClipMap[parentHwnd] = videoClip;
-                            System.Diagnostics.Debug.WriteLine($"[Z-Order] Mapped HWND to clip '{videoClip.Name}' (Track {videoClip.TrackIndex})");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[Z-Order] Mapping error: {ex.Message}");
-                    }
-                }
-
-                // Sort video clips by TrackIndex (lower TrackIndex = should appear on top)
-                // We need to reverse the order because SetWindowPos with HWND_TOP places windows from bottom to top
-                var sortedClips = hwndToClipMap.OrderByDescending(kvp => kvp.Value.TrackIndex).ToList();
-
-                System.Diagnostics.Debug.WriteLine($"[Z-Order] Applying Z-order to {sortedClips.Count} video clips");
-
-                // Apply Z-order: Place each window relative to HWND_TOP in order
-                foreach (var kvp in sortedClips)
-                {
-                    IntPtr hwnd = kvp.Key;
-                    SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-                    System.Diagnostics.Debug.WriteLine($"[Z-Order] Positioned clip '{kvp.Value.Name}' (Track {kvp.Value.TrackIndex})");
-                }
-
-                _needsZOrderUpdate = false; // Reset flag
+                UpdateVideoZOrder(hwndHosts);
+                _needsZOrderUpdate = false;
             }
 
-            // Always update clipping regions (this is lightweight)
+            // Clipping update (always)
+            ApplyClippingToVideoWindows(hwndHosts, hostBoundsPixels, dpiX, dpiY);
+        }
+
+        private void UpdateVideoZOrder(List<System.Windows.Interop.HwndHost> hwndHosts)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Z-Order] Updating Z-order for {hwndHosts.Count} HwndHost controls");
+
+            var hwndToClipMap = new Dictionary<IntPtr, VideoClip>();
+
             foreach (var hwndHost in hwndHosts)
             {
                 try
@@ -294,32 +310,91 @@ namespace VideoEditor
                     IntPtr parentHwnd = hwndHost.Handle;
                     if (parentHwnd == IntPtr.Zero) continue;
 
-                    // Get HwndHost position in screen coordinates
-                    var hwndHostPos = hwndHost.PointToScreen(new Point(0, 0));
-                    var hwndHostBounds = new Rect(hwndHostPos, new Size(hwndHost.ActualWidth, hwndHost.ActualHeight));
-
-                    // Calculate intersection with VideoPlayerHost
-                    var intersection = Rect.Intersect(hostBounds, hwndHostBounds);
-                    
-                    if (!intersection.IsEmpty && intersection.Width > 0 && intersection.Height > 0)
+                    var frameworkElement = hwndHost as FrameworkElement;
+                    if (frameworkElement?.DataContext is VideoClip videoClip)
                     {
-                        // Convert to HwndHost-relative coordinates
-                        int clipLeft = Math.Max(0, (int)(intersection.Left - hwndHostBounds.Left));
-                        int clipTop = Math.Max(0, (int)(intersection.Top - hwndHostBounds.Top));
-                        int clipRight = (int)(intersection.Right - hwndHostBounds.Left);
-                        int clipBottom = (int)(intersection.Bottom - hwndHostBounds.Top);
+                        hwndToClipMap[parentHwnd] = videoClip;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Z-Order] Mapping error: {ex.Message}");
+                }
+            }
 
-                        // Ensure valid region
+            // Sort by TrackIndex: higher TrackIndex should be behind (rendered first)
+            // Lower TrackIndex should be in front (rendered last, on top)
+            var sortedClips = hwndToClipMap.OrderBy(kvp => kvp.Value.TrackIndex).ToList();
+
+            // Get the OverlayWindow handle to position video windows below it
+            IntPtr overlayHwnd = IntPtr.Zero;
+            if (_overlayWindow != null && _overlayWindow.IsLoaded)
+            {
+                overlayHwnd = new WindowInteropHelper(_overlayWindow).Handle;
+            }
+
+            // Apply Z-order from back to front
+            IntPtr insertAfter = overlayHwnd != IntPtr.Zero ? overlayHwnd : HWND_TOP;
+
+            for (int i = sortedClips.Count - 1; i >= 0; i--)
+            {
+                var kvp = sortedClips[i];
+                IntPtr hwnd = kvp.Key;
+
+                SetWindowPos(hwnd, insertAfter, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                insertAfter = hwnd;
+            }
+
+            // Ensure OverlayWindow stays on top
+            if (overlayHwnd != IntPtr.Zero)
+            {
+                SetWindowPos(overlayHwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            }
+        }
+
+        private void ApplyClippingToVideoWindows(List<System.Windows.Interop.HwndHost> hwndHosts, Rect hostBoundsPixels, double dpiX, double dpiY)
+        {
+            foreach (var hwndHost in hwndHosts)
+            {
+                try
+                {
+                    IntPtr parentHwnd = hwndHost.Handle;
+                    if (parentHwnd == IntPtr.Zero) continue;
+
+                    // HwndHost의 좌표를 픽셀 단위로 변환
+                    var hwndHostPosDIP = hwndHost.PointToScreen(new Point(0, 0));
+                    var hwndHostBoundsDIP = new Rect(hwndHostPosDIP, new Size(hwndHost.ActualWidth, hwndHost.ActualHeight));
+
+                    var hwndHostBoundsPixels = new Rect(
+                        hwndHostBoundsDIP.X * dpiX,
+                        hwndHostBoundsDIP.Y * dpiY,
+                        hwndHostBoundsDIP.Width * dpiX,
+                        hwndHostBoundsDIP.Height * dpiY
+                    );
+
+                    // 물리적 픽셀을 기준으로 교차 영역 계산
+                    var intersection = Rect.Intersect(hostBoundsPixels, hwndHostBoundsPixels);
+
+                    // Check if the HwndHost is completely outside VideoPlayerHost bounds
+                    bool isCompletelyOutside = intersection.IsEmpty || intersection.Width <= 0 || intersection.Height <= 0;
+
+                    if (!isCompletelyOutside && intersection.Width > 0 && intersection.Height > 0)
+                    {
+                        // 교차 영역을 HwndHost 기준 상대 픽셀 좌표로 변환
+                        int clipLeft = Math.Max(0, (int)(intersection.Left - hwndHostBoundsPixels.Left));
+                        int clipTop = Math.Max(0, (int)(intersection.Top - hwndHostBoundsPixels.Top));
+                        int clipRight = (int)(intersection.Right - hwndHostBoundsPixels.Left);
+                        int clipBottom = (int)(intersection.Bottom - hwndHostBoundsPixels.Top);
+
                         if (clipRight > clipLeft && clipBottom > clipTop)
                         {
-                            // Apply region to parent HWND
                             IntPtr hRgn = CreateRectRgn(clipLeft, clipTop, clipRight, clipBottom);
                             if (hRgn != IntPtr.Zero)
                             {
                                 SetWindowRgn(parentHwnd, hRgn, true);
                             }
 
-                            // Also apply to all child windows (VLC creates child windows for rendering)
+                            // Apply to child windows
                             EnumChildWindows(parentHwnd, (hwnd, lParam) =>
                             {
                                 IntPtr childRgn = CreateRectRgn(clipLeft, clipTop, clipRight, clipBottom);
@@ -330,15 +405,14 @@ namespace VideoEditor
                                 return true;
                             }, IntPtr.Zero);
                         }
+                        else
+                        {
+                            HideWindow(parentHwnd);
+                        }
                     }
                     else
                     {
-                        // Video is completely outside bounds, hide it
-                        IntPtr emptyRgn = CreateRectRgn(0, 0, 0, 0);
-                        if (emptyRgn != IntPtr.Zero)
-                        {
-                            SetWindowRgn(parentHwnd, emptyRgn, true);
-                        }
+                        HideWindow(parentHwnd);
                     }
                 }
                 catch (Exception ex)
@@ -346,6 +420,33 @@ namespace VideoEditor
                     System.Diagnostics.Debug.WriteLine($"[Clip] Error: {ex.Message}");
                 }
             }
+        }
+
+        private void HideWindow(IntPtr parentHwnd)
+        {
+            // Hide window completely by setting empty region
+            IntPtr emptyRgn = CreateRectRgn(0, 0, 0, 0);
+            if (emptyRgn != IntPtr.Zero)
+            {
+                SetWindowRgn(parentHwnd, emptyRgn, true);
+
+                // Also hide all child windows
+                EnumChildWindows(parentHwnd, (hwnd, lParam) =>
+                {
+                    IntPtr childEmptyRgn = CreateRectRgn(0, 0, 0, 0);
+                    if (childEmptyRgn != IntPtr.Zero)
+                    {
+                        SetWindowRgn(hwnd, childEmptyRgn, true);
+                    }
+                    return true;
+                }, IntPtr.Zero);
+            }
+        }
+
+        // Public method to force immediate clipping update (called from ClipAdorner during drag)
+        public void ForceClipVideoViews()
+        {
+            ClipVideoViewsToPlayerHost();
         }
 
         private static IEnumerable<T> FindVisualChildren<T>(DependencyObject depObj) where T : DependencyObject
@@ -522,21 +623,19 @@ namespace VideoEditor
                 double deltaTime = (position.X - vm.VideoEditor.DragStartPoint.X) / vm.VideoEditor.PixelsPerSecond;
                 int deltaTrack = (int)Math.Round((position.Y - vm.VideoEditor.DragStartPoint.Y) / 60.0);
 
-                // [핵심 수정] 리스트의 모든 클립에 대해 위치를 업데이트합니다.
+                // 실시간 미리보기: 속성 변경 이벤트 폭주를 줄이기 위해 배치 업데이트
                 foreach (var clip in draggedClips)
                 {
-                    // 각 클립의 원본 상태를 ViewModel의 Dictionary에서 가져옵니다.
                     if (vm.VideoEditor.DraggedClipsOriginalState.TryGetValue(clip, out var originalState))
                     {
                         double desiredStart = originalState.OriginalStart + deltaTime;
                         int desiredTrack = Math.Clamp(originalState.OriginalTrack + deltaTrack, 0, 4);
-
-                        // 실시간 미리보기를 위해 클립 속성 업데이트
                         clip.StartPosition = Math.Max(0, desiredStart);
                         clip.TrackIndex = desiredTrack;
                     }
                 }
-                // SyncPlayersToTimeline() 호출은 성능 저하를 유발할 수 있으므로 여기서는 제거합니다.
+                // 드래그 중에도 눈금/폭은 즉시 반영되도록 총 길이 바인딩은 이미 ViewModel에서 업데이트됨
+                // 무거운 동기화는 드랍 완료 시에만 수행
             }
             else if (e.Data.GetDataPresent("Myvideo"))
             {
@@ -549,7 +648,7 @@ namespace VideoEditor
             e.Handled = true;
         }
 
-        private void VideoList_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e) 
+        private void VideoList_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             _dragStartPoint = e.GetPosition(null);
             if (e.OriginalSource is DependencyObject source)
@@ -562,7 +661,7 @@ namespace VideoEditor
             }
         }
 
-        private void VideoList_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e) 
+        private void VideoList_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
             if (e.LeftButton == MouseButtonState.Pressed && _draggedVideo != null)
             {
@@ -670,10 +769,10 @@ namespace VideoEditor
         {
             _overlayWindow.Owner = this;
             _overlayWindow.Show();
-            
+
             // OverlayWindow를 항상 비디오 HwndHost 위에 유지
             BringOverlayToFront();
-            
+
             UpdateOverlayPosition(null, null);
 
             InitializePlayhead();
@@ -769,6 +868,31 @@ namespace VideoEditor
             }
         }
 
+        private void PlayheadCanvas_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            PlayheadCanvas.CaptureMouse();
+            UpdatePlayheadFromMouseEvent(e);
+            e.Handled = true;
+        }
+
+        private void PlayheadCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (Mouse.Captured == PlayheadCanvas)
+            {
+                UpdatePlayheadFromMouseEvent(e);
+                e.Handled = true;
+            }
+        }
+
+        private void PlayheadCanvas_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (Mouse.Captured == PlayheadCanvas)
+            {
+                PlayheadCanvas.ReleaseMouseCapture();
+                e.Handled = true;
+            }
+        }
+
         private void TimelineRulerCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
         {
             if (Mouse.Captured == TimelineRulerCanvas)
@@ -799,10 +923,12 @@ namespace VideoEditor
 
         private void UpdatePlayheadFromMouseEvent(MouseEventArgs e)
         {
-            if (Mouse.Captured != TimelineRulerCanvas) return; // Only when ruler captured
+            if (Mouse.Captured != TimelineRulerCanvas && Mouse.Captured != PlayheadCanvas) return; // Only while captured
             if ((DateTime.Now - _lastDragUpdateTime).TotalMilliseconds < DRAG_UPDATE_THROTTLE_MS) return;
             _lastDragUpdateTime = DateTime.Now;
-            Point position = e.GetPosition(TimelineRulerCanvas);
+
+            IInputElement relativeTo = Mouse.Captured == TimelineRulerCanvas ? (IInputElement)TimelineRulerCanvas : (IInputElement)PlayheadCanvas;
+            Point position = e.GetPosition(relativeTo);
             double clickedTimeSec = position.X / _mainViewModel.VideoEditor.PixelsPerSecond;
             _mainViewModel.CurrentTimelineTimeMs = (long)(clickedTimeSec * 1000);
         }
@@ -817,7 +943,7 @@ namespace VideoEditor
             e.Handled = true;
         }
 
-        
+
 
         private void TimelineCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
         {
@@ -860,7 +986,7 @@ namespace VideoEditor
         {
             double newWidth = TimelineRulerCanvas.Width + e.HorizontalChange;
             double pixelsPerSecond = _mainViewModel.VideoEditor.PixelsPerSecond;
-    
+
             // 최소 너비 제어 (예: 10초에 해당하는 너비)
             double minWidth = 10 * pixelsPerSecond;
             if (newWidth < minWidth)
@@ -869,7 +995,7 @@ namespace VideoEditor
             }
 
             _currentTimelineDurationSec = newWidth / pixelsPerSecond;
-    
+
             // MainViewModel의 TotalTimelineDurationMs 업데이트
             _mainViewModel.TotalTimelineDurationMs = (long)(_currentTimelineDurationSec * 1000);
 

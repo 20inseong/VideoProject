@@ -17,10 +17,34 @@ namespace VideoEditor.Models
         private int _volume = 100;
 
         private double _x;
-        public double X { get => _x; set => SetProperty(ref _x, value); }
+        public double X 
+        { 
+            get => _x; 
+            set 
+            { 
+                if (SetProperty(ref _x, value))
+                {
+                    // Mark as user-positioned when X is manually set (not during initial layout)
+                    if (_initialLayoutComplete)
+                        IsUserPositioned = true;
+                }
+            } 
+        }
 
         private double _y;
-        public double Y { get => _y; set => SetProperty(ref _y, value); }
+        public double Y 
+        { 
+            get => _y; 
+            set 
+            { 
+                if (SetProperty(ref _y, value))
+                {
+                    // Mark as user-positioned when Y is manually set (not during initial layout)
+                    if (_initialLayoutComplete)
+                        IsUserPositioned = true;
+                }
+            } 
+        }
 
         private double _renderWidth;
         public double RenderWidth { get => _renderWidth; set => SetProperty(ref _renderWidth, value); }
@@ -29,6 +53,12 @@ namespace VideoEditor.Models
         public double RenderHeight { get => _renderHeight; set => SetProperty(ref _renderHeight, value); }
 
         public double Scale { get; set; } = 1.0;
+        
+        // Track if this clip has been manually positioned by the user
+        public bool IsUserPositioned { get; set; } = false;
+        
+        // Track if initial layout has been completed
+        private bool _initialLayoutComplete = false;
 
         private Guid? _groupId;
         public Guid? GroupId
@@ -124,6 +154,12 @@ namespace VideoEditor.Models
         }
 
         public abstract TimelineClipBase Clone();
+        
+        // Mark that initial layout is complete and future position changes are user-driven
+        public void MarkInitialLayoutComplete()
+        {
+            _initialLayoutComplete = true;
+        }
 
         protected void CopyBaseProperties(TimelineClipBase source)
         {
