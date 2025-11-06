@@ -8,6 +8,7 @@ using System.Windows.Input;
 using VideoEditor.Common;
 using Wpf.Ui.Input;
 using WpfMedia = System.Windows.Media;
+using System.Security.Cryptography;
 
 namespace VideoEditor.ViewModels
 {
@@ -104,11 +105,11 @@ namespace VideoEditor.ViewModels
         public ICommand SetSpeed5Command { get; }
         public ICommand SetSpeed10Command { get; }
         public ICommand SetSpeed25Command { get; }
-
+        
         public PlayerViewModel()
         {
             Core.Initialize();
-                                    _libVLC = new LibVLC("--input-fast-seek", "--file-caching=1500");
+            _libVLC = new LibVLC("--file-caching=4000");
 
             VideoPlayers = new List<MediaPlayer>();
             for (int i = 0; i < VIDEO_PLAYER_COUNT; i++)
