@@ -154,7 +154,7 @@ namespace VideoEditor.ViewModels
                 }
             };
             Core.Initialize();
-            _libVLC = new LibVLC();
+            _libVLC = new LibVLC("--file-caching=4000");
             _waveformService = new WaveformService();
 
             DropOnTimelineCommand = new RelayCommand<DragEventArgs>(ExecuteDropOnTimeline);
