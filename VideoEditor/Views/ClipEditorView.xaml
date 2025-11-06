@@ -6,14 +6,17 @@
              xmlns:local="clr-namespace:VideoEditor.Views"
              xmlns:models="clr-namespace:VideoEditor.Models"
              xmlns:common="clr-namespace:VideoEditor.Common"
+             xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="300">
+             d:DesignHeight="450" d:DesignWidth="300"
+             x:Name="ClipEditorRoot">
 
     <UserControl.Resources>
         <common:ClipTypeToStringConverter x:Key="ClipTypeToStringConverter" />
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <common:InverseBooleanConverter x:Key="InverseBooleanConverter" />
         <common:IsAudioClipInGroupConverter x:Key="IsAudioClipInGroupConverter" />
+        <common:AbsoluteTimestampConverter x:Key="AbsoluteTimestampConverter" />
         
         <!-- 음소거 상태에 따라 볼륨 텍스트 박스의 스타일을 변경하는 스타일 -->
         <Style x:Key="MutedStateTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
@@ -49,6 +52,87 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+        <Style x:Key="WpfUiLikeColorPickerStyle" TargetType="{x:Type xctk:ColorPicker}">
+            <Setter Property="Background" Value="#3D3D3D" />
+            <Setter Property="BorderBrush" Value="#888888" />
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type xctk:ColorPicker}">
+                        <Grid x:Name="templateRoot">
+
+                            <!-- 1. 컨트롤의 핵심인 ToggleButton (원본 구조 유지) -->
+                            <ToggleButton x:Name="PART_ColorPickerToggleButton"
+                                      IsChecked="{Binding IsOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                      Style="{x:Null}">
+                                <!-- 기본 토글버튼 스타일 제거 -->
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="MainBorder"
+                                            Background="{Binding Background, RelativeSource={RelativeSource AncestorType=xctk:ColorPicker}}"
+                                            BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=xctk:ColorPicker}}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="3">
+                                            <Grid Margin="5,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <Border Grid.Column="0" Width="18" Height="18"
+                                                    BorderBrush="#AAAAAA" BorderThickness="1" CornerRadius="2"
+                                                    Background="{Binding SelectedColor, RelativeSource={RelativeSource AncestorType=xctk:ColorPicker}, Converter={StaticResource ColorToBrushConverter}}"/>
+
+                                                <TextBlock Grid.Column="1"
+                                                       Text="{Binding SelectedColorText, RelativeSource={RelativeSource AncestorType=xctk:ColorPicker}}"
+                                                       Foreground="White"
+                                                       VerticalAlignment="Center"
+                                                       Margin="8,0,0,0" />
+
+                                                <Path Grid.Column="2" Data="M 0 0 L 4 4 L 8 0 Z" Fill="#DDDDDD"
+                                                  HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+
+                            <!-- 2. 컨트롤의 핵심인 Popup (원본 구조 유지) -->
+                            <Popup x:Name="PART_Popup"
+                               IsOpen="{Binding IsOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                               AllowsTransparency="True"
+                               StaysOpen="False"
+                               Placement="Bottom"
+                               PlacementTarget="{Binding ElementName=PART_ColorPickerToggleButton}">
+                                <!-- 팝업 내부 UI 스타일링 -->
+                                <Border Background="#2B2B2B" BorderBrush="#888888" BorderThickness="1" Padding="5" CornerRadius="3">
+                                    <xctk:ColorCanvas x:Name="PART_ColorCanvas"
+                                                  SelectedColor="{Binding SelectedColor, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" />
+                                </Border>
+                            </Popup>
+                        </Grid>
+
+                        <!-- 3. 상태 변화에 따른 시각적 효과 (Triggers) -->
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="White" />
+                            </Trigger>
+                            <Trigger Property="IsOpen" Value="True">
+                                <Setter Property="BorderBrush" Value="#007ACC" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <ContentControl Content="{Binding}">
@@ -70,12 +154,33 @@
                         <Slider Grid.Column="0" Minimum="12" Maximum="72" Value="{Binding FontSize, Mode=TwoWay}" VerticalAlignment="Center"/>
                         <TextBox Grid.Column="1" Text="{Binding FontSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F0}}" Margin="10,0,0,0" VerticalAlignment="Center" Width="50"/>
                     </Grid>
+
+                    <TextBlock Text="글꼴:" Foreground="White" Margin="0,10,0,5" FontWeight="Bold"/>
+                    <ComboBox ItemsSource="{Binding Source={x:Static Fonts.SystemFontFamilies}}"
+                  SelectedItem="{Binding FontFamily, Converter={StaticResource FontFamilyConverter}}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" FontFamily="{Binding}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <TextBlock Text="색상:" Foreground="White" Margin="0,10,0,5" FontWeight="Bold"/>
+                    <xctk:ColorPicker SelectedColor="{Binding ForegroundColor, Mode=TwoWay}"
+                          DisplayColorAndName="True"
+                          Style="{StaticResource WpfUiLikeColorPickerStyle}"/>
+
+                    <TextBlock Text="투명도:" Foreground="White" Margin="0,10,0,5" FontWeight="Bold"/>
+                    <Slider Minimum="0.0" Maximum="1.0" Value="{Binding Opacity, Mode=TwoWay}" />
+
+                    <TextBlock Text="회전 (각도):" Foreground="White" Margin="0,10,0,5" FontWeight="Bold"/>
+                    <Slider Minimum="0" Maximum="360" Value="{Binding Rotation, Mode=TwoWay}" />
                 </StackPanel>
             </DataTemplate>
 
             <!-- 2. VideoClip 편집기 -->
             <DataTemplate DataType="{x:Type models:VideoClip}">
-                <Grid Margin="15">
+                <Grid Margin="15" x:Name="VideoClipEditorGrid">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -214,7 +319,7 @@
                                  Height="10" Margin="0,10,0,0"/>
 
                     <!-- 텍스트 변환 결과 -->
-                    <ListView Grid.Row="9" Grid.RowSpan="3" ItemsSource="{Binding Transcription}"
+                    <ListView Grid.Row="9" ItemsSource="{Binding Transcription}"
                               Visibility="{Binding ShowTranscription, Converter={StaticResource BooleanToVisibilityConverter}}"
                               HorizontalContentAlignment="Stretch" Background="#36443d" Foreground="White" BorderThickness="0"
                               Margin="0,10,0,0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -246,6 +351,113 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
+                    <TextBlock Grid.Row="10" Text="감정 분석" FontWeight="Bold" Foreground="White" FontSize="16" Margin="0,20,0,10"/>
+
+                    <StackPanel Grid.Row="11" Orientation="Horizontal">
+                        <Button Content="감정 분석 실행"
+                            Command="{Binding DataContext.AnalyzeEmotionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            IsEnabled="{Binding IsAnalyzingEmotion, Converter={StaticResource InverseBooleanConverter}}"
+                            Margin="0,0,5,0" Width="100">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsEmotionAnalyzed}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+
+                        <Button Content="결과 확인"
+                            Command="{Binding ShowEmotionAnalysisCommand}"
+                            Margin="0,0,5,0" Width="100">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsEmotionAnalyzed}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ShowEmotionAnalysis}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+
+                        <Button Content="숨기기"
+                            Command="{Binding HideEmotionAnalysisCommand}"
+                            Margin="0,0,5,0" Width="100">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ShowEmotionAnalysis}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </StackPanel>
+
+                    <ListView Grid.Row="12" ItemsSource="{Binding EmotionAnalysisResults}"
+                          Visibility="{Binding ShowEmotionAnalysis, Converter={StaticResource BooleanToVisibilityConverter}}"
+                          HorizontalContentAlignment="Stretch" Background="#36443d" Foreground="White" BorderThickness="0"
+                          Margin="0,10,0,0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.Resources>
+                            <Style x:Key="TimestampButtonStyle" TargetType="Button">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <ContentPresenter />
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListView.Resources>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" 
+                                            Style="{StaticResource TimestampButtonStyle}" 
+                                            Command="{Binding DataContext.SeekToTimestampCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                                        <Button.CommandParameter>
+                                            <MultiBinding Converter="{StaticResource AbsoluteTimestampConverter}">
+                                                <!-- ElementName으로 VideoClip의 DataContext 참조 -->
+                                                <Binding Path="DataContext.StartPosition" ElementName="ClipEditorRoot" />
+                                                <Binding Path="Timestamp" />
+                                            </MultiBinding>
+                                        </Button.CommandParameter>
+                                        <TextBlock FontWeight="Bold" Foreground="SkyBlue">
+                                            <TextBlock.Text>
+                                                <MultiBinding Converter="{StaticResource AbsoluteTimestampConverter}" StringFormat="{}{0:F2}s">
+                                                    <MultiBinding.Bindings>
+                                                        <Binding Path="DataContext.StartPosition" ElementName="ClipEditorRoot" />
+                                                        <Binding Path="Timestamp" />
+                                                    </MultiBinding.Bindings>
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                    <Run Text=":"/>
+                                        </TextBlock>
+                                    </Button>
+                                    <TextBlock Grid.Column="1" Text="{Binding Emotion}" Margin="10,0,0,0" TextWrapping="Wrap"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
                 </Grid>
             </DataTemplate>
 

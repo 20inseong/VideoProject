@@ -130,6 +130,27 @@ namespace VideoEditor.Models
             set => SetProperty(ref _showTranscription, value);
         }
 
+        private bool _isAnalyzingEmotion;
+        public bool IsAnalyzingEmotion
+        {
+            get => _isAnalyzingEmotion;
+            set => SetProperty(ref _isAnalyzingEmotion, value);
+        }
+
+        private bool _isEmotionAnalyzed;
+        public bool IsEmotionAnalyzed
+        {
+            get => _isEmotionAnalyzed;
+            set => SetProperty(ref _isEmotionAnalyzed, value);
+        }
+
+        private bool _showEmotionAnalysis;
+        public bool ShowEmotionAnalysis
+        {
+            get => _showEmotionAnalysis;
+            set => SetProperty(ref _showEmotionAnalysis, value);
+        }
+
         private bool _isGeneratingWaveform;
         public bool IsGeneratingWaveform
         {
@@ -147,10 +168,16 @@ namespace VideoEditor.Models
         public IRelayCommand ShowTranscriptionCommand { get; }
         public IRelayCommand HideTranscriptionCommand { get; }
 
+        public IRelayCommand ShowEmotionAnalysisCommand { get; }
+        public IRelayCommand HideEmotionAnalysisCommand { get; }
+
         public TimelineClipBase()
         {
             ShowTranscriptionCommand = new RelayCommand(() => ShowTranscription = true);
             HideTranscriptionCommand = new RelayCommand(() => ShowTranscription = false);
+
+            ShowEmotionAnalysisCommand = new RelayCommand(() => ShowEmotionAnalysis = true);
+            HideEmotionAnalysisCommand = new RelayCommand(() => ShowEmotionAnalysis = false);
         }
 
         public abstract TimelineClipBase Clone();

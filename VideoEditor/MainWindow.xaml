@@ -229,6 +229,9 @@
         <Common:TimeToPixelConverter x:Key="TimeToPixelConverter" />
         <Common:TrackToPositionConverter x:Key="TrackToPositionConverter" />
         <Common:TypeToBoolConverter x:Key="TypeToBoolConverter" />
+        <Common:ColorToBrushConverter x:Key="ColorToBrushConverter" />
+        <Common:FontFamilyConverter x:Key="FontFamilyConverter" />
+        <Common:HalfValueConverter x:Key="HalfValueConverter" />
 
         <DataTemplate DataType="{x:Type viewmodels:PlayerViewModel}">
             <views:SpeedEditorView/>
@@ -482,13 +485,15 @@
 
                 <!-- 오른쪽 패널: 속성  -->
                 <Border Grid.Column="2" Grid.Row="0" Background="#36443d" BorderBrush="Black" BorderThickness="1" Panel.ZIndex="10">
-                    <ContentControl Content="{Binding EditorHost.CurrentEditor}">
-                        <ContentControl.Resources>
-                            <DataTemplate DataType="{x:Type models:TimelineClipBase}">
-                                <views:ClipEditorView/>
-                            </DataTemplate>
-                        </ContentControl.Resources>
-                    </ContentControl>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ContentControl Content="{Binding EditorHost.CurrentEditor}">
+                            <ContentControl.Resources>
+                                <DataTemplate DataType="{x:Type models:TimelineClipBase}">
+                                    <views:ClipEditorView/>
+                                </DataTemplate>
+                            </ContentControl.Resources>
+                        </ContentControl>
+                    </ScrollViewer>
                 </Border>
 
                 <Border Grid.Column="1" Grid.Row="1" Grid.ColumnSpan="2"

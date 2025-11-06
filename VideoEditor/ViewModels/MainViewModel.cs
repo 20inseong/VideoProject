@@ -36,6 +36,8 @@ namespace VideoEditor.ViewModels
     {
         private readonly ProjectService _projectService;
         private readonly FFmpegExportService _ffmpegExportService;
+        private readonly EmotionDetectTestDataService _emotionDetectService;
+
         public PlayerViewModel PlayerViewModel { get; }
         public VideoListViewModel VideoList { get; }
         public VideoEditorViewModel VideoEditor { get; }
@@ -45,6 +47,8 @@ namespace VideoEditor.ViewModels
         public IAsyncRelayCommand TranscribeVideoCommand { get; }
         public IAsyncRelayCommand SaveProjectCommand { get; }
         public IAsyncRelayCommand LoadProjectCommand { get; }
+        public IAsyncRelayCommand AnalyzeEmotionCommand { get; }
+        public IRelayCommand<double> SeekToTimestampCommand { get; }
 
         private bool _isTranscribing;
         public bool IsTranscribing
@@ -269,6 +273,8 @@ namespace VideoEditor.ViewModels
 
             _ffmpegExportService = new FFmpegExportService();
             _projectService = new ProjectService();
+            _emotionDetectService = new EmotionDetectTestDataService();
+
             PlayerViewModel = new PlayerViewModel();
             VideoList = new VideoListViewModel();
             VideoEditor = new VideoEditorViewModel(this);
@@ -329,6 +335,9 @@ namespace VideoEditor.ViewModels
             ExportVideoCommand = new AsyncRelayCommand(StartExportProcessAsync);
             TranscribeVideoCommand = new AsyncRelayCommand(TranscribeVideo);
 
+            AnalyzeEmotionCommand = new AsyncRelayCommand(AnalyzeEmotionAsync, CanAnalyzeEmotion);
+            SeekToTimestampCommand = new RelayCommand<double>(SeekToTimestamp);
+
             SaveProjectCommand = new AsyncRelayCommand(SaveProjectAsync);
             LoadProjectCommand = new AsyncRelayCommand(LoadProjectAsync);
 
@@ -342,6 +351,69 @@ namespace VideoEditor.ViewModels
             _scrubSeekTimer.Tick += ScrubSeekTimer_Tick;
 
             UpdateTotalTimelineDuration();
+        }
+
+        private void SeekToTimestamp(double timeInSeconds)
+        {
+            Debug.WriteLine($"[SeekToTimestamp] Received time: {timeInSeconds}");
+            Debug.WriteLine($"[SeekToTimestamp] Before - CurrentTimelinePosition: {CurrentTimelinePosition}");
+
+            SeekTimeline(timeInSeconds);
+
+            Debug.WriteLine($"[SeekToTimestamp] After - CurrentTimelinePosition: {CurrentTimelinePosition}");
+        }
+
+        private bool CanAnalyzeEmotion()
+        {
+            // 비디오 클립이 선택되었고, 아직 분석되지 않았을 때만 명령을 활성화합니다.
+            return VideoEditor.SelectedClip is VideoClip clip && !clip.IsEmotionAnalyzed;
+        }
+
+        private async Task AnalyzeEmotionAsync()
+        {
+            if (VideoEditor.SelectedClip is not VideoClip selectedClip) return;
+
+            selectedClip.IsAnalyzingEmotion = true;
+            StatusMessage = "클립 감정 분석 중...";
+            OnPropertyChanged(nameof(StatusMessage));
+
+            try
+            {
+                // 테스트 서비스를 호출하여 목업 데이터를 가져옵니다.
+                var allResults = await _emotionDetectService.AnalyzeVideoEmotionAsync(
+                    selectedClip.Name,
+                    selectedClip.Duration,
+                    30, // 예시 FPS
+                    120 // 예시 프레임 간격
+                );
+
+                // 현재 선택된 클립의 이름과 일치하는 결과만 필터링합니다.
+                var clipSpecificResults = allResults.Where(r => r.ClipTitle == selectedClip.Name).ToList();
+
+                // 결과를 클립의 컬렉션에 추가합니다.
+                selectedClip.EmotionAnalysisResults.Clear();
+                foreach (var result in clipSpecificResults)
+                {
+                    selectedClip.EmotionAnalysisResults.Add(result);
+                }
+
+                selectedClip.IsEmotionAnalyzed = true;
+                selectedClip.ShowEmotionAnalysis = true; // 분석 후 바로 결과를 보여줍니다.
+                StatusMessage = "클립 감정 분석 완료.";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "클립 감정 분석 실패.";
+                MessageBox.Show($"감정 분석 중 오류가 발생했습니다: {ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                selectedClip.IsEmotionAnalyzed = false;
+            }
+            finally
+            {
+                selectedClip.IsAnalyzingEmotion = false;
+                OnPropertyChanged(nameof(StatusMessage));
+                // Command의 CanExecute 상태를 갱신하도록 알립니다.
+                AnalyzeEmotionCommand.NotifyCanExecuteChanged();
+            }
         }
 
         private async Task SaveProjectAsync()
@@ -921,6 +993,14 @@ namespace VideoEditor.ViewModels
 
         public void SeekTimeline(double timeSec, bool isScrubbing = false)
         {
+            Debug.WriteLine($"[SeekTimeline] Setting CurrentTimelinePosition to: {timeSec}");
+            if (IsTimelinePlaying)
+            {
+                _timelineTimer.Stop();
+                PlayerViewModel.PauseAllPlayers();
+                IsTimelinePlaying = false;
+            }
+
             CurrentTimelinePosition = timeSec;
             SyncPlayersToTimeline();
         }
@@ -988,8 +1068,8 @@ namespace VideoEditor.ViewModels
                             }
                         }
                         ActiveVideoClips.Add(videoClip);
+                    }
                 }
-            }
 
             // --- WPF Overlays Management ---
             var wpfOverlaysToDeactivate = ActiveWpfOverlays.Except(activeWpfOverlays).ToList();
@@ -1009,7 +1089,7 @@ namespace VideoEditor.ViewModels
                     bool wasPlaying = player.IsPlaying;
                     player.SetRate((float)videoClip.SpeedRatio);
                     double timeWithinClip = CurrentTimelinePosition - videoClip.StartPosition;
-                    if (IsScrubbing || VideoEditor.IsDraggingClip)
+                    if (!IsTimelinePlaying)
                     {
                         // FIXED: Include SourceStartTime when seeking during scrubbing
                         double seekTime = videoClip.SourceStartTime + (timeWithinClip * videoClip.SpeedRatio);
@@ -1072,7 +1152,7 @@ namespace VideoEditor.ViewModels
                 if (player != null)
                 {
                     player.SetRate((float)clip.SpeedRatio);
-                    if (IsScrubbing || VideoEditor.IsDraggingClip)
+                    if (!IsTimelinePlaying)
                     {
                         double sourceStartTime = (clip is VideoClip vc) ? vc.SourceStartTime : (clip as AudioClip)?.SourceStartTime ?? 0;
                         double timeWithinClip = CurrentTimelinePosition - clip.StartPosition;

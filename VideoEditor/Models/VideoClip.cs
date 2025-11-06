@@ -22,6 +22,7 @@ namespace VideoEditor.Models
         public int SourceWidth { get; set; }
         public int SourceHeight { get; set; }
 
+        public ObservableCollection<EmotionAnalysisResult> EmotionAnalysisResults { get; set; } = new();
         public ObservableCollection<TranscriptionSegment> Transcription { get; set; } = new();
 
         [JsonIgnore]

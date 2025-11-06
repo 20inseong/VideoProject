@@ -599,23 +599,29 @@ namespace VideoEditor.Services
                     double renderHeight = textClip.RenderHeight * scaleY;
                     double fontSize = textClip.FontSize * scaleY;
 
+                    double rotatedCanvasWidth = Math.Abs(renderWidth * Math.Cos(textClip.Rotation * Math.PI / 180)) + Math.Abs(renderHeight * Math.Sin(textClip.Rotation * Math.PI / 180));
+                    double rotatedCanvasHeight = Math.Abs(renderWidth * Math.Sin(textClip.Rotation * Math.PI / 180)) + Math.Abs(renderHeight * Math.Cos(textClip.Rotation * Math.PI / 180));
+
                     // DrawingVisual을 사용하여 텍스트 렌더링
                     var drawingVisual = new DrawingVisual();
-                    using (DrawingContext drawingContext = drawingVisual.RenderOpen())
+                    using (DrawingContext dc = drawingVisual.RenderOpen())
                     {
                         // 배경 (검은색 반투명 박스)
-                        var backgroundBrush = new SolidColorBrush(Color.FromArgb(128, 0, 0, 0));
-                        var backgroundPen = new Pen(backgroundBrush, 10);
-                        drawingContext.DrawRectangle(backgroundBrush, backgroundPen, new Rect(0, 0, renderWidth, renderHeight));
+                        //var backgroundBrush = new SolidColorBrush(Color.FromArgb(128, 0, 0, 0));
+                        //var backgroundPen = new Pen(backgroundBrush, 10);
+
+                        var typeface = new Typeface(new FontFamily(textClip.FontFamily), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
+                        var textBrush = new SolidColorBrush(textClip.ForegroundColor);
+                        textBrush.Freeze();
 
                         // 텍스트
                         var formattedText = new FormattedText(
                             textClip.Text,
                             CultureInfo.CurrentCulture,
                             FlowDirection.LeftToRight,
-                            new Typeface("Malgun Gothic"),
+                            typeface,
                             fontSize,
-                            Brushes.White,
+                            textBrush,
                             VisualTreeHelper.GetDpi(drawingVisual).PixelsPerDip)
                         {
                             MaxTextWidth = renderWidth,
@@ -624,18 +630,33 @@ namespace VideoEditor.Services
                             Trimming = TextTrimming.None
                         };
 
-                        // 텍스트를 중앙에 배치
-                        double textX = 0;
-                        double textY = (renderHeight - formattedText.Height) / 2;
-                        drawingContext.DrawText(formattedText, new Point(textX, textY));
+                        // 5. 회전 및 투명도 적용
+                        double centerX = rotatedCanvasWidth / 2.0;
+                        double centerY = rotatedCanvasHeight / 2.0;
+
+                        // 5.1. 먼저 캔버스 중앙으로 이동
+                        dc.PushTransform(new TranslateTransform(centerX, centerY));
+                        // 5.2. 그 위치에서 회전
+                        dc.PushTransform(new RotateTransform(textClip.Rotation));
+                        // 5.3. 투명도 적용
+                        dc.PushOpacity(textClip.Opacity);
+
+                        double textX = -formattedText.Width / 2.0;
+                        double textY = -formattedText.Height / 2.0;
+                        dc.DrawText(formattedText, new Point(textX, textY));
+
+                        // 7. 적용했던 효과들을 원래대로 되돌림 (Pop)
+                        dc.Pop(); // Opacity
+                        dc.Pop(); // Rotation
+                        dc.Pop(); // Translation
                     }
 
                     // RenderTargetBitmap으로 비트맵 생성
                     var renderBitmap = new RenderTargetBitmap(
-                        (int)Math.Ceiling(renderWidth),
-                        (int)Math.Ceiling(renderHeight),
-                        96, 96,
-                        PixelFormats.Pbgra32);
+                       (int)Math.Ceiling(rotatedCanvasWidth),
+                       (int)Math.Ceiling(rotatedCanvasHeight),
+                       96, 96,
+                       PixelFormats.Pbgra32);
                     renderBitmap.Render(drawingVisual);
 
                     // PNG로 저장

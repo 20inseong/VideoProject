@@ -57,12 +57,19 @@
                         <TextBlock Text="{Binding Text}"
                                    Width="{Binding RenderWidth}"
                                    Height="{Binding RenderHeight}"
-                                   Foreground="White"
+                                   Foreground="{Binding ForegroundColor, Converter={StaticResource ColorToBrushConverter}}"
                                    FontSize="{Binding FontSize}"
                                    TextWrapping="Wrap"
                                    TextAlignment="Center"
                                    HorizontalAlignment="Left"
-                                   VerticalAlignment="Top">
+                                   VerticalAlignment="Top"
+                                   FontFamily="{Binding FontFamily}"
+                                   Opacity="{Binding Opacity}">
+                            <TextBlock.RenderTransform>
+                                <RotateTransform Angle="{Binding Rotation}"
+                                 CenterX="{Binding RenderWidth, Converter={StaticResource HalfValueConverter}}"
+                                 CenterY="{Binding RenderHeight, Converter={StaticResource HalfValueConverter}}" />
+                            </TextBlock.RenderTransform>
                             <adorners:AdornerService.IsAdornerEnabled>
                                 <Binding Path="IsSelected" />
                             </adorners:AdornerService.IsAdornerEnabled>

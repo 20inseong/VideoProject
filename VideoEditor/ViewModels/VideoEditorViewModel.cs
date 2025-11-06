@@ -99,6 +99,8 @@ namespace VideoEditor.ViewModels
                     (CopySelectedClipCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
 
                     (CreateSubtitlesFromTranscriptionCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
+
+                    (_mainViewModel.AnalyzeEmotionCommand as IRelayCommand)?.NotifyCanExecuteChanged();
                 }
             }
         }
