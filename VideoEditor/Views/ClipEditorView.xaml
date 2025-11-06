@@ -251,9 +251,9 @@
                         <Button Content="스크립트 생성"
                                 Command="{Binding DataContext.TranscribeVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 IsEnabled="{Binding IsTranscribing, Converter={StaticResource InverseBooleanConverter}, FallbackValue=True}"
-                                Margin="0,0,5,0" Width="100">
+                                Margin="0,0,5,0" Width="120">
                             <Button.Style>
-                                <Style TargetType="Button">
+                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                                     <Setter Property="Visibility" Value="Visible"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsTranscribed}" Value="True">
@@ -266,9 +266,9 @@
 
                         <Button Content="스크립트 확인"
                                 Command="{Binding ShowTranscriptionCommand}"
-                                Margin="0,0,5,0" Width="100">
+                                Margin="0,0,5,0" Width="120">
                             <Button.Style>
-                                <Style TargetType="Button">
+                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsTranscribed}" Value="True">
@@ -284,9 +284,9 @@
 
                         <Button Content="숨기기"
                                 Command="{Binding HideTranscriptionCommand}"
-                                Margin="0,0,5,0" Width="100">
+                                Margin="0,0,5,0" Width="120">
                             <Button.Style>
-                                <Style TargetType="Button">
+                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding ShowTranscription}" Value="True">
@@ -296,14 +296,14 @@
                                 </Style>
                             </Button.Style>
                         </Button>
+
                         <Button Content="자막으로 생성"
                                 Command="{Binding DataContext.VideoEditor.CreateSubtitlesFromTranscriptionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                Margin="5,0,0,0" Width="100">
+                                Margin="5,0,0,0" Width="120">
                             <Button.Style>
-                                <Style TargetType="Button">
+                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                     <Style.Triggers>
-                                        <!-- 스크립트가 표시될 때만 버튼이 보이도록 설정 -->
                                         <DataTrigger Binding="{Binding ShowTranscription}" Value="True">
                                             <Setter Property="Visibility" Value="Visible"/>
                                         </DataTrigger>
@@ -351,15 +351,21 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
-                    <TextBlock Grid.Row="10" Text="감정 분석" FontWeight="Bold" Foreground="White" FontSize="16" Margin="0,20,0,10"/>
+                    <!-- ✨ 새로 추가할 애니메이션이 포함된 감정 분석 섹션 -->
+                    <Grid Grid.Row="10" Grid.RowSpan="3" Margin="0,20,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Row="11" Orientation="Horizontal">
-                        <Button Content="감정 분석 실행"
-                            Command="{Binding DataContext.AnalyzeEmotionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                            IsEnabled="{Binding IsAnalyzingEmotion, Converter={StaticResource InverseBooleanConverter}}"
-                            Margin="0,0,5,0" Width="100">
+                        <!-- 1. 감정 분석 실행 버튼 (이전과 동일) -->
+                        <Button Grid.Row="0" Content="감정 분석 실행"
+                                Command="{Binding DataContext.AnalyzeEmotionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                IsEnabled="{Binding IsAnalyzingEmotion, Converter={StaticResource InverseBooleanConverter}}"
+                                Margin="0,0,0,10" HorizontalAlignment="Left" Width="120">
                             <Button.Style>
-                                <Style TargetType="Button">
+                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                                     <Setter Property="Visibility" Value="Visible"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsEmotionAnalyzed}" Value="True">
@@ -370,94 +376,171 @@
                             </Button.Style>
                         </Button>
 
-                        <Button Content="결과 확인"
-                            Command="{Binding ShowEmotionAnalysisCommand}"
-                            Margin="0,0,5,0" Width="100">
-                            <Button.Style>
-                                <Style TargetType="Button">
+                        <!-- 2. 분석 결과 토글 헤더 (분석 후에만 보임) -->
+                        <ToggleButton Grid.Row="1" x:Name="EmotionToggleHeader" Cursor="Hand">
+                            <!-- ... (ToggleButton 스타일은 이전과 동일) ... -->
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="HorizontalAlignment" Value="Stretch"/>
                                     <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <ContentPresenter/>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsEmotionAnalyzed}" Value="True">
                                             <Setter Property="Visibility" Value="Visible"/>
                                         </DataTrigger>
-                                        <DataTrigger Binding="{Binding ShowEmotionAnalysis}" Value="True">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                        </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </Button.Style>
-                        </Button>
+                            </ToggleButton.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <!-- 화살표 Path에 RotateTransform 추가 -->
+                                <Path x:Name="Arrow" Fill="White" VerticalAlignment="Center"
+                                      Width="8" Height="8" Data="M 0 0 L 0 8 L 4 4 Z">
+                                    <Path.RenderTransform>
+                                        <!-- 회전의 중심을 화살표의 중앙으로 설정 (가로 4, 세로 4) -->
+                                        <RotateTransform Angle="0" CenterX="4" CenterY="4" />
+                                    </Path.RenderTransform>
+                                </Path>
+                                <TextBlock Text="감정 분석 결과" FontWeight="Bold" Foreground="White" FontSize="16" Margin="10,0,0,0"/>
+                            </StackPanel>
+                        </ToggleButton>
 
-                        <Button Content="숨기기"
-                            Command="{Binding HideEmotionAnalysisCommand}"
-                            Margin="0,0,5,0" Width="100">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding ShowEmotionAnalysis}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                    </StackPanel>
+                        <!-- 3. 감정 분석 결과 ListView (애니메이션 적용) -->
+                        <!-- ClipToBounds=True를 설정하여 애니메이션이 영역을 벗어나지 않도록 함 -->
+                        <Border Grid.Row="2" ClipToBounds="True">
+                            <ListView ItemsSource="{Binding EmotionAnalysisResults}"
+                                      HorizontalContentAlignment="Stretch" Background="#36443d" Foreground="White" BorderThickness="0"
+                                      Margin="10,5,0,0" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                      RenderTransformOrigin="0.5,0">
+                                <!-- 애니메이션 기준점을 위쪽 중앙으로 설정 -->
+                                <ListView.Style>
+                                    <Style TargetType="ListView">
+                                        <!-- 초기 상태: 완전히 투명하고 세로 크기가 0 -->
+                                        <Setter Property="Opacity" Value="0"/>
+                                        <Setter Property="RenderTransform">
+                                            <Setter.Value>
+                                                <ScaleTransform ScaleY="0" />
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <!-- 토글이 켜지면 펼쳐지는 애니메이션 실행 -->
+                                            <DataTrigger Binding="{Binding ElementName=EmotionToggleHeader, Path=IsChecked}" Value="True">
+                                                <DataTrigger.EnterActions>
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <!-- 세로 크기를 0에서 1로 (원래 크기) -->
+                                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                                                             To="1" Duration="0:0:0.3">
+                                                                <DoubleAnimation.EasingFunction>
+                                                                    <CubicEase EasingMode="EaseOut"/>
+                                                                </DoubleAnimation.EasingFunction>
+                                                            </DoubleAnimation>
+                                                            <!-- 투명도를 0에서 1로 (선명하게) -->
+                                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                             To="1" Duration="0:0:0.2"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </DataTrigger.EnterActions>
+                                                <!-- 토글이 꺼지면 접히는 애니메이션 실행 -->
+                                                <DataTrigger.ExitActions>
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                                                             To="0" Duration="0:0:0.3">
+                                                                <DoubleAnimation.EasingFunction>
+                                                                    <CubicEase EasingMode="EaseIn"/>
+                                                                </DoubleAnimation.EasingFunction>
+                                                            </DoubleAnimation>
+                                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="0:0:0.2"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </DataTrigger.ExitActions>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListView.Style>
 
-                    <ListView Grid.Row="12" ItemsSource="{Binding EmotionAnalysisResults}"
-                          Visibility="{Binding ShowEmotionAnalysis, Converter={StaticResource BooleanToVisibilityConverter}}"
-                          HorizontalContentAlignment="Stretch" Background="#36443d" Foreground="White" BorderThickness="0"
-                          Margin="0,10,0,0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                        <ListView.Resources>
-                            <Style x:Key="TimestampButtonStyle" TargetType="Button">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="BorderThickness" Value="0"/>
-                                <Setter Property="Padding" Value="0"/>
-                                <Setter Property="Cursor" Value="Hand"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <ContentPresenter />
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListView.Resources>
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="5">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Button Grid.Column="0" 
-                                            Style="{StaticResource TimestampButtonStyle}" 
-                                            Command="{Binding DataContext.SeekToTimestampCommand, RelativeSource={RelativeSource AncestorType=Window}}">
-                                        <Button.CommandParameter>
-                                            <MultiBinding Converter="{StaticResource AbsoluteTimestampConverter}">
-                                                <!-- ElementName으로 VideoClip의 DataContext 참조 -->
-                                                <Binding Path="DataContext.StartPosition" ElementName="ClipEditorRoot" />
-                                                <Binding Path="Timestamp" />
-                                            </MultiBinding>
-                                        </Button.CommandParameter>
-                                        <TextBlock FontWeight="Bold" Foreground="SkyBlue">
-                                            <TextBlock.Text>
-                                                <MultiBinding Converter="{StaticResource AbsoluteTimestampConverter}" StringFormat="{}{0:F2}s">
-                                                    <MultiBinding.Bindings>
+                                <!-- ListView의 Resources와 ItemTemplate은 이전과 동일 -->
+                                <ListView.Resources>
+                                    <Style x:Key="TimestampButtonStyle" TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="Padding" Value="0"/>
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <ContentPresenter />
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListView.Resources>
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="5">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Button Grid.Column="0" Style="{StaticResource TimestampButtonStyle}" Command="{Binding DataContext.SeekToTimestampCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <Button.CommandParameter>
+                                                    <MultiBinding Converter="{StaticResource AbsoluteTimestampConverter}">
                                                         <Binding Path="DataContext.StartPosition" ElementName="ClipEditorRoot" />
                                                         <Binding Path="Timestamp" />
-                                                    </MultiBinding.Bindings>
-                                                </MultiBinding>
-                                            </TextBlock.Text>
-                                    <Run Text=":"/>
-                                        </TextBlock>
-                                    </Button>
-                                    <TextBlock Grid.Column="1" Text="{Binding Emotion}" Margin="10,0,0,0" TextWrapping="Wrap"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                                                    </MultiBinding>
+                                                </Button.CommandParameter>
+                                                <TextBlock FontWeight="Bold" Foreground="SkyBlue">
+                                                    <TextBlock.Text>
+                                                        <MultiBinding Converter="{StaticResource AbsoluteTimestampConverter}" StringFormat="{}{0:F2}s">
+                                                            <MultiBinding.Bindings>
+                                                                <Binding Path="DataContext.StartPosition" ElementName="ClipEditorRoot" />
+                                                                <Binding Path="Timestamp" />
+                                                            </MultiBinding.Bindings>
+                                                        </MultiBinding>
+                                                    </TextBlock.Text><Run Text=":"/></TextBlock>
+                                            </Button>
+                                            <TextBlock Grid.Column="1" Text="{Binding Emotion}" Margin="10,0,0,0" TextWrapping="Wrap"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Border>
 
+                        <!-- 화살표 회전 애니메이션 트리거 (Grid의 리소스에 추가) -->
+                        <Grid.Resources>
+                            <Style TargetType="Path">
+                                <Style.Triggers>
+                                    <!-- 토글 버튼이 체크되면(IsChecked=True) 화살표를 90도 회전 -->
+                                    <DataTrigger Binding="{Binding ElementName=EmotionToggleHeader, Path=IsChecked}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Angle" To="90" Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <!-- 토글 버튼이 해제되면 화살표를 다시 0도로 회전 -->
+                                        <DataTrigger.ExitActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Angle" To="0" Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Resources>
+                    </Grid>
                 </Grid>
             </DataTemplate>
 
