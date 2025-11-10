@@ -76,6 +76,9 @@ namespace VideoEditor.ViewModels
         public ObservableCollection<TimelineClipBase> ActiveVideoClips { get; } = new();
         public ObservableCollection<TimelineClipBase> ActiveWpfOverlays { get; } = new();
 
+        // Track when a video clip is being dragged in preview (to hide WPF overlays temporarily)
+        private bool _isVideoClipBeingDraggedInPreview = false;
+        private List<TimelineClipBase>? _wpfOverlaysHiddenDuringVideoDrag = null;
 
 
 
@@ -1654,6 +1657,41 @@ namespace VideoEditor.ViewModels
             IsPerformanceWarningVisible = true;
             await Task.Delay(5000); // Show the message for 5 seconds
             IsPerformanceWarningVisible = false;
+        }
+
+        public void StartVideoClipPreviewDrag()
+        {
+            if (_isVideoClipBeingDraggedInPreview) return; // Already dragging
+
+            _isVideoClipBeingDraggedInPreview = true;
+
+            // Save current WPF overlays and hide them
+            _wpfOverlaysHiddenDuringVideoDrag = new List<TimelineClipBase>(ActiveWpfOverlays);
+            ActiveWpfOverlays.Clear();
+
+            Debug.WriteLine("[VIDEO DRAG] Video clip drag started in preview - hiding WPF overlays");
+        }
+
+        public void EndVideoClipPreviewDrag()
+        {
+            if (!_isVideoClipBeingDraggedInPreview) return; // Not dragging
+
+            _isVideoClipBeingDraggedInPreview = false;
+
+            // Restore WPF overlays
+            if (_wpfOverlaysHiddenDuringVideoDrag != null)
+            {
+                foreach (var clip in _wpfOverlaysHiddenDuringVideoDrag)
+                {
+                    if (!ActiveWpfOverlays.Contains(clip))
+                    {
+                        ActiveWpfOverlays.Add(clip);
+                    }
+                }
+                _wpfOverlaysHiddenDuringVideoDrag = null;
+            }
+
+            Debug.WriteLine("[VIDEO DRAG] Video clip drag ended in preview - restoring WPF overlays");
         }
     }
 }

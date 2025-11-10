@@ -1028,6 +1028,14 @@ namespace VideoEditor
                     }
                 }
 
+                // ADDITIONAL CHECK: Don't hide if OverlayWindow is visible (even if not yet active)
+                // This prevents clearing overlays when clicking on the OverlayWindow
+                if (_overlayWindow != null && _overlayWindow.IsVisible)
+                {
+                    // Don't hide when interacting with overlay window
+                    return;
+                }
+
                 // Save and hide overlay objects only (keep video clips visible)
                 if ((_mainViewModel.ActiveWpfOverlays.Count > 0 || (_overlayWindow != null && _overlayWindow.IsVisible)) &&
                     _switchSavedActiveWpfOverlays == null)

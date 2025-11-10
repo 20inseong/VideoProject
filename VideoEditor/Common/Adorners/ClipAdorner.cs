@@ -51,6 +51,20 @@ namespace VideoEditor.Common.Adorners
             _bottomRight = GetResizeThumb(Cursors.SizeNWSE, HorizontalAlignment.Right, VerticalAlignment.Bottom);
             _middle = GetMoveThumb(Cursors.SizeAll);
 
+            // Add drag started/completed handlers for video clip overlay hiding
+            if (_clip is VideoClip)
+            {
+                _topLeft.DragStarted += Resize_DragStarted;
+                _topRight.DragStarted += Resize_DragStarted;
+                _bottomLeft.DragStarted += Resize_DragStarted;
+                _bottomRight.DragStarted += Resize_DragStarted;
+
+                _topLeft.DragCompleted += Resize_DragCompleted;
+                _topRight.DragCompleted += Resize_DragCompleted;
+                _bottomLeft.DragCompleted += Resize_DragCompleted;
+                _bottomRight.DragCompleted += Resize_DragCompleted;
+            }
+
             _topLeft.DragDelta += TopLeft_DragDelta;
             _topRight.DragDelta += TopRight_DragDelta;
             _bottomLeft.DragDelta += BottomLeft_DragDelta;
@@ -65,6 +79,34 @@ namespace VideoEditor.Common.Adorners
             _visuals.Add(_topRight);
             _visuals.Add(_bottomLeft);
             _visuals.Add(_bottomRight);
+        }
+
+        private void Resize_DragStarted(object sender, DragStartedEventArgs e)
+        {
+            if (_clip is VideoClip)
+            {
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
+                    {
+                        mainViewModel.StartVideoClipPreviewDrag();
+                    }
+                });
+            }
+        }
+
+        private void Resize_DragCompleted(object sender, DragCompletedEventArgs e)
+        {
+            if (_clip is VideoClip)
+            {
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
+                    {
+                        mainViewModel.EndVideoClipPreviewDrag();
+                    }
+                });
+            }
         }
 
         private Thumb GetResizeThumb(Cursor cursor, HorizontalAlignment horizontalAlignment, VerticalAlignment verticalAlignment)
@@ -309,6 +351,18 @@ namespace VideoEditor.Common.Adorners
             // Store initial position when drag starts
             _initialX = _clip.X;
             _initialY = _clip.Y;
+
+            // If this is a VideoClip, notify MainViewModel to hide WPF overlays
+            if (_clip is VideoClip)
+            {
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
+                    {
+                        mainViewModel.StartVideoClipPreviewDrag();
+                    }
+                });
+            }
         }
 
         private void Middle_DragDelta(object sender, DragDeltaEventArgs e)
@@ -322,6 +376,18 @@ namespace VideoEditor.Common.Adorners
 
         private void Middle_DragCompleted(object sender, DragCompletedEventArgs e)
         {
+            // If this is a VideoClip, notify MainViewModel to restore WPF overlays
+            if (_clip is VideoClip)
+            {
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
+                    {
+                        mainViewModel.EndVideoClipPreviewDrag();
+                    }
+                });
+            }
+
             // Force final update when drag completes to ensure accurate clipping
             if (_clip is VideoClip)
             {
