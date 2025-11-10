@@ -232,6 +232,7 @@
         <Common:ColorToBrushConverter x:Key="ColorToBrushConverter" />
         <Common:FontFamilyConverter x:Key="FontFamilyConverter" />
         <Common:HalfValueConverter x:Key="HalfValueConverter" />
+        <Common:ClipZIndexConverter x:Key="ClipZIndexConverter" />
 
         <DataTemplate DataType="{x:Type viewmodels:PlayerViewModel}">
             <views:SpeedEditorView/>
@@ -398,7 +399,7 @@
                                 <Grid x:Name="VideoPlayerHost" Width="1920" Height="1080" ClipToBounds="True">
                                     <Border Background="{Binding PlayerViewModel.VideoViewBackground}" ClipToBounds="True" />
                                     <!-- Video clips inside Viewbox -->
-                                    <views:VideoPreviewOverlay DataContext="{Binding}" ClipToBounds="True" />
+                                    <views:VideoPreviewOverlay DataContext="{Binding}" ClipToBounds="True" IsHitTestVisible="False" />
                                 </Grid>
                             </Viewbox>
 
@@ -538,12 +539,18 @@
                         <!-- 시간 눈금자 -->
                         <Grid Grid.Row="1" Background="Transparent">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="50"/>
+                                <!-- 트랙 번호 영역 -->
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
+                            
+                            <!-- 트랙 번호 헤더 영역 (빈 공간) -->
+                            <Border Grid.Column="0" Background="#3E3E42" BorderBrush="#2D2D30" BorderThickness="0,0,1,0"/>
+                            
                             <ScrollViewer x:Name="RulerScrollViewer"
-                                          Grid.Column="0"
+                                          Grid.Column="1"
                                           HorizontalScrollBarVisibility="Hidden"
                                           VerticalScrollBarVisibility="Disabled"
                                           Height="40"
@@ -560,14 +567,14 @@
                             </ScrollViewer>
 
                             <Thumb x:Name="TimelineResizeThumb"
-                                   Grid.Column="1"
+                                   Grid.Column="2"
                                    Width="10"
                                    Cursor="SizeWE"
                                    DragDelta="TimelineResizeThumb_DragDelta"
                                    Background="LightGray"/>
 
                             <TextBox x:Name="TimelineDurationTextBox"
-                                     Grid.Column="2"
+                                     Grid.Column="3"
                                      Width="80"
                                      VerticalAlignment="Center"
                                      GotFocus="TimelineDurationTextBox_GotFocus"
@@ -576,18 +583,60 @@
                                      Text="{Binding TotalTimelineDurationMs, Converter={StaticResource Converter}, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
                         </Grid>
 
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="50"/>
+                                <!-- 트랙 번호 영역 -->
+                                <ColumnDefinition Width="*"/>
+                                <!-- 타임라인 영역 -->
+                            </Grid.ColumnDefinitions>
+                            
+                            <!-- 트랙 번호 레이블 (스크롤과 독립적) -->
+                            <Border Grid.Column="0" Background="#3E3E42" BorderBrush="#2D2D30" BorderThickness="0,0,1,0">
+                                <ScrollViewer x:Name="TrackLabelsScrollViewer"
+                                            VerticalScrollBarVisibility="Hidden"
+                                            HorizontalScrollBarVisibility="Hidden"
+                                            IsHitTestVisible="False">
+                                    <Canvas x:Name="TrackLabelsCanvas" Width="50" Height="540" Background="Transparent">
+                                        <!-- 트랙 구분선들 -->
+                                        <Line X1="0" Y1="0" X2="50" Y2="0" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="60" X2="50" Y2="60" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="120" X2="50" Y2="120" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="180" X2="50" Y2="180" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="240" X2="50" Y2="240" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="300" X2="50" Y2="300" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="360" X2="50" Y2="360" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="420" X2="50" Y2="420" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="480" X2="50" Y2="480" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="540" X2="50" Y2="540" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        
+                                        <!-- 트랙 번호 텍스트 -->
+                                        <TextBlock Canvas.Left="20" Canvas.Top="20" Text="1" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="80" Text="2" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="140" Text="3" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="200" Text="4" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="260" Text="5" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="320" Text="6" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="380" Text="7" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="440" Text="8" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="500" Text="9" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                    </Canvas>
+                                </ScrollViewer>
+                            </Border>
+
                         <ScrollViewer x:Name="TimelineScrollViewer"
-                                      Grid.Row="2"
+                                      Grid.Column="1"
                                       HorizontalScrollBarVisibility="Auto"
                                       VerticalScrollBarVisibility="Auto"
                                       AllowDrop="True"
                                       Background="Transparent">
 
                             <!-- 모든 타임라인 요소를 담을 Grid -->
-                            <Grid x:Name="TimelineCanvas" Height="300" 
+                            <Grid x:Name="TimelineCanvas" Height="540" 
                                   Background="Transparent"
                                   AllowDrop="True"
                                   DragOver="Timeline_DragOver"
+                                  PreviewMouseLeftButtonDown="TimelineCanvas_PreviewMouseLeftButtonDown"
                                   HorizontalAlignment="Left">
                                 <b:Interaction.Triggers>
                                     <b:EventTrigger EventName="Drop">
@@ -596,10 +645,32 @@
                                     </b:EventTrigger>
                                 </b:Interaction.Triggers>
 
+                                <!-- 트랙 구분선들 (배경) -->
+                                <Canvas x:Name="TrackLinesCanvas" 
+                                        Height="540"
+                                        IsHitTestVisible="False"
+                                        Panel.ZIndex="1">
+                                    <Line X1="0" Y1="0" X2="10000" Y2="0" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="60" X2="10000" Y2="60" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="120" X2="10000" Y2="120" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="180" X2="10000" Y2="180" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="240" X2="10000" Y2="240" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="300" X2="10000" Y2="300" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="360" X2="10000" Y2="360" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="420" X2="10000" Y2="420" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="480" X2="10000" Y2="480" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="540" X2="10000" Y2="540" Stroke="#2D2D30" StrokeThickness="1"/>
+                                </Canvas>
+
                                 <Canvas x:Name="PlayheadCanvas"
-                                        Height="300"
+                                        Height="540"
                                         IsHitTestVisible="False"
                                         Panel.ZIndex="20"/>
+                                
+                                <Canvas x:Name="SelectionCanvas"
+                                        Height="540"
+                                        IsHitTestVisible="False"
+                                        Panel.ZIndex="15"/>
 
                                 <ItemsControl x:Name="ClipsItemsControl" 
                                               ItemsSource="{Binding VideoEditor.TimelineClips}"
@@ -616,12 +687,14 @@
                                         <Style TargetType="ContentPresenter">
                                             <Setter Property="Canvas.Left" Value="{Binding StartPosition, Converter={StaticResource TimeToPixelConverter}}"/>
                                             <Setter Property="Canvas.Top" Value="{Binding TrackIndex, Converter={StaticResource TrackToPositionConverter}}"/>
+                                            <Setter Property="Panel.ZIndex" Value="{Binding ., Converter={StaticResource ClipZIndexConverter}}" />
                                         </Style>
                                     </ItemsControl.ItemContainerStyle>
 
                                 </ItemsControl>
                             </Grid>
                         </ScrollViewer>
+                        </Grid>
                     </Grid>
                 </Border>
             </Grid>

@@ -408,20 +408,20 @@ namespace VideoEditor.ViewModels
             StatusMessage = "클립 감정 분석 중...";
             OnPropertyChanged(nameof(StatusMessage));
 
+            // Hide preview objects during analysis (script generation style)
+            HidePreviewObjectsForModal();
+
             try
             {
-                // 테스트 서비스를 호출하여 목업 데이터를 가져옵니다.
                 var allResults = await _emotionDetectService.AnalyzeVideoEmotionAsync(
                     selectedClip.Name,
                     selectedClip.Duration,
-                    30, // 예시 FPS
-                    120 // 예시 프레임 간격
+                    30,
+                    120
                 );
 
-                // 현재 선택된 클립의 이름과 일치하는 결과만 필터링합니다.
                 var clipSpecificResults = allResults.Where(r => r.ClipTitle == selectedClip.Name).ToList();
 
-                // 결과를 클립의 컬렉션에 추가합니다.
                 selectedClip.EmotionAnalysisResults.Clear();
                 foreach (var result in clipSpecificResults)
                 {
@@ -429,22 +429,71 @@ namespace VideoEditor.ViewModels
                 }
 
                 selectedClip.IsEmotionAnalyzed = true;
-                selectedClip.ShowEmotionAnalysis = true; // 분석 후 바로 결과를 보여줍니다.
+                selectedClip.ShowEmotionAnalysis = true;
                 StatusMessage = "클립 감정 분석 완료.";
             }
             catch (Exception ex)
             {
                 StatusMessage = "클립 감정 분석 실패.";
+                HidePreviewObjectsForModal();
                 MessageBox.Show($"감정 분석 중 오류가 발생했습니다: {ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                RestorePreviewObjectsAfterModal();
                 selectedClip.IsEmotionAnalyzed = false;
             }
             finally
             {
                 selectedClip.IsAnalyzingEmotion = false;
                 OnPropertyChanged(nameof(StatusMessage));
-                // Command의 CanExecute 상태를 갱신하도록 알립니다.
                 AnalyzeEmotionCommand.NotifyCanExecuteChanged();
+                RestorePreviewObjectsAfterModal();
             }
+        }
+
+        public void HidePreviewObjectsForModal()
+        {
+            if (_savedActiveVideoClips == null)
+                _savedActiveVideoClips = new List<TimelineClipBase>(ActiveVideoClips);
+            if (_savedActiveWpfOverlays == null)
+                _savedActiveWpfOverlays = new List<TimelineClipBase>(ActiveWpfOverlays);
+
+            ActiveVideoClips.Clear();
+            ActiveWpfOverlays.Clear();
+
+            var overlayWindow = _mainWindow?.OwnedWindows.OfType<Views.OverlayWindow>().FirstOrDefault();
+            if (overlayWindow != null && overlayWindow.IsVisible)
+            {
+                _wasOverlayVisible = true;
+                overlayWindow.Hide();
+            }
+        }
+
+        public void RestorePreviewObjectsAfterModal()
+        {
+            // Do NOT restore ActiveVideoClips directly; force a clean rebuild to avoid stale MediaPlayer handles
+            _savedActiveVideoClips = null;
+
+            if (_savedActiveWpfOverlays != null)
+            {
+                foreach (var clip in _savedActiveWpfOverlays)
+                    ActiveWpfOverlays.Add(clip);
+                _savedActiveWpfOverlays = null;
+            }
+            var overlayWindow = _mainWindow?.OwnedWindows.OfType<Views.OverlayWindow>().FirstOrDefault();
+            if (overlayWindow != null && _wasOverlayVisible)
+            {
+                overlayWindow.Show();
+                _wasOverlayVisible = false;
+            }
+            UIDispatcher.InvokeAsync(async () =>
+            {
+                // Full re-sync: stop, clear view list, rebuild active players and views
+                PlayerViewModel.Stop();
+                _activeVisualClipPlayers.Clear();
+                _activeAudioPlayers.Clear();
+                ActiveVideoClips.Clear();
+                await Task.Delay(100);
+                SyncPlayersToTimeline();
+            });
         }
 
         private async Task SaveProjectAsync()
@@ -453,12 +502,14 @@ namespace VideoEditor.ViewModels
 
             if (isProjectEmpty)
             {
+                HidePreviewObjectsForModal();
                 var result = MessageBox.Show(
                     "프로젝트에 추가된 미디어나 타임라인 클립이 없습니다. 그래도 저장하시겠습니까?",
                     "빈 프로젝트 저장 확인",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Question
                 );
+                RestorePreviewObjectsAfterModal();
 
                 if (result == MessageBoxResult.No)
                 {
@@ -475,7 +526,11 @@ namespace VideoEditor.ViewModels
                 FileName = "MyProject.fcp"
             };
 
-            if (saveFileDialog.ShowDialog(_mainWindow) != true) return;
+            HidePreviewObjectsForModal();
+            bool? dialogResult = saveFileDialog.ShowDialog(_mainWindow);
+            RestorePreviewObjectsAfterModal();
+
+            if (dialogResult != true) return;
 
             var projectData = new ProjectSaveData
             {
@@ -485,14 +540,15 @@ namespace VideoEditor.ViewModels
 
             try
             {
-                // 복잡한 로직은 서비스에 위임합니다.
                 await _projectService.SaveProjectAsync(projectData, saveFileDialog.FileName);
                 StatusMessage = $"프로젝트가 성공적으로 저장되었습니다.";
             }
             catch (Exception ex)
             {
                 StatusMessage = "프로젝트 저장 중 오류 발생.";
+                HidePreviewObjectsForModal();
                 MessageBox.Show($"프로젝트 저장에 실패했습니다: {ex.Message}", "저장 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                RestorePreviewObjectsAfterModal();
             }
             finally
             {
@@ -504,21 +560,22 @@ namespace VideoEditor.ViewModels
         {
             var openFileDialog = new OpenFileDialog
             {
-                // 이 부분을 원하는 이름과 확장자로 바꾸세요.
                 Filter = "FrameCraft 프로젝트 (*.fcp)|*.fcp",
                 Title = "프로젝트 열기"
             };
 
-            if (openFileDialog.ShowDialog(_mainWindow) != true) return;
+            HidePreviewObjectsForModal();
+            bool? dialogResult = openFileDialog.ShowDialog(_mainWindow);
+            RestorePreviewObjectsAfterModal();
+
+            if (dialogResult != true) return;
 
             try
             {
-                // 복잡한 로직은 서비스에 위임합니다.
                 var projectData = await _projectService.LoadProjectAsync(openFileDialog.FileName);
 
                 if (projectData != null)
                 {
-                    // 불러온 데이터로 현재 상태를 교체합니다.
                     VideoEditor.TimelineClips.Clear();
                     VideoList.MyVideoes.Clear();
 
@@ -535,7 +592,9 @@ namespace VideoEditor.ViewModels
             catch (Exception ex)
             {
                 StatusMessage = "프로젝트 불러오기 중 오류 발생.";
+                HidePreviewObjectsForModal();
                 MessageBox.Show($"프로젝트를 불러오는 데 실패했습니다: {ex.Message}", "불러오기 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                RestorePreviewObjectsAfterModal();
             }
             finally
             {
@@ -635,7 +694,9 @@ namespace VideoEditor.ViewModels
 
             if (selectedClip == null)
             {
+                HidePreviewObjectsForModal();
                 MessageBox.Show("타임라인에서 비디오 또는 오디오 클립을 선택해주세요.", "클립 선택 필요", MessageBoxButton.OK, MessageBoxImage.Warning);
+                RestorePreviewObjectsAfterModal();
                 return;
             }
 
@@ -650,15 +711,30 @@ namespace VideoEditor.ViewModels
             }
             else
             {
+                HidePreviewObjectsForModal();
                 MessageBox.Show("선택된 클립은 음성 텍스트 변환을 지원하지 않습니다.", "지원되지 않는 클립", MessageBoxButton.OK, MessageBoxImage.Warning);
+                RestorePreviewObjectsAfterModal();
                 return;
             }
 
             if (string.IsNullOrEmpty(mediaPath))
             {
+                HidePreviewObjectsForModal();
                 MessageBox.Show("선택된 클립의 미디어 경로를 찾을 수 없습니다.", "경로 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                RestorePreviewObjectsAfterModal();
                 return;
             }
+
+            // Pause playback before starting transcription UI
+            if (IsTimelinePlaying)
+            {
+                _timelineTimer.Stop();
+                PlayerViewModel.PauseAllPlayers();
+                IsTimelinePlaying = false;
+            }
+
+            // Hide preview objects during script generation (transcription)
+            HidePreviewObjectsForModal();
 
             _transcriptionProgressWindow = new TranscriptionProgressWindow
             {
@@ -729,18 +805,36 @@ namespace VideoEditor.ViewModels
 
                 _transcriptionProgressWindow?.Close();
                 _transcriptionProgressWindow = null;
+
+                // Restore preview objects after work completes
+                RestorePreviewObjectsAfterModal();
             }
         }
 
 
 
+        // Store saved preview state for restoration after export
+        private List<TimelineClipBase>? _savedActiveVideoClips;
+        private List<TimelineClipBase>? _savedActiveWpfOverlays;
+        private bool _wasOverlayVisible;
+
         private async Task StartExportProcessAsync()
         {
+            // Pause playback if currently playing before starting export
+            if (IsTimelinePlaying)
+            {
+                _timelineTimer.Stop();
+                PlayerViewModel.PauseAllPlayers();
+                IsTimelinePlaying = false;
+            }
+
             _exportCts = new CancellationTokenSource();
 
             if (_mainWindow == null)
             {
+                HidePreviewObjectsForModal();
                 MessageBox.Show("오류: 메인 윈도우를 찾을 수 없습니다.");
+                RestorePreviewObjectsAfterModal();
                 return;
             }
 
@@ -751,13 +845,20 @@ namespace VideoEditor.ViewModels
                 FileName = "output.mp4"
             };
 
-            if (saveFileDialog.ShowDialog(_mainWindow) != true)
+            // Hide preview objects while selecting path; keep hidden if proceeding to render
+            HidePreviewObjectsForModal();
+            bool? dialogResult = saveFileDialog.ShowDialog(_mainWindow);
+            if (dialogResult != true)
             {
+                // Restore only on cancel/close of dialog
+                RestorePreviewObjectsAfterModal();
                 _exportCts.Dispose();
                 _exportCts = null;
                 return;
             }
 
+            // Proceed to render: keep preview hidden until user clicks '확인' on progress window
+            IsExporting = true;
             string outputPath = saveFileDialog.FileName;
             var progressViewModel = new ExportProgressViewModel(() => _exportCts.Cancel());
             ExportStarted?.Invoke(this, new ExportStartedEventArgs(progressViewModel));
@@ -775,19 +876,16 @@ namespace VideoEditor.ViewModels
 
                 if (success)
                 {
-                    // 성공 시, 진행률 ViewModel의 상태를 '완료'로 변경
-                    progressViewModel.StatusMessage = $"성공! 영상이 '{saveFileDialog.FileName}'에 저장되었습니다.";
-                    progressViewModel.IsFinished = true;
+                    progressViewModel.StatusMessage = $"성공! 영상이 '{saveFileDialog.FileName}'에 저장되었습니다. 미리보기는 '확인' 버튼을 누르면 복원됩니다.";
+                    progressViewModel.IsFinished = true; // Do NOT restore here
                 }
                 else
                 {
-                    // 실패 또는 취소 시, 진행률 ViewModel의 상태를 '완료'로 변경
-                    // (StatusMessage는 이미 서비스에서 설정했음)
                     if (!_exportCts.Token.IsCancellationRequested)
                     {
-                        progressViewModel.StatusMessage = $"오류: 렌더링에 실패했습니다."; // 예시
+                        progressViewModel.StatusMessage = $"오류: 렌더링에 실패했습니다.";
                     }
-                    progressViewModel.IsFinished = true;
+                    progressViewModel.IsFinished = true; // Still wait for user to close window
                 }
             }
             catch (Exception ex)
@@ -803,8 +901,14 @@ namespace VideoEditor.ViewModels
                 _exportCts = null;
                 IsExporting = false;
 
-                //ExportFinished?.Invoke(this, EventArgs.Empty);
+                // NOTE: 오버레이 객체 복원은 완료 버튼 클릭 시 수행됨 (RestorePreviewObjects 메서드)
             }
+        }
+
+        // Deprecated: use RestorePreviewObjectsAfterModal for robust rebuild
+        public void RestorePreviewObjects()
+        {
+            RestorePreviewObjectsAfterModal();
         }
 
 

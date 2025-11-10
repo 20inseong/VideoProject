@@ -142,12 +142,51 @@ namespace VideoEditor.Common
         {
             if (value is int trackIndex)
             {
-                return -trackIndex;
+                // Return trackIndex as-is so higher track numbers appear on top
+                // Track 0 = ZIndex 0 (bottom), Track 8 = ZIndex 8 (top)
+                return trackIndex;
             }
             return 0;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converter that sets Z-Index based on TrackIndex and Selection state
+    /// Selected clips get a boost to appear on top
+    /// </summary>
+    public class OverlayZIndexConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (values.Length < 2)
+                return 0;
+
+            int trackIndex = 0;
+            bool isSelected = false;
+
+            if (values[0] is int ti)
+                trackIndex = ti;
+            
+            if (values[1] is bool sel)
+                isSelected = sel;
+
+            // Base Z-Index: higher track index appears on top (Track 0 = bottom, Track 8 = top)
+            int baseZ = trackIndex * 10;
+            
+            // If selected, add a modest boost to bring it above siblings on the same track
+            // But keep it below 100 to avoid blocking UI elements
+            if (isSelected)
+                baseZ += 50;
+
+            return baseZ;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
         }
@@ -189,8 +228,9 @@ namespace VideoEditor.Common
 
                 if (clip is VideoClip)
                 {
-                    // Video clips get a penalty to appear behind other overlays on the same track
-                    return baseZ - 5;
+                    // Video clips get a BOOST to appear in front of other overlays on the same track
+                    // This ensures video clips receive mouse events first in the timeline
+                    return baseZ + 5;
                 }
                 else // ImageClips, TextClips, etc.
                 {

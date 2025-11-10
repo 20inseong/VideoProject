@@ -10,9 +10,10 @@
         mc:Ignorable="d"
         Title="OverlayWindow"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        Topmost="False" ShowInTaskbar="False">
+        Topmost="True" ShowInTaskbar="False">
     <Window.Resources>
         <common:InverseTrackIndexConverter x:Key="InverseTrackIndexConverter" />
+        <common:OverlayZIndexConverter x:Key="OverlayZIndexConverter" />
         <common:OpacityPercentToDecimalConverter x:Key="OpacityPercentToDecimalConverter" />
     </Window.Resources>
     <Grid Background="Transparent">
@@ -96,8 +97,15 @@
                 <Style TargetType="ContentPresenter">
                     <Setter Property="Canvas.Left" Value="{Binding X}" />
                     <Setter Property="Canvas.Top" Value="{Binding Y}" />
-                    <!-- ZIndex can be used here normally as all items are WPF-native -->
-                    <Setter Property="Canvas.ZIndex" Value="{Binding TrackIndex, Converter={StaticResource InverseTrackIndexConverter}}" />
+                    <!-- ZIndex considers both TrackIndex and IsSelected state -->
+                    <Setter Property="Canvas.ZIndex">
+                        <Setter.Value>
+                            <MultiBinding Converter="{StaticResource OverlayZIndexConverter}">
+                                <Binding Path="TrackIndex" />
+                                <Binding Path="IsSelected" />
+                            </MultiBinding>
+                        </Setter.Value>
+                    </Setter>
                 </Style>
             </ItemsControl.ItemContainerStyle>
         </ItemsControl>

@@ -238,9 +238,13 @@ namespace VideoEditor.ViewModels
             var originalVideoClip = (VideoClip)SelectedClip;
 
             int audioTrackIndex = originalVideoClip.TrackIndex + 1;
-            if (audioTrackIndex > 4)
+            if (audioTrackIndex > 8)
             {
+                _mainViewModel.HidePreviewObjectsForModal();
+                _mainViewModel.HidePreviewObjectsForModal();
                 MessageBox.Show("클립 바로 아래에 오디오를 추가할 트랙이 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _mainViewModel.RestorePreviewObjectsAfterModal();
+                _mainViewModel.RestorePreviewObjectsAfterModal();
                 return;
             }
 
@@ -252,7 +256,11 @@ namespace VideoEditor.ViewModels
 
             if (isTrackOccupied)
             {
+                _mainViewModel.HidePreviewObjectsForModal();
+                _mainViewModel.HidePreviewObjectsForModal();
                 MessageBox.Show("클립 바로 아래 트랙의 해당 시간대에 다른 클립이 있어 오디오를 분리할 수 없습니다.", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _mainViewModel.RestorePreviewObjectsAfterModal();
+                _mainViewModel.RestorePreviewObjectsAfterModal();
                 return;
             }
 
@@ -370,11 +378,19 @@ namespace VideoEditor.ViewModels
 
             if (segments == null) return;
 
+            _mainViewModel.HidePreviewObjectsForModal();
+            // Ensure playback is paused before popup
+            if (_mainViewModel.IsTimelinePlaying)
+            {
+                _mainViewModel.StopPlayback();
+            }
+            _mainViewModel.HidePreviewObjectsForModal();
             var result = MessageBox.Show(
                 $"{segments.Count}개의 자막 클립을 타임라인에 추가하시겠습니까?",
                 "자막 생성 확인",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
+            _mainViewModel.RestorePreviewObjectsAfterModal();
 
             if (result == MessageBoxResult.No) return;
 
@@ -468,9 +484,9 @@ namespace VideoEditor.ViewModels
 
         private int FindAvailableTrack(double startTime, double duration, int startTrack, int direction)
         {
-            if (direction > 0) // 위에서 아래로 (0 -> 4)
+            if (direction > 0) // 위에서 아래로 (0 -> 8)
             {
-                for (int track = startTrack; track <= 4; track++)
+                for (int track = startTrack; track <= 8; track++)
                 {
                     bool isOccupied = TimelineClips.Any(c =>
                         c.TrackIndex == track &&
@@ -479,7 +495,7 @@ namespace VideoEditor.ViewModels
                     if (!isOccupied) return track;
                 }
             }
-            else // 아래에서 위로 (4 -> 0)
+            else // 아래에서 위로 (8 -> 0)
             {
                 for (int track = startTrack; track >= 0; track--)
                 {
@@ -491,7 +507,7 @@ namespace VideoEditor.ViewModels
                 }
             }
             // 모든 트랙이 꽉 찼으면 원래 시작하려던 트랙을 반환
-            return Math.Clamp(startTrack, 0, 4);
+            return Math.Clamp(startTrack, 0, 8);
         }
 
         private void ExecuteDeleteSelectedClip(object? _)
@@ -745,7 +761,7 @@ namespace VideoEditor.ViewModels
                             if (DraggedClipsOriginalState.TryGetValue(clip, out var originalState))
                             {
                                 double desiredStartPosition = originalState.OriginalStart + deltaTime;
-                                int newTrackIndex = Math.Clamp(originalState.OriginalTrack + deltaTrack, 0, 4);
+                                int newTrackIndex = Math.Clamp(originalState.OriginalTrack + deltaTrack, 0, 8);
 
                                 clip.StartPosition = Math.Max(0, desiredStartPosition);
                                 clip.TrackIndex = newTrackIndex;
@@ -893,8 +909,10 @@ namespace VideoEditor.ViewModels
                     if (duration <= 0 || media.Tracks == null || !media.Tracks.Any(t => t.TrackType == TrackType.Video))
                     {
                         Debug.WriteLine($"[Validation] 손상되었거나 비디오 트랙이 없는 파일은 건너뜁니다: {video.FullPath}");
-                        MessageBox.Show($"'{System.IO.Path.GetFileName(video.FullPath)}' 파일이 손상되었거나 비디오 트랙이 없어 타임라인에 추가할 수 없습니다.",
+                        _mainViewModel.HidePreviewObjectsForModal();
+                MessageBox.Show($"'{System.IO.Path.GetFileName(video.FullPath)}' 파일이 손상되었거나 비디오 트랙이 없어 타임라인에 추가할 수 없습니다.",
                                         "비디오 추가 실패", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _mainViewModel.RestorePreviewObjectsAfterModal();
                         return null;
                     }
                 }
@@ -950,8 +968,10 @@ namespace VideoEditor.ViewModels
             catch (Exception ex)
             {
                 Debug.WriteLine($"비디오 정보 로드 중 오류 발생 (손상 가능성 있음): {ex.Message}");
+                _mainViewModel.HidePreviewObjectsForModal();
                 MessageBox.Show($"'{System.IO.Path.GetFileName(video.FullPath)}' 파일을 처리하는 중 오류가 발생했습니다. 파일이 손상되었을 수 있습니다.",
                                 "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                _mainViewModel.RestorePreviewObjectsAfterModal();
                 return null;
             }
 
@@ -1389,6 +1409,26 @@ namespace VideoEditor.ViewModels
             {
                 (CreateSubtitlesFromTranscriptionCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
             }
+        }
+        
+        /// <summary>
+        /// Updates internal selected clips list and synchronizes selection state.
+        /// Used by rectangle selection in MainWindow.
+        /// </summary>
+        public void SynchronizeSelectedClips()
+        {
+            _selectedClips.Clear();
+            foreach (var clip in TimelineClips.Where(c => c.IsSelected))
+            {
+                _selectedClips.Add(clip);
+            }
+            
+            SelectedClip = _selectedClips.LastOrDefault();
+            
+            // Update command states
+            GroupSelectedClipsCommand.NotifyCanExecuteChanged();
+            UngroupSelectedClipsCommand.NotifyCanExecuteChanged();
+            SeparateAudioCommand.NotifyCanExecuteChanged();
         }
 
         public void Dispose()

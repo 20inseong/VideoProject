@@ -373,20 +373,20 @@ namespace VideoEditor.Services
 
             // Z-order 관리: 비디오 클립 → (이미지 + 텍스트 혼합) 순서
             // 비디오는 항상 맨 아래, 이미지와 텍스트는 TrackIndex에 따라 함께 정렬
-            // TrackIndex 내림차순 정렬: Track 4 → 3 → 2 → 1 → 0 순서로 오버레이
-            // 나중에 오버레이될수록 위에 표시되므로 Track 0이 맨 위에 표시됨
+            // TrackIndex 오름차순 정렬: Track 0 → 1 → 2 → 3 → 4 순서로 오버레이
+            // 나중에 오버레이될수록 위에 표시되므로 Track 0이 맨 아래, Track 4가 맨 위에 표시됨
             
-            // 1. 비디오 클립들 (TrackIndex 내림차순 - 높은 번호부터)
+            // 1. 비디오 클립들 (TrackIndex 오름차순 - 낮은 번호부터)
             var videoClips = clips
                 .OfType<VideoClip>()
                 .Where(c => clipIdToProcessedStreamMap.ContainsKey(c.Id))
-                .OrderByDescending(c => c.TrackIndex) // 내림차순으로 변경
+                .OrderBy(c => c.TrackIndex) // 오름차순
                 .ToList();
 
-            // 2. 이미지와 텍스트 클립들을 함께 정렬 (TrackIndex 내림차순 - 높은 번호부터)
+            // 2. 이미지와 텍스트 클립들을 함께 정렬 (TrackIndex 오름차순 - 낮은 번호부터)
             var overlayClips = clips
                 .Where(c => (c is ImageClip || c is TextClip) && clipIdToProcessedStreamMap.ContainsKey(c.Id))
-                .OrderByDescending(c => c.TrackIndex) // 내림차순으로 변경
+                .OrderBy(c => c.TrackIndex) // 오름차순으로 변경
                 .ToList();
 
             // 1단계: 비디오 클립들 먼저 오버레이 (맨 아래)
