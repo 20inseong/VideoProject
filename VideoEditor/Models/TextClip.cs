@@ -16,7 +16,7 @@ namespace VideoEditor.Models
             set => SetProperty(ref _text, value);
         }
 
-        private double _fontSize = 14.0;
+        private double _fontSize = 48.0; // 1080p 기준으로 적절한 크기
         public double FontSize
         {
             get => _fontSize;

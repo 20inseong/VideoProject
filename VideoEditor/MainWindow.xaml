@@ -391,9 +391,16 @@
                             <!-- 영상 조작 UI (StackPanel) -->
                         </Grid.RowDefinitions>
 
-                        <Grid Grid.Row="0" Margin="5,5,5,0" x:Name="VideoPlayerHost" ClipToBounds="True">
-                            <Border Background="{Binding PlayerViewModel.VideoViewBackground}" ClipToBounds="True" />
-                            <views:VideoPreviewOverlay DataContext="{Binding}" ClipToBounds="True" />
+                        <!-- 16:9 비율을 유지하는 컨테이너 -->
+                        <Grid Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center" ClipToBounds="True">
+                            <!-- Viewbox로 16:9 비율 유지 -->
+                            <Viewbox Stretch="Uniform" x:Name="PreviewViewbox">
+                                <Grid x:Name="VideoPlayerHost" Width="1920" Height="1080" ClipToBounds="True">
+                                    <Border Background="{Binding PlayerViewModel.VideoViewBackground}" ClipToBounds="True" />
+                                    <!-- Video clips inside Viewbox -->
+                                    <views:VideoPreviewOverlay DataContext="{Binding}" ClipToBounds="True" />
+                                </Grid>
+                            </Viewbox>
 
                             <!-- Performance Warning Overlay -->
                             <Border Background="#80000000" CornerRadius="5"
@@ -409,13 +416,13 @@
                             <!-- 자막을 Popup 컨트롤 안에 배치 -->
                             <Popup x:Name="SubtitlePopup"
                                    IsOpen="{Binding IsTextVisible, Mode=OneWay}"
-                                   PlacementTarget="{Binding ElementName=VideoPlayerHost}"
+                                   PlacementTarget="{Binding ElementName=PreviewViewbox}"
                                    Placement="Relative"
                                    AllowsTransparency="True">
 
                                 <!-- Popup 내부의 Grid가 비디오 영역과 동일한 크기를 갖도록 설정 -->
-                                <Grid Width="{Binding ElementName=VideoPlayerHost, Path=ActualWidth}"
-                                      Height="{Binding ElementName=VideoPlayerHost, Path=ActualHeight}">
+                                <Grid Width="{Binding ElementName=PreviewViewbox, Path=ActualWidth}"
+                                      Height="{Binding ElementName=PreviewViewbox, Path=ActualHeight}">
 
                                     <Border Margin="10" Padding="10,5" CornerRadius="5"
                                             HorizontalAlignment="Center"

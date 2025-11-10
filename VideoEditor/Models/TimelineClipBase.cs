@@ -52,6 +52,13 @@ namespace VideoEditor.Models
         private double _renderHeight;
         public double RenderHeight { get => _renderHeight; set => SetProperty(ref _renderHeight, value); }
 
+        // Reference position and size (relative to reference preview size)
+        // These are used to maintain consistent scaling when window size changes
+        public double ReferenceX { get; set; }
+        public double ReferenceY { get; set; }
+        public double ReferenceRenderWidth { get; set; }
+        public double ReferenceRenderHeight { get; set; }
+
         public double Scale { get; set; } = 1.0;
         
         // Track if this clip has been manually positioned by the user

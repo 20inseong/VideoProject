@@ -108,92 +108,175 @@ namespace VideoEditor.Common.Adorners
 
         private void TopLeft_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            double newWidth = _clip.RenderWidth - e.HorizontalChange;
-            double newHeight = newWidth / _aspectRatio;
-
-            if (newWidth > 0 && newHeight > 0)
+            // TextClip은 비율 무시, 자유롭게 크기 조절
+            if (_clip is TextClip)
             {
-                double widthChange = _clip.RenderWidth - newWidth;
-                double heightChange = _clip.RenderHeight - newHeight;
-                
-                _clip.X += widthChange;
-                _clip.Y += heightChange;
-                _clip.RenderWidth = newWidth;
-                _clip.RenderHeight = newHeight;
-                
-                // ImageClip인 경우 CustomWidth/Height도 업데이트
-                if (_clip is ImageClip imageClip)
+                double newWidth = _clip.RenderWidth - e.HorizontalChange;
+                double newHeight = _clip.RenderHeight - e.VerticalChange;
+
+                if (newWidth > 20 && newHeight > 20) // 최소 크기
                 {
-                    imageClip.UpdateCustomSizeFromRenderSize();
+                    double widthChange = _clip.RenderWidth - newWidth;
+                    double heightChange = _clip.RenderHeight - newHeight;
+                    
+                    _clip.X += widthChange;
+                    _clip.Y += heightChange;
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    ForceClipUpdate();
                 }
-                
-                ForceClipUpdate();
+            }
+            else
+            {
+                // VideoClip, ImageClip은 비율 유지
+                double newWidth = _clip.RenderWidth - e.HorizontalChange;
+                double newHeight = newWidth / _aspectRatio;
+
+                if (newWidth > 0 && newHeight > 0)
+                {
+                    double widthChange = _clip.RenderWidth - newWidth;
+                    double heightChange = _clip.RenderHeight - newHeight;
+                    
+                    _clip.X += widthChange;
+                    _clip.Y += heightChange;
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    // ImageClip인 경우 CustomWidth/Height도 업데이트
+                    if (_clip is ImageClip imageClip)
+                    {
+                        imageClip.UpdateCustomSizeFromRenderSize();
+                    }
+                    
+                    ForceClipUpdate();
+                }
             }
         }
 
         private void TopRight_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            double newWidth = _clip.RenderWidth + e.HorizontalChange;
-            double newHeight = newWidth / _aspectRatio;
-
-            if (newWidth > 0 && newHeight > 0)
+            // TextClip은 비율 무시, 자유롭게 크기 조절
+            if (_clip is TextClip)
             {
-                double heightChange = _clip.RenderHeight - newHeight;
-                
-                _clip.Y += heightChange;
-                _clip.RenderWidth = newWidth;
-                _clip.RenderHeight = newHeight;
-                
-                // ImageClip인 경우 CustomWidth/Height도 업데이트
-                if (_clip is ImageClip imageClip)
+                double newWidth = _clip.RenderWidth + e.HorizontalChange;
+                double newHeight = _clip.RenderHeight - e.VerticalChange;
+
+                if (newWidth > 20 && newHeight > 20) // 최소 크기
                 {
-                    imageClip.UpdateCustomSizeFromRenderSize();
+                    double heightChange = _clip.RenderHeight - newHeight;
+                    
+                    _clip.Y += heightChange;
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    ForceClipUpdate();
                 }
-                
-                ForceClipUpdate();
+            }
+            else
+            {
+                // VideoClip, ImageClip은 비율 유지
+                double newWidth = _clip.RenderWidth + e.HorizontalChange;
+                double newHeight = newWidth / _aspectRatio;
+
+                if (newWidth > 0 && newHeight > 0)
+                {
+                    double heightChange = _clip.RenderHeight - newHeight;
+                    
+                    _clip.Y += heightChange;
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    // ImageClip인 경우 CustomWidth/Height도 업데이트
+                    if (_clip is ImageClip imageClip)
+                    {
+                        imageClip.UpdateCustomSizeFromRenderSize();
+                    }
+                    
+                    ForceClipUpdate();
+                }
             }
         }
 
         private void BottomLeft_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            double newWidth = _clip.RenderWidth - e.HorizontalChange;
-            double newHeight = newWidth / _aspectRatio;
-
-            if (newWidth > 0 && newHeight > 0)
+            // TextClip은 비율 무시, 자유롭게 크기 조절
+            if (_clip is TextClip)
             {
-                double widthChange = _clip.RenderWidth - newWidth;
-                
-                _clip.X += widthChange;
-                _clip.RenderWidth = newWidth;
-                _clip.RenderHeight = newHeight;
-                
-                // ImageClip인 경우 CustomWidth/Height도 업데이트
-                if (_clip is ImageClip imageClip)
+                double newWidth = _clip.RenderWidth - e.HorizontalChange;
+                double newHeight = _clip.RenderHeight + e.VerticalChange;
+
+                if (newWidth > 20 && newHeight > 20) // 최소 크기
                 {
-                    imageClip.UpdateCustomSizeFromRenderSize();
+                    double widthChange = _clip.RenderWidth - newWidth;
+                    
+                    _clip.X += widthChange;
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    ForceClipUpdate();
                 }
-                
-                ForceClipUpdate();
+            }
+            else
+            {
+                // VideoClip, ImageClip은 비율 유지
+                double newWidth = _clip.RenderWidth - e.HorizontalChange;
+                double newHeight = newWidth / _aspectRatio;
+
+                if (newWidth > 0 && newHeight > 0)
+                {
+                    double widthChange = _clip.RenderWidth - newWidth;
+                    
+                    _clip.X += widthChange;
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    // ImageClip인 경우 CustomWidth/Height도 업데이트
+                    if (_clip is ImageClip imageClip)
+                    {
+                        imageClip.UpdateCustomSizeFromRenderSize();
+                    }
+                    
+                    ForceClipUpdate();
+                }
             }
         }
 
         private void BottomRight_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            double newWidth = _clip.RenderWidth + e.HorizontalChange;
-            double newHeight = newWidth / _aspectRatio;
-
-            if (newWidth > 0 && newHeight > 0)
+            // TextClip은 비율 무시, 자유롭게 크기 조절
+            if (_clip is TextClip)
             {
-                _clip.RenderWidth = newWidth;
-                _clip.RenderHeight = newHeight;
-                
-                // ImageClip인 경우 CustomWidth/Height도 업데이트
-                if (_clip is ImageClip imageClip)
+                double newWidth = _clip.RenderWidth + e.HorizontalChange;
+                double newHeight = _clip.RenderHeight + e.VerticalChange;
+
+                if (newWidth > 20 && newHeight > 20) // 최소 크기
                 {
-                    imageClip.UpdateCustomSizeFromRenderSize();
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    ForceClipUpdate();
                 }
-                
-                ForceClipUpdate();
+            }
+            else
+            {
+                // VideoClip, ImageClip은 비율 유지
+                double newWidth = _clip.RenderWidth + e.HorizontalChange;
+                double newHeight = newWidth / _aspectRatio;
+
+                if (newWidth > 0 && newHeight > 0)
+                {
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    // ImageClip인 경우 CustomWidth/Height도 업데이트
+                    if (_clip is ImageClip imageClip)
+                    {
+                        imageClip.UpdateCustomSizeFromRenderSize();
+                    }
+                    
+                    ForceClipUpdate();
+                }
             }
         }
         

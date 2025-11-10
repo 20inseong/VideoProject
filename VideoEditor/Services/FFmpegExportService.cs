@@ -21,9 +21,6 @@ namespace VideoEditor.Services
         private const double OutputWidth = 1920.0;
         private const double OutputHeight = 1080.0;
 
-        private const double PreviewWidth = 800.0;
-        private const double PreviewHeight = 450.0;
-
         private readonly string _ffmpegPath;
 
         public FFmpegExportService()
@@ -36,7 +33,9 @@ namespace VideoEditor.Services
             double totalDurationSeconds,
             string outputPath,
             ExportProgressViewModel progressViewModel,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            double previewWidth = 800.0,
+            double previewHeight = 450.0)
         {
             if (!clips.Any())
             {
@@ -56,7 +55,7 @@ namespace VideoEditor.Services
             try
             {
                 progressViewModel.StatusMessage = "내보내기 준비 중...";
-                var (inputArguments, filterComplex) = await BuildFFmpegArguments(clips, totalDurationSeconds, tempDirectory, cancellationToken);
+                var (inputArguments, filterComplex) = await BuildFFmpegArguments(clips, totalDurationSeconds, tempDirectory, cancellationToken, previewWidth, previewHeight);
 
                 var tempScriptPath = Path.Combine(tempDirectory, "filter_script.txt");
                 await File.WriteAllTextAsync(tempScriptPath, filterComplex, cancellationToken);
@@ -119,7 +118,11 @@ namespace VideoEditor.Services
 
                             string tempDirectory,
 
-                            CancellationToken cancellationToken)
+                            CancellationToken cancellationToken,
+
+                            double previewWidth,
+
+                            double previewHeight)
 
                         {
 
@@ -224,8 +227,8 @@ namespace VideoEditor.Services
                             int fileIndex = inputFiles.IndexOf(vc.VideoPath);
                             double sourceDuration = vc.Duration * vc.SpeedRatio;
 
-                            double scaleX = OutputWidth / PreviewWidth;
-                            double scaleY = OutputHeight / PreviewHeight;
+                            double scaleX = OutputWidth / previewWidth;
+                            double scaleY = OutputHeight / previewHeight;
 
                             double targetWidth = vc.RenderWidth * scaleX;
                             double targetHeight = vc.RenderHeight * scaleY;
@@ -253,8 +256,8 @@ namespace VideoEditor.Services
                         {
                             int fileIndex = inputFiles.IndexOf(ic.ImagePath);
 
-                            double scaleX = OutputWidth / PreviewWidth;
-                            double scaleY = OutputHeight / PreviewHeight;
+                            double scaleX = OutputWidth / previewWidth;
+                            double scaleY = OutputHeight / previewHeight;
 
                             double targetWidth, targetHeight;
                             
@@ -362,28 +365,28 @@ namespace VideoEditor.Services
             string lastVideoStream = "[base_v]";
             int overlayCounter = 0;
 
-            double positionScaleX = OutputWidth / PreviewWidth;
-            double positionScaleY = OutputHeight / PreviewHeight;
+            double positionScaleX = OutputWidth / previewWidth;
+            double positionScaleY = OutputHeight / previewHeight;
 
             // 한글 폰트(맑은 고딕)를 사용하도록 수정합니다.
             string fontPath = "C:/Windows/Fonts/malgun.ttf".Replace(":", "\\:");
 
             // Z-order 관리: 비디오 클립 → (이미지 + 텍스트 혼합) 순서
             // 비디오는 항상 맨 아래, 이미지와 텍스트는 TrackIndex에 따라 함께 정렬
-            // TrackIndex 오름차순 정렬: Track 4 → 3 → 2 → 1 → 0 순서로 오버레이
+            // TrackIndex 내림차순 정렬: Track 4 → 3 → 2 → 1 → 0 순서로 오버레이
             // 나중에 오버레이될수록 위에 표시되므로 Track 0이 맨 위에 표시됨
             
-            // 1. 비디오 클립들 (TrackIndex 오름차순)
+            // 1. 비디오 클립들 (TrackIndex 내림차순 - 높은 번호부터)
             var videoClips = clips
                 .OfType<VideoClip>()
                 .Where(c => clipIdToProcessedStreamMap.ContainsKey(c.Id))
-                .OrderBy(c => c.TrackIndex)
+                .OrderByDescending(c => c.TrackIndex) // 내림차순으로 변경
                 .ToList();
 
-            // 2. 이미지와 텍스트 클립들을 함께 정렬 (TrackIndex 오름차순)
+            // 2. 이미지와 텍스트 클립들을 함께 정렬 (TrackIndex 내림차순 - 높은 번호부터)
             var overlayClips = clips
                 .Where(c => (c is ImageClip || c is TextClip) && clipIdToProcessedStreamMap.ContainsKey(c.Id))
-                .OrderBy(c => c.TrackIndex)
+                .OrderByDescending(c => c.TrackIndex) // 내림차순으로 변경
                 .ToList();
 
             // 1단계: 비디오 클립들 먼저 오버레이 (맨 아래)
@@ -425,25 +428,33 @@ namespace VideoEditor.Services
                     string ffmpegY = targetY.ToString("F2", culture);
                     string enableOption = $"enable='between(t,{imageClip.StartPosition.ToString("F6", culture)},{(imageClip.StartPosition + imageClip.Duration).ToString("F6", culture)})'";
                     filterComplex.AppendLine($"{lastVideoStream}{streamToOverlay} overlay=x={ffmpegX}:y={ffmpegY}:{enableOption} {nextVideoStream};");
+                    
+                    lastVideoStream = nextVideoStream;
+                    overlayCounter++;
                 }
                 else if (clip is TextClip textClip)
                 {
-                    double targetX = textClip.X * positionScaleX;
-                    double targetY = textClip.Y * positionScaleY;
-                    
-                    string ffmpegX_text = targetX.ToString("F2", culture);
-                    string ffmpegY_text = targetY.ToString("F2", culture);
-
-                    // 사용자가 설정한 폰트 크기 사용 (기본값: 24)
-                    double finalFontSize = textClip.FontSize * positionScaleY;
-
-                    string enable_text = $"enable='between(t,{textClip.StartPosition.ToString("F6", culture)},{(textClip.StartPosition + textClip.Duration).ToString("F6", culture)})'";
-                    
                     // 텍스트를 이미지로 렌더링하여 오버레이
-                    string textImagePath = await RenderTextToImage(textClip, tempDirectory, textFileCounter, positionScaleX, positionScaleY);
+                    var (textImagePath, textOffsetX, textOffsetY) = await RenderTextToImage(textClip, tempDirectory, textFileCounter, positionScaleX, positionScaleY);
                     
                     if (!string.IsNullOrEmpty(textImagePath))
                     {
+                        // TextClip.X, Y는 텍스트 박스의 좌상단 위치
+                        // 실제 텍스트는 박스 내부에서 중앙 정렬되므로 오프셋을 더해야 함
+                        double targetX = (textClip.X * positionScaleX) + textOffsetX;
+                        double targetY = (textClip.Y * positionScaleY) + textOffsetY;
+                        
+                        Console.WriteLine($"[EXPORT OVERLAY] TextClip overlay position:");
+                        Console.WriteLine($"  - Original X/Y: {textClip.X:F2}, {textClip.Y:F2}");
+                        Console.WriteLine($"  - Scale X/Y: {positionScaleX:F4}, {positionScaleY:F4}");
+                        Console.WriteLine($"  - Offset X/Y: {textOffsetX:F2}, {textOffsetY:F2}");
+                        Console.WriteLine($"  - Target X/Y: {targetX:F2}, {targetY:F2}");
+                        
+                        string ffmpegX_text = targetX.ToString("F2", culture);
+                        string ffmpegY_text = targetY.ToString("F2", culture);
+                        
+                        string enable_text = $"enable='between(t,{textClip.StartPosition.ToString("F6", culture)},{(textClip.StartPosition + textClip.Duration).ToString("F6", culture)})'";
+                        
                         // 이미지를 입력 파일로 추가
                         int textImageIndex = inputFiles.Count;
                         inputFiles.Add(textImagePath);
@@ -454,15 +465,14 @@ namespace VideoEditor.Services
                         filterComplex.AppendLine($"[{textImageIndex}:v] loop=loop=-1:size=1,trim=duration={totalDurationSeconds.ToString("F6", culture)},setpts=PTS-STARTPTS [{textStreamId}];");
                         filterComplex.AppendLine($"{lastVideoStream}[{textStreamId}] overlay=x={ffmpegX_text}:y={ffmpegY_text}:{enable_text} {nextVideoStream};");
                         
+                        Console.WriteLine($"  - FFmpeg overlay: x={ffmpegX_text}:y={ffmpegY_text}");
+                        
                         lastVideoStream = nextVideoStream;
                         overlayCounter++;
                     }
                     
                     textFileCounter++;
                 }
-                
-                lastVideoStream = nextVideoStream;
-                overlayCounter++;
             }
             filterComplex.AppendLine($"{lastVideoStream}trim=duration={totalDurationSeconds.ToString("F6", culture)}[final_v];");
             filterComplex.AppendLine($"{string.Join("", audioStreamsToMix)}amix=inputs={audioStreamsToMix.Count}:duration=first:dropout_transition=3[final_a];");
@@ -586,78 +596,135 @@ namespace VideoEditor.Services
             }
         }
 
-        private async Task<string> RenderTextToImage(TextClip textClip, string tempDirectory, int counter, double scaleX, double scaleY)
+        private async Task<(string imagePath, double offsetX, double offsetY)> RenderTextToImage(TextClip textClip, string tempDirectory, int counter, double scaleX, double scaleY)
         {
             try
             {
                 string imagePath = Path.Combine(tempDirectory, $"text_{counter}.png");
+                double offsetX = 0;
+                double offsetY = 0;
+
+                Console.WriteLine($"\n[EXPORT TEXT] Rendering TextClip '{textClip.Text}'");
+                Console.WriteLine($"  - Original: X={textClip.X:F2}, Y={textClip.Y:F2}, W={textClip.RenderWidth:F2}, H={textClip.RenderHeight:F2}");
+                Console.WriteLine($"  - Scale: X={scaleX:F4}, Y={scaleY:F4}");
+                Console.WriteLine($"  - Rotation: {textClip.Rotation:F2}°");
 
                 await UIDispatcher.InvokeAsync(() =>
                 {
-                    // 텍스트 렌더링을 위한 크기 계산
+                    // 텍스트 렌더링을 위한 크기 계산 (스케일 적용)
                     double renderWidth = textClip.RenderWidth * scaleX;
                     double renderHeight = textClip.RenderHeight * scaleY;
                     double fontSize = textClip.FontSize * scaleY;
+                    
+                    Console.WriteLine($"  - Scaled: W={renderWidth:F2}, H={renderHeight:F2}, FontSize={fontSize:F2}");
+                    
+                    // 패딩 적용 (OverlayWindow와 동일하게)
+                    double paddingX = 10 * scaleX;
+                    double paddingY = 5 * scaleY;
 
-                    double rotatedCanvasWidth = Math.Abs(renderWidth * Math.Cos(textClip.Rotation * Math.PI / 180)) + Math.Abs(renderHeight * Math.Sin(textClip.Rotation * Math.PI / 180));
-                    double rotatedCanvasHeight = Math.Abs(renderWidth * Math.Sin(textClip.Rotation * Math.PI / 180)) + Math.Abs(renderHeight * Math.Cos(textClip.Rotation * Math.PI / 180));
+                    var typeface = new Typeface(new FontFamily(textClip.FontFamily), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
+                    var textBrush = new SolidColorBrush(textClip.ForegroundColor);
+                    textBrush.Freeze();
+
+                    // 먼저 FormattedText를 생성하여 실제 텍스트 크기를 측정
+                    var dpiInfo = VisualTreeHelper.GetDpi(Application.Current.MainWindow);
+                    var formattedText = new FormattedText(
+                        textClip.Text,
+                        CultureInfo.CurrentCulture,
+                        FlowDirection.LeftToRight,
+                        typeface,
+                        fontSize,
+                        textBrush,
+                        dpiInfo.PixelsPerDip)
+                    {
+                        TextAlignment = TextAlignment.Left,
+                        Trimming = TextTrimming.None
+                    };
+
+                    // 실제 텍스트 크기 (패딩 포함) - WidthIncludingTrailingWhitespace 사용
+                    double actualTextWidth = formattedText.WidthIncludingTrailingWhitespace + (paddingX * 2);
+                    double actualTextHeight = formattedText.Height + (paddingY * 2);
+                    
+                    // 최소 크기 보장
+                    actualTextWidth = Math.Max(actualTextWidth, 50);
+                    actualTextHeight = Math.Max(actualTextHeight, 30);
+
+                    // RenderWidth x RenderHeight 영역 내에서 텍스트가 중앙에 위치할 때의 오프셋
+                    offsetX = (renderWidth - actualTextWidth) / 2.0;
+                    offsetY = (renderHeight - actualTextHeight) / 2.0;
+
+                    Console.WriteLine($"  - Actual text size: W={actualTextWidth:F2}, H={actualTextHeight:F2}");
+                    Console.WriteLine($"  - Offset in box: X={offsetX:F2}, Y={offsetY:F2}");
+
+                    // 회전을 고려한 캔버스 크기 계산
+                    double canvasWidth = actualTextWidth;
+                    double canvasHeight = actualTextHeight;
+                    
+                    // 회전이 있는 경우 캔버스 크기를 대각선 길이로 확장
+                    if (Math.Abs(textClip.Rotation) > 0.01)
+                    {
+                        // 대각선 길이 계산 (회전해도 잘리지 않도록)
+                        double diagonal = Math.Sqrt(actualTextWidth * actualTextWidth + actualTextHeight * actualTextHeight);
+                        canvasWidth = diagonal;
+                        canvasHeight = diagonal;
+                        
+                        // 오프셋도 조정 (확장된 캔버스에 맞춰)
+                        double widthDiff = canvasWidth - actualTextWidth;
+                        double heightDiff = canvasHeight - actualTextHeight;
+                        offsetX -= widthDiff / 2.0;
+                        offsetY -= heightDiff / 2.0;
+                    }
 
                     // DrawingVisual을 사용하여 텍스트 렌더링
                     var drawingVisual = new DrawingVisual();
                     using (DrawingContext dc = drawingVisual.RenderOpen())
                     {
-                        // 배경 (검은색 반투명 박스)
-                        //var backgroundBrush = new SolidColorBrush(Color.FromArgb(128, 0, 0, 0));
-                        //var backgroundPen = new Pen(backgroundBrush, 10);
+                        // 투명 배경
+                        dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, canvasWidth, canvasHeight));
 
-                        var typeface = new Typeface(new FontFamily(textClip.FontFamily), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
-                        var textBrush = new SolidColorBrush(textClip.ForegroundColor);
-                        textBrush.Freeze();
-
-                        // 텍스트
-                        var formattedText = new FormattedText(
-                            textClip.Text,
-                            CultureInfo.CurrentCulture,
-                            FlowDirection.LeftToRight,
-                            typeface,
-                            fontSize,
-                            textBrush,
-                            VisualTreeHelper.GetDpi(drawingVisual).PixelsPerDip)
+                        // 회전 처리
+                        if (Math.Abs(textClip.Rotation) > 0.01)
                         {
-                            MaxTextWidth = renderWidth,
-                            MaxTextHeight = renderHeight,
-                            TextAlignment = TextAlignment.Center,
-                            Trimming = TextTrimming.None
-                        };
-
-                        // 5. 회전 및 투명도 적용
-                        double centerX = rotatedCanvasWidth / 2.0;
-                        double centerY = rotatedCanvasHeight / 2.0;
-
-                        // 5.1. 먼저 캔버스 중앙으로 이동
-                        dc.PushTransform(new TranslateTransform(centerX, centerY));
-                        // 5.2. 그 위치에서 회전
-                        dc.PushTransform(new RotateTransform(textClip.Rotation));
-                        // 5.3. 투명도 적용
-                        dc.PushOpacity(textClip.Opacity);
-
-                        double textX = -formattedText.Width / 2.0;
-                        double textY = -formattedText.Height / 2.0;
-                        dc.DrawText(formattedText, new Point(textX, textY));
-
-                        // 7. 적용했던 효과들을 원래대로 되돌림 (Pop)
-                        dc.Pop(); // Opacity
-                        dc.Pop(); // Rotation
-                        dc.Pop(); // Translation
+                            double centerX = canvasWidth / 2.0;
+                            double centerY = canvasHeight / 2.0;
+                            
+                            dc.PushTransform(new TranslateTransform(centerX, centerY));
+                            dc.PushTransform(new RotateTransform(textClip.Rotation));
+                            dc.PushOpacity(textClip.Opacity);
+                            
+                            // 텍스트를 중앙에 배치
+                            double textX = -formattedText.WidthIncludingTrailingWhitespace / 2.0;
+                            double textY = -formattedText.Height / 2.0;
+                            dc.DrawText(formattedText, new Point(textX, textY));
+                            
+                            dc.Pop(); // Opacity
+                            dc.Pop(); // Rotation
+                            dc.Pop(); // Translation
+                        }
+                        else
+                        {
+                            // 회전 없음 - 캔버스 중앙에 텍스트 배치
+                            dc.PushOpacity(textClip.Opacity);
+                            
+                            // 캔버스 중앙에 텍스트 배치
+                            double textX = (canvasWidth - formattedText.WidthIncludingTrailingWhitespace) / 2.0;
+                            double textY = (canvasHeight - formattedText.Height) / 2.0;
+                            dc.DrawText(formattedText, new Point(textX, textY));
+                            
+                            dc.Pop(); // Opacity
+                        }
                     }
 
                     // RenderTargetBitmap으로 비트맵 생성
                     var renderBitmap = new RenderTargetBitmap(
-                       (int)Math.Ceiling(rotatedCanvasWidth),
-                       (int)Math.Ceiling(rotatedCanvasHeight),
+                       (int)Math.Ceiling(canvasWidth),
+                       (int)Math.Ceiling(canvasHeight),
                        96, 96,
                        PixelFormats.Pbgra32);
                     renderBitmap.Render(drawingVisual);
+
+                    Console.WriteLine($"  - Image size: {renderBitmap.PixelWidth}x{renderBitmap.PixelHeight}");
+                    Console.WriteLine($"  - Saved to: {imagePath}");
 
                     // PNG로 저장
                     using (var fileStream = new FileStream(imagePath, FileMode.Create))
@@ -668,12 +735,13 @@ namespace VideoEditor.Services
                     }
                 });
 
-                return imagePath;
+                return (imagePath, offsetX, offsetY);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[EXPORT] Failed to render text to image: {ex.Message}");
-                return null;
+                Console.WriteLine($"[EXPORT] Stack trace: {ex.StackTrace}");
+                return (null, 0, 0);
             }
         }
     }

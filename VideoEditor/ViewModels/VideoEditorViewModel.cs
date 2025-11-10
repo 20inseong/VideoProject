@@ -21,8 +21,16 @@ namespace VideoEditor.ViewModels
     public class ClipAddedEventArgs : EventArgs
     {
         public string VideoPath { get; }
+        public TimelineClipBase Clip { get; }
+        
         public ClipAddedEventArgs(string videoPath)
         {
+            VideoPath = videoPath;
+        }
+        
+        public ClipAddedEventArgs(TimelineClipBase clip, string videoPath = "")
+        {
+            Clip = clip;
             VideoPath = videoPath;
         }
     }
@@ -385,11 +393,8 @@ namespace VideoEditor.ViewModels
                     Text = segment.Text.Trim(),
                     StartPosition = newTextClipStart,
                     Duration = newTextClipDuration,
-                    TrackIndex = trackIndex,
-                    RenderWidth = 600,
-                    RenderHeight = 80,
-                    X = 100,
-                    Y = 400
+                    TrackIndex = trackIndex
+                    // X, Y, RenderWidth, RenderHeight는 MainViewModel의 InitializeTextClipLayout에서 설정됨
                 };
 
                 TimelineClips.Add(newTextClip);
@@ -408,11 +413,8 @@ namespace VideoEditor.ViewModels
                 StartPosition = creationTime,
                 Duration = defaultDuration,
                 Width = defaultDuration * PixelsPerSecond,
-                TrackIndex = FindAvailableTrack(creationTime, defaultDuration),
-                X = 100, // Default X position
-                Y = 100, // Default Y position
-                RenderWidth = 200, // Default width for rendering
-                RenderHeight = 50 // Default height for rendering
+                TrackIndex = FindAvailableTrack(creationTime, defaultDuration)
+                // X, Y, RenderWidth, RenderHeight는 MainViewModel의 InitializeTextClipLayout에서 설정됨
             };
             TimelineClips.Add(newClip);
         }
@@ -868,7 +870,7 @@ namespace VideoEditor.ViewModels
             if (newClip != null)
             {
                 TimelineClips.Add(newClip);
-                OnClipAdded?.Invoke(this, new ClipAddedEventArgs(media.FullPath));
+                OnClipAdded?.Invoke(this, new ClipAddedEventArgs(newClip, media.FullPath));
                 Debug.WriteLine($"[+] {newClip.GetType().Name} added: {newClip.Name}");
             }
         }

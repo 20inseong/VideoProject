@@ -149,6 +149,16 @@ namespace VideoEditor
             LocationChanged += UpdateOverlayPosition;
             SizeChanged += UpdateOverlayPosition;
             VideoPlayerHost.SizeChanged += UpdateOverlayPosition;
+            
+            // Monitor PreviewViewbox size changes
+            this.Loaded += (s, e) =>
+            {
+                var previewViewbox = this.FindName("PreviewViewbox") as FrameworkElement;
+                if (previewViewbox != null)
+                {
+                    previewViewbox.SizeChanged += UpdateOverlayPosition;
+                }
+            };
 
             _rulerRedrawTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
             _rulerRedrawTimer.Tick += (s, e) =>
@@ -181,8 +191,10 @@ namespace VideoEditor
 
             VideoPlayerHost.SizeChanged += (s, e) =>
             {
-                _mainViewModel.PlayerHostWidth = e.NewSize.Width;
-                _mainViewModel.PlayerHostHeight = e.NewSize.Height;
+                // VideoPlayerHost is now fixed at 1920x1080 inside a Viewbox
+                // So we always use these fixed dimensions
+                _mainViewModel.PlayerHostWidth = 1920;
+                _mainViewModel.PlayerHostHeight = 1080;
             };
 
             DrawTimelineRuler();
@@ -228,19 +240,38 @@ namespace VideoEditor
 
         private void UpdateOverlayPosition(object? sender, EventArgs e)
         {
-            if (VideoPlayerHost.IsVisible && this.IsVisible)
+            // Find the PreviewViewbox element
+            var previewViewbox = this.FindName("PreviewViewbox") as FrameworkElement;
+            
+            if (previewViewbox != null && previewViewbox.IsVisible && this.IsVisible && 
+                previewViewbox.ActualWidth > 0 && previewViewbox.ActualHeight > 0)
             {
-                Point location = VideoPlayerHost.PointToScreen(new Point(0, 0));
-                _overlayWindow.Left = location.X;
-                _overlayWindow.Top = location.Y;
-                _overlayWindow.Width = VideoPlayerHost.ActualWidth;
-                _overlayWindow.Height = VideoPlayerHost.ActualHeight;
-                
-                // OverlayWindow를 항상 최상위로 유지
-                BringOverlayToFront();
-                
-                // Apply clipping to video views to ensure they don't render outside VideoPlayerHost
-                Dispatcher.BeginInvoke(new Action(() => ClipVideoViewsToPlayerHost()), DispatcherPriority.Normal);
+                try
+                {
+                    Point location = previewViewbox.PointToScreen(new Point(0, 0));
+                    _overlayWindow.Left = location.X;
+                    _overlayWindow.Top = location.Y;
+                    _overlayWindow.Width = previewViewbox.ActualWidth;
+                    _overlayWindow.Height = previewViewbox.ActualHeight;
+                    
+                    // Calculate scale factor (actual size / fixed size)
+                    // Fixed size is 1920x1080, actual size is the Viewbox's scaled size
+                    double scaleX = previewViewbox.ActualWidth / 1920.0;
+                    double scaleY = previewViewbox.ActualHeight / 1080.0;
+                    
+                    // Apply scale to overlay window
+                    _overlayWindow.SetScale(scaleX, scaleY);
+                    
+                    // OverlayWindow를 항상 최상위로 유지
+                    BringOverlayToFront();
+                    
+                    // Apply clipping to video views to ensure they don't render outside VideoPlayerHost
+                    Dispatcher.BeginInvoke(new Action(() => ClipVideoViewsToPlayerHost()), DispatcherPriority.Normal);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[UpdateOverlayPosition] Error: {ex.Message}");
+                }
             }
         }
 
@@ -255,10 +286,13 @@ namespace VideoEditor
 
         private void ClipVideoViewsToPlayerHost()
         {
-            if (_mainViewModel?.ActiveVideoClips == null || VideoPlayerHost == null)
+            // Find the PreviewViewbox element
+            var previewViewbox = this.FindName("PreviewViewbox") as FrameworkElement;
+            
+            if (_mainViewModel?.ActiveVideoClips == null || previewViewbox == null)
                 return;
 
-            if (VideoPlayerHost.ActualWidth <= 0 || VideoPlayerHost.ActualHeight <= 0)
+            if (previewViewbox.ActualWidth <= 0 || previewViewbox.ActualHeight <= 0)
                 return;
 
             // --- 여기부터 수정: DPI 스케일링 팩터 가져오기 ---
@@ -270,10 +304,10 @@ namespace VideoEditor
             var dpiX = source.CompositionTarget.TransformToDevice.M11;
             var dpiY = source.CompositionTarget.TransformToDevice.M22;
 
-            // Get VideoPlayerHost bounds in screen coordinates (WPF DIPs)
+            // Get PreviewViewbox bounds in screen coordinates (WPF DIPs)
             var hostBoundsDIP = new Rect(
-                VideoPlayerHost.PointToScreen(new Point(0, 0)),
-                new Size(VideoPlayerHost.ActualWidth, VideoPlayerHost.ActualHeight)
+                previewViewbox.PointToScreen(new Point(0, 0)),
+                new Size(previewViewbox.ActualWidth, previewViewbox.ActualHeight)
             );
 
             // DIPs를 실제 물리적 픽셀로 변환
@@ -822,7 +856,11 @@ namespace VideoEditor
             // OverlayWindow를 항상 비디오 HwndHost 위에 유지
             BringOverlayToFront();
             
-            UpdateOverlayPosition(null, null);
+            // Delay the initial update to ensure everything is laid out
+            Dispatcher.BeginInvoke(new Action(() => 
+            {
+                UpdateOverlayPosition(null, null);
+            }), DispatcherPriority.Loaded);
 
             InitializePlayhead();
             DrawTimelineRuler();

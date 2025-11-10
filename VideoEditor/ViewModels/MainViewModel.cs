@@ -81,7 +81,9 @@ namespace VideoEditor.ViewModels
 
         private double _playerHostWidth = 1;
         private double _previousPlayerHostWidth = 1;
-        public double PlayerHostWidth 
+        private double _referencePreviewWidth = 1;  // Fixed 16:9 preview reference width
+        private double _referencePreviewHeight = 1; // Fixed 16:9 preview reference height
+        public double PlayerHostWidth
         { 
             get => _playerHostWidth;
             set
@@ -316,15 +318,44 @@ namespace VideoEditor.ViewModels
                         foreach (TimelineClipBase newClip in e.NewItems)
                         {
                             newClip.PropertyChanged += Clip_PropertyChanged;
+                            
+                            // Initialize layout for the new clip if preview size has been established
+                            if (_referencePreviewWidth > 1 && _referencePreviewHeight > 1)
+                            {
+                                if (newClip is VideoClip videoClip && !videoClip.IsUserPositioned)
+                                {
+                                    InitializeVideoClipLayout(videoClip, _referencePreviewWidth, _referencePreviewHeight);
+                                }
+                                else if (newClip is ImageClip imageClip && !imageClip.IsUserPositioned)
+                                {
+                                    InitializeImageClipLayout(imageClip, _referencePreviewWidth, _referencePreviewHeight);
+                                }
+                                else if (newClip is TextClip textClip && !textClip.IsUserPositioned)
+                                {
+                                    InitializeTextClipLayout(textClip, _referencePreviewWidth, _referencePreviewHeight);
+                                }
+                            }
                         }
                     }
+                    
+                    if (e.OldItems != null)
+                    {
+                        foreach (TimelineClipBase oldClip in e.OldItems)
+                        {
+                            oldClip.PropertyChanged -= Clip_PropertyChanged;
+                        }
+                    }
+                    
                     UpdateTotalTimelineDuration();
 
+                    // Always refresh preview when clips are added or removed
                     if (!VideoEditor.TimelineClips.Any())
                     {
                         CurrentTimelinePosition = 0;
-                        SyncPlayersToTimeline();
                     }
+                    
+                    // Refresh the preview to show updated timeline
+                    SyncPlayersToTimeline();
                 });
             };
 
@@ -738,7 +769,9 @@ namespace VideoEditor.ViewModels
                     TotalTimelineDurationMs / 1000.0,
                     outputPath,
                     progressViewModel,
-                    _exportCts.Token);
+                    _exportCts.Token,
+                    _referencePreviewWidth,
+                    _referencePreviewHeight);
 
                 if (success)
                 {
@@ -853,12 +886,32 @@ namespace VideoEditor.ViewModels
             }
             else if (e.PropertyName == nameof(TimelineClipBase.X) || e.PropertyName == nameof(TimelineClipBase.Y))
             {
+                // Update reference position when user moves the clip
+                if (sender is TimelineClipBase clip && clip.IsUserPositioned && 
+                    _referencePreviewWidth > 1 && _referencePreviewHeight > 1)
+                {
+                    // Since preview is now fixed at 1920x1080, reference values are the same as actual values
+                    clip.ReferenceX = clip.X;
+                    clip.ReferenceY = clip.Y;
+                }
+                
                 // X, Y 위치가 변경되면 비디오 clipping을 즉시 업데이트
                 // 재생 중 드래그 시 비디오가 UI 위로 나타나는 것을 방지
                 if (sender is VideoClip)
                 {
                     // Force immediate clipping update without waiting for timer
                     VideoClipZOrderChanged?.Invoke(this, EventArgs.Empty);
+                }
+            }
+            else if (e.PropertyName == nameof(TimelineClipBase.RenderWidth) || e.PropertyName == nameof(TimelineClipBase.RenderHeight))
+            {
+                // Update reference size when user resizes the clip
+                if (sender is TimelineClipBase clip && clip.IsUserPositioned && 
+                    _referencePreviewWidth > 1 && _referencePreviewHeight > 1)
+                {
+                    // Since preview is now fixed at 1920x1080, reference values are the same as actual values
+                    clip.ReferenceRenderWidth = clip.RenderWidth;
+                    clip.ReferenceRenderHeight = clip.RenderHeight;
                 }
             }
             else if (e.PropertyName == nameof(TimelineClipBase.Volume))
@@ -1249,125 +1302,209 @@ namespace VideoEditor.ViewModels
 
         private void UpdateClipsForPlayerSizeChange()
         {
-            if (PlayerHostWidth <= 1 || PlayerHostHeight <= 1) return;
-            if (_previousPlayerHostWidth <= 1 || _previousPlayerHostHeight <= 1)
-            {
-                // First time initialization
-                _previousPlayerHostWidth = PlayerHostWidth;
-                _previousPlayerHostHeight = PlayerHostHeight;
-            }
-
-            const double controlBarHeight = 50;
-            double availableVideoHeight = PlayerHostHeight - controlBarHeight;
-            double previousAvailableVideoHeight = _previousPlayerHostHeight - controlBarHeight;
+            // Since VideoPlayerHost is now fixed at 1920x1080 inside a Viewbox,
+            // we use these fixed dimensions as the reference
+            const double fixedPreviewWidth = 1920.0;
+            const double fixedPreviewHeight = 1080.0;
             
-            // Calculate scale ratios
-            double widthRatio = PlayerHostWidth / _previousPlayerHostWidth;
-            double heightRatio = availableVideoHeight / previousAvailableVideoHeight;
-
-            foreach (var clip in VideoEditor.TimelineClips)
+            // If this is the first initialization, store the reference preview size
+            if (_referencePreviewWidth <= 1 || _referencePreviewHeight <= 1)
             {
-                if (clip is VideoClip videoClip)
+                _referencePreviewWidth = fixedPreviewWidth;
+                _referencePreviewHeight = fixedPreviewHeight;
+                
+                // Initialize all clips with this preview size
+                foreach (var clip in VideoEditor.TimelineClips)
                 {
-                    UpdateVideoClipLayout(videoClip, availableVideoHeight, widthRatio, heightRatio);
+                    if (clip is VideoClip videoClip)
+                    {
+                        InitializeVideoClipLayout(videoClip, fixedPreviewWidth, fixedPreviewHeight);
+                    }
+                    else if (clip is ImageClip imageClip)
+                    {
+                        InitializeImageClipLayout(imageClip, fixedPreviewWidth, fixedPreviewHeight);
+                    }
+                    else if (clip is TextClip textClip)
+                    {
+                        InitializeTextClipLayout(textClip, fixedPreviewWidth, fixedPreviewHeight);
+                    }
                 }
-                else if (clip is ImageClip imageClip)
-                {
-                    UpdateImageClipLayout(imageClip, availableVideoHeight, widthRatio, heightRatio);
-                }
+                return;
             }
+            
+            // Since preview size is now fixed, no scaling is needed
+            // This method will only be called for the first initialization
         }
 
-        private void UpdateVideoClipLayout(VideoClip videoClip, double availableVideoHeight, double widthRatio, double heightRatio)
+        private void InitializeVideoClipLayout(VideoClip videoClip, double previewWidth, double previewHeight)
         {
             if (videoClip.SourceWidth <= 0 || videoClip.SourceHeight <= 0) return;
 
-            // If user has positioned the clip, scale its position and size proportionally
-            if (videoClip.IsUserPositioned)
-            {
-                // Scale position
-                videoClip.X *= widthRatio;
-                videoClip.Y *= heightRatio;
-                
-                // Scale size
-                videoClip.RenderWidth *= widthRatio;
-                videoClip.RenderHeight *= heightRatio;
-                return;
-            }
-
-            // For clips not yet positioned by user, use default centered layout
-            double playerAspectRatio = PlayerHostWidth / availableVideoHeight;
             double videoAspectRatio = (double)videoClip.SourceWidth / videoClip.SourceHeight;
+            double previewAspectRatio = previewWidth / previewHeight;
 
             double renderWidth, renderHeight, x, y;
 
-            if (playerAspectRatio > videoAspectRatio)
+            if (previewAspectRatio > videoAspectRatio)
             {
-                renderHeight = availableVideoHeight;
+                renderHeight = previewHeight;
                 renderWidth = renderHeight * videoAspectRatio;
             }
             else
             {
-                renderWidth = PlayerHostWidth;
+                renderWidth = previewWidth;
                 renderHeight = renderWidth / videoAspectRatio;
             }
 
-            x = (PlayerHostWidth - renderWidth) / 2;
-            y = (availableVideoHeight - renderHeight) / 2;
+            x = (previewWidth - renderWidth) / 2;
+            y = (previewHeight - renderHeight) / 2;
 
+            // Store reference values
+            videoClip.ReferenceX = x;
+            videoClip.ReferenceY = y;
+            videoClip.ReferenceRenderWidth = renderWidth;
+            videoClip.ReferenceRenderHeight = renderHeight;
+            
+            // Apply values
             videoClip.X = x;
             videoClip.Y = y;
             videoClip.RenderWidth = renderWidth;
             videoClip.RenderHeight = renderHeight;
             
-            // Mark initial layout as complete
             videoClip.MarkInitialLayoutComplete();
         }
 
-        private void UpdateImageClipLayout(ImageClip imageClip, double availableVideoHeight, double widthRatio, double heightRatio)
+        private void UpdateVideoClipLayout(VideoClip videoClip, double previewWidth, double previewHeight, double widthRatio, double heightRatio)
         {
-            if (imageClip.SourceWidth <= 0 || imageClip.SourceHeight <= 0) return;
+            if (videoClip.SourceWidth <= 0 || videoClip.SourceHeight <= 0) return;
 
-            // If user has positioned the clip, scale its position and size proportionally
-            if (imageClip.IsUserPositioned)
+            // If user has positioned the clip, scale from reference values
+            if (videoClip.IsUserPositioned)
             {
-                // Scale position
-                imageClip.X *= widthRatio;
-                imageClip.Y *= heightRatio;
-                
-                // Scale size
-                imageClip.RenderWidth *= widthRatio;
-                imageClip.RenderHeight *= heightRatio;
+                // Scale position and size from reference values
+                videoClip.X = videoClip.ReferenceX * widthRatio;
+                videoClip.Y = videoClip.ReferenceY * heightRatio;
+                videoClip.RenderWidth = videoClip.ReferenceRenderWidth * widthRatio;
+                videoClip.RenderHeight = videoClip.ReferenceRenderHeight * heightRatio;
                 return;
             }
 
-            // For clips not yet positioned by user, use default centered layout
-            double playerAspectRatio = PlayerHostWidth / availableVideoHeight;
+            // For clips not yet positioned by user, recalculate centered layout
+            InitializeVideoClipLayout(videoClip, previewWidth, previewHeight);
+        }
+
+        private void InitializeImageClipLayout(ImageClip imageClip, double previewWidth, double previewHeight)
+        {
+            if (imageClip.SourceWidth <= 0 || imageClip.SourceHeight <= 0) return;
+
             double imageAspectRatio = (double)imageClip.SourceWidth / imageClip.SourceHeight;
+            double previewAspectRatio = previewWidth / previewHeight;
 
             double renderWidth, renderHeight, x, y;
 
-            if (playerAspectRatio > imageAspectRatio)
+            if (previewAspectRatio > imageAspectRatio)
             {
-                renderHeight = availableVideoHeight;
+                renderHeight = previewHeight;
                 renderWidth = renderHeight * imageAspectRatio;
             }
             else
             {
-                renderWidth = PlayerHostWidth;
+                renderWidth = previewWidth;
                 renderHeight = renderWidth / imageAspectRatio;
             }
 
-            x = (PlayerHostWidth - renderWidth) / 2;
-            y = (availableVideoHeight - renderHeight) / 2;
+            x = (previewWidth - renderWidth) / 2;
+            y = (previewHeight - renderHeight) / 2;
 
+            // Store reference values
+            imageClip.ReferenceX = x;
+            imageClip.ReferenceY = y;
+            imageClip.ReferenceRenderWidth = renderWidth;
+            imageClip.ReferenceRenderHeight = renderHeight;
+            
+            // Apply values
             imageClip.X = x;
             imageClip.Y = y;
             imageClip.RenderWidth = renderWidth;
             imageClip.RenderHeight = renderHeight;
             
-            // Mark initial layout as complete
+            // Store initial render size for CustomWidth/Height calculations
+            imageClip.InitialRenderWidth = renderWidth;
+            imageClip.InitialRenderHeight = renderHeight;
+            
+            // Initialize CustomWidth/Height if not set
+            if (imageClip.CustomWidth == 0 && imageClip.CustomHeight == 0)
+            {
+                imageClip.CustomWidth = imageClip.SourceWidth;
+                imageClip.CustomHeight = imageClip.SourceHeight;
+            }
+            
             imageClip.MarkInitialLayoutComplete();
+        }
+
+        private void UpdateImageClipLayout(ImageClip imageClip, double previewWidth, double previewHeight, double widthRatio, double heightRatio)
+        {
+            if (imageClip.SourceWidth <= 0 || imageClip.SourceHeight <= 0) return;
+
+            // If user has positioned the clip, scale from reference values
+            if (imageClip.IsUserPositioned)
+            {
+                // Scale position and size from reference values
+                imageClip.X = imageClip.ReferenceX * widthRatio;
+                imageClip.Y = imageClip.ReferenceY * heightRatio;
+                imageClip.RenderWidth = imageClip.ReferenceRenderWidth * widthRatio;
+                imageClip.RenderHeight = imageClip.ReferenceRenderHeight * heightRatio;
+                
+                // Update InitialRenderWidth/Height to maintain custom size ratios
+                imageClip.InitialRenderWidth = imageClip.ReferenceRenderWidth * widthRatio;
+                imageClip.InitialRenderHeight = imageClip.ReferenceRenderHeight * heightRatio;
+                return;
+            }
+
+            // For clips not yet positioned by user, recalculate centered layout
+            InitializeImageClipLayout(imageClip, previewWidth, previewHeight);
+        }
+
+        private void InitializeTextClipLayout(TextClip textClip, double previewWidth, double previewHeight)
+        {
+            // Text clips: 화면 하단 중앙에 배치
+            // RenderWidth/Height는 텍스트를 담을 영역의 크기
+            double renderWidth = previewWidth * 0.6; // 60% of preview width
+            double renderHeight = 150; // 고정 높이 (1080p 기준으로 적절한 크기)
+            
+            // X, Y는 좌상단 기준이므로 중앙 정렬을 위해 계산
+            double x = (previewWidth - renderWidth) / 2; // 수평 중앙
+            double y = previewHeight - renderHeight - 100; // 하단에서 100px 위
+
+            // Store reference values
+            textClip.ReferenceX = x;
+            textClip.ReferenceY = y;
+            textClip.ReferenceRenderWidth = renderWidth;
+            textClip.ReferenceRenderHeight = renderHeight;
+            
+            // Apply values
+            textClip.X = x;
+            textClip.Y = y;
+            textClip.RenderWidth = renderWidth;
+            textClip.RenderHeight = renderHeight;
+            
+            textClip.MarkInitialLayoutComplete();
+        }
+
+        private void UpdateTextClipLayout(TextClip textClip, double previewWidth, double previewHeight, double widthRatio, double heightRatio)
+        {
+            // If user has positioned the clip, scale from reference values
+            if (textClip.IsUserPositioned)
+            {
+                textClip.X = textClip.ReferenceX * widthRatio;
+                textClip.Y = textClip.ReferenceY * heightRatio;
+                textClip.RenderWidth = textClip.ReferenceRenderWidth * widthRatio;
+                textClip.RenderHeight = textClip.ReferenceRenderHeight * heightRatio;
+                return;
+            }
+
+            // For clips not yet positioned by user, recalculate default layout
+            InitializeTextClipLayout(textClip, previewWidth, previewHeight);
         }
 
         public void Dispose()
