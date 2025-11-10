@@ -418,9 +418,27 @@ namespace VideoEditor.ViewModels
 
         private async Task SaveProjectAsync()
         {
+            bool isProjectEmpty = !VideoEditor.TimelineClips.Any() && !VideoList.MyVideoes.Any();
+
+            if (isProjectEmpty)
+            {
+                var result = MessageBox.Show(
+                    "프로젝트에 추가된 미디어나 타임라인 클립이 없습니다. 그래도 저장하시겠습니까?",
+                    "빈 프로젝트 저장 확인",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question
+                );
+
+                if (result == MessageBoxResult.No)
+                {
+                    StatusMessage = "프로젝트 저장이 취소되었습니다.";
+                    OnPropertyChanged(nameof(StatusMessage));
+                    return;
+                }
+            }
+
             var saveFileDialog = new SaveFileDialog
             {
-                // 이 부분을 원하는 이름과 확장자로 바꾸세요.
                 Filter = "FrameCraft 프로젝트 (*.fcp)|*.fcp",
                 Title = "프로젝트 저장하기",
                 FileName = "MyProject.fcp"

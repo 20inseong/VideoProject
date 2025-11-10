@@ -1,23 +1,23 @@
 ﻿using System.ComponentModel;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Windows.Threading;
+using LibVLCSharp.Shared;
 using Microsoft.Win32;
 using VideoEditor.Common;
 using VideoEditor.Models;
 using VideoEditor.ViewModels;
-using System.Windows.Threading;
-using System.Runtime.InteropServices;
-using System.Windows.Interop;
-
 using VideoEditor.Views;
 
 namespace VideoEditor
@@ -560,7 +560,7 @@ namespace VideoEditor
             _progressWindow.Show();
         }
 
-        private void btnSelectMedia_Click(object sender, RoutedEventArgs e)
+        private async void btnSelectMedia_Click(object sender, RoutedEventArgs e)
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
 
@@ -581,24 +581,72 @@ namespace VideoEditor
 
             if (openFileDialog.ShowDialog() == true)
             {
-                foreach (string videoPath in openFileDialog.FileNames)
+                // --- ▼ [추가] 유효성 검사 결과를 저장할 리스트 ▼ ---
+                var invalidFiles = new List<string>();
+                int addedCount = 0;
+
+                // --- ▼ [추가] 작업 중임을 나타내는 커서 변경 ▼ ---
+                this.Cursor = Cursors.Wait;
+
+                foreach (string filePath in openFileDialog.FileNames)
                 {
-                    string videoTitle = System.IO.Path.GetFileNameWithoutExtension(videoPath);
+                    string extension = System.IO.Path.GetExtension(filePath).ToLowerInvariant();
+                    bool isValid = true; // 기본적으로 유효하다고 가정
 
-                    Myvideo newVideo = new Myvideo
+                    // 비디오 파일 확장자인 경우에만 유효성 검사 수행
+                    if (extension is ".mp4" or ".avi" or ".mkv" or ".mov" or ".wmv")
                     {
-                        Title = videoTitle,
-                        FullPath = videoPath,
-                        Category = "사용자 추가"
-                    };
+                        try
+                        {
+                            // LibVLC를 사용하여 파일 유효성 검사
+                            using (var media = new LibVLCSharp.Shared.Media(_mainViewModel.PlayerViewModel._libVLC, new Uri(filePath)))
+                            {
+                                await media.Parse(MediaParseOptions.ParseNetwork);
+                                if (media.Duration <= 0 || !media.Tracks.Any(t => t.TrackType == LibVLCSharp.Shared.TrackType.Video))
+                                {
+                                    isValid = false;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            isValid = false; // 파싱 중 예외 발생 시 유효하지 않음
+                        }
+                    }
 
-                    _mainViewModel.VideoList.AddVideo(newVideo);
+                    // 유효한 파일만 목록에 추가
+                    if (isValid)
+                    {
+                        string fileTitle = System.IO.Path.GetFileNameWithoutExtension(filePath);
+                        Myvideo newMedia = new Myvideo
+                        {
+                            Title = fileTitle,
+                            FullPath = filePath,
+                            Category = "사용자 추가"
+                        };
+                        _mainViewModel.VideoList.AddVideo(newMedia);
+                        addedCount++;
+                    }
+                    else
+                    {
+                        invalidFiles.Add(System.IO.Path.GetFileName(filePath));
+                    }
                 }
 
-                if (openFileDialog.FileNames.Any())
+                // --- ▼ [추가] 커서 복원 ▼ ---
+                this.Cursor = Cursors.Arrow;
+
+                // --- ▼ [추가] 손상된 파일이 있었을 경우 사용자에게 알림 ▼ ---
+                if (invalidFiles.Any())
+                {
+                    string message = $"선택한 파일 중 다음 {invalidFiles.Count}개는 손상되었거나 지원하지 않는 형식으로, 목록에서 제외되었습니다:\n\n" +
+                                     string.Join("\n", invalidFiles);
+                    MessageBox.Show(this, message, "파일 추가 오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+
+                if (addedCount > 0)
                 {
                     _mainViewModel.VideoList.SelectedVideoItem = _mainViewModel.VideoList.MyVideoes.LastOrDefault();
-                    //StatusTextBlock.Text = $"{openFileDialog.FileNames.Length}개의 미디어가 목록에 추가되었습니다.";
                 }
             }
         }

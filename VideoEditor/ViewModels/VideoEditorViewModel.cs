@@ -154,7 +154,7 @@ namespace VideoEditor.ViewModels
                 }
             };
             Core.Initialize();
-            _libVLC = new LibVLC("--file-caching=4000");
+            _libVLC = new LibVLC();
             _waveformService = new WaveformService();
 
             DropOnTimelineCommand = new RelayCommand<DragEventArgs>(ExecuteDropOnTimeline);
@@ -887,6 +887,14 @@ namespace VideoEditor.ViewModels
                 {
                     await media.Parse(MediaParseOptions.ParseNetwork);
                     duration = media.Duration / 1000.0;
+
+                    if (duration <= 0 || media.Tracks == null || !media.Tracks.Any(t => t.TrackType == TrackType.Video))
+                    {
+                        Debug.WriteLine($"[Validation] 손상되었거나 비디오 트랙이 없는 파일은 건너뜁니다: {video.FullPath}");
+                        MessageBox.Show($"'{System.IO.Path.GetFileName(video.FullPath)}' 파일이 손상되었거나 비디오 트랙이 없어 타임라인에 추가할 수 없습니다.",
+                                        "비디오 추가 실패", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return null;
+                    }
                 }
 
                 byte[] thumbnailBytes = await Task.Run(() =>
@@ -939,9 +947,10 @@ namespace VideoEditor.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"비디오 정보 로드 중 오류 발생: {ex.Message}");
-                duration = 10;
-                thumbnail = null;
+                Debug.WriteLine($"비디오 정보 로드 중 오류 발생 (손상 가능성 있음): {ex.Message}");
+                MessageBox.Show($"'{System.IO.Path.GetFileName(video.FullPath)}' 파일을 처리하는 중 오류가 발생했습니다. 파일이 손상되었을 수 있습니다.",
+                                "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                return null;
             }
 
             double playerHostWidth = _mainViewModel.PlayerHostWidth;

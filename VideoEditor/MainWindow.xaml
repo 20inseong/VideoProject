@@ -372,7 +372,11 @@
                                  SelectedItem="{Binding VideoList.SelectedVideoItem}"
                                  AllowDrop="True"
                                  PreviewMouseLeftButtonDown="VideoList_PreviewMouseLeftButtonDown"
-                                 PreviewMouseMove="VideoList_PreviewMouseMove"/>
+                                 PreviewMouseMove="VideoList_PreviewMouseMove">
+                            <ListBox.InputBindings>
+                                <KeyBinding Key="Delete" Command="{Binding VideoList.DeleteSelectedVideoCommand}"/>
+                            </ListBox.InputBindings>
+                        </ListBox>
                     </Expander>
                 </Border>
 
