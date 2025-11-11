@@ -1425,7 +1425,7 @@ namespace VideoEditor.ViewModels
 
             // --- Audio Clips Management (Largely unchanged) ---
             var activeAudioSourceClips = activeClipsAtCurrentTime
-                .Where(c => !c.IsMuted && (c is VideoClip || c is AudioClip))
+                 .Where(c => (c is VideoClip || c is AudioClip)) // Include muted clips; handle volume as 0 
                 .ToList();
             var audioClipsToDeactivate = _activeAudioPlayers.Keys.Except(activeAudioSourceClips).ToList();
 
@@ -1446,9 +1446,10 @@ namespace VideoEditor.ViewModels
                     if (!string.IsNullOrEmpty(mediaPath))
                     {
                         using var equalizer = new Equalizer(_flatEqIndex);
-                        int combinedVolume = (int)((clip.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
+                        int combinedVolume = clip.IsMuted ? 0 : (int)((clip.Volume / 100.0) * (PlayerViewModel.Volume / 100.0) * 100);
                         equalizer.SetPreamp(ConvertVolumeToDb(combinedVolume));
                         player.SetEqualizer(equalizer);
+                        player.Mute = clip.IsMuted;
                         double sourceStartTime = (clip is VideoClip vc) ? vc.SourceStartTime : (clip as AudioClip)?.SourceStartTime ?? 0;
                         double timeWithinClip = CurrentTimelinePosition - clip.StartPosition;
                         player.Media = PlayerViewModel.PrepareMedia(mediaPath, sourceStartTime + (timeWithinClip * clip.SpeedRatio), videoOnly: false, audioOnly: true);
@@ -1459,9 +1460,10 @@ namespace VideoEditor.ViewModels
                 if (player != null)
                 {
                     player.SetRate((float)clip.SpeedRatio);
+                    player.Mute = clip.IsMuted; 
                     if (!IsTimelinePlaying)
                     {
-                        double sourceStartTime = (clip is VideoClip vc) ? vc.SourceStartTime : (clip as AudioClip)?.SourceStartTime ?? 0;
+                        double sourceStartTime = (clip is VideoClip vc2) ? vc2.SourceStartTime : (clip as AudioClip)?.SourceStartTime ?? 0;
                         double timeWithinClip = CurrentTimelinePosition - clip.StartPosition;
                         player.Time = (long)((sourceStartTime + (timeWithinClip * clip.SpeedRatio)) * 1000);
                         if (!player.IsPlaying) player.Play();
