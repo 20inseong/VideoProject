@@ -49,6 +49,9 @@ namespace VideoEditor.ViewModels
         public IAsyncRelayCommand LoadProjectCommand { get; }
         public IAsyncRelayCommand AnalyzeEmotionCommand { get; }
         public IRelayCommand<double> SeekToTimestampCommand { get; }
+        public IRelayCommand<string> SeekFramesCommand { get; }
+        public IRelayCommand<string> SeekSecondsCommand { get; }
+        public IRelayCommand<string> SeekToClipEdgeCommand { get; }
 
         private bool _isTranscribing;
         public bool IsTranscribing
@@ -359,21 +362,32 @@ namespace VideoEditor.ViewModels
                     
                     // Refresh the preview to show updated timeline
                     SyncPlayersToTimeline();
+
+                    PlayPauseTimelineCommand.NotifyCanExecuteChanged();
+                    StopTimelineCommand.NotifyCanExecuteChanged();
+                    TranscribeVideoCommand.NotifyCanExecuteChanged();
+                    SeekFramesCommand.NotifyCanExecuteChanged();
+                    SeekSecondsCommand.NotifyCanExecuteChanged();
+                    SeekToClipEdgeCommand.NotifyCanExecuteChanged();
                 });
             };
 
 
 
-            PlayPauseTimelineCommand = new RelayCommand(ExecutePlayPauseTimeline);
-            StopTimelineCommand = new RelayCommand(ExecuteStopTimeline);
+            PlayPauseTimelineCommand = new RelayCommand(ExecutePlayPauseTimeline, CanExecuteTimelineCommands);
+            StopTimelineCommand = new RelayCommand(ExecuteStopTimeline, CanExecuteTimelineCommands);
             ExportVideoCommand = new AsyncRelayCommand(StartExportProcessAsync);
-            TranscribeVideoCommand = new AsyncRelayCommand(TranscribeVideo);
+            TranscribeVideoCommand = new AsyncRelayCommand(TranscribeVideo, () => CanExecuteTimelineCommands() && !IsTranscribing);
 
             AnalyzeEmotionCommand = new AsyncRelayCommand(AnalyzeEmotionAsync, CanAnalyzeEmotion);
             SeekToTimestampCommand = new RelayCommand<double>(SeekToTimestamp);
 
             SaveProjectCommand = new AsyncRelayCommand(SaveProjectAsync);
             LoadProjectCommand = new AsyncRelayCommand(LoadProjectAsync);
+
+            SeekFramesCommand = new RelayCommand<string>(ExecuteSeekFrames, _ => CanExecuteTimelineCommands());
+            SeekSecondsCommand = new RelayCommand<string>(ExecuteSeekSeconds, _ => CanExecuteTimelineCommands());
+            SeekToClipEdgeCommand = new RelayCommand<string>(ExecuteSeekToClipEdge, _ => CanExecuteTimelineCommands());
 
             _timelineTimer = new DispatcherTimer(DispatcherPriority.Render)
             {
@@ -385,6 +399,56 @@ namespace VideoEditor.ViewModels
             _scrubSeekTimer.Tick += ScrubSeekTimer_Tick;
 
             UpdateTotalTimelineDuration();
+        }
+
+        private bool CanExecuteTimelineCommands()
+        {
+            // VideoEditor의 TimelineClips에 항목이 하나라도 있는지 확인
+            return VideoEditor.TimelineClips.Any();
+        }
+
+        private void ExecuteSeekFrames(string? direction)
+        {
+            if (!double.TryParse(direction, out double frameDirection)) return;
+            const double frameRate = 30.0; // 30fps로 가정
+            double timeChange = frameDirection / frameRate;
+            double newPosition = Math.Max(0, CurrentTimelinePosition + timeChange);
+            SeekTimeline(newPosition);
+        }
+
+        private void ExecuteSeekSeconds(string? direction)
+        {
+            if (!double.TryParse(direction, out double seconds)) return;
+            double newPosition = Math.Max(0, CurrentTimelinePosition + seconds);
+            SeekTimeline(newPosition);
+        }
+
+        private void ExecuteSeekToClipEdge(string? direction)
+        {
+            if (!VideoEditor.TimelineClips.Any()) return;
+
+            double targetTime;
+
+            if (direction == "next")
+            {
+                // 현재 위치 바로 다음 클립의 시작점 찾기
+                var nextClip = VideoEditor.TimelineClips
+                    .OrderBy(c => c.StartPosition)
+                    .FirstOrDefault(c => c.StartPosition > CurrentTimelinePosition + 0.01); // 현재 클립을 피하기 위해 작은 값 추가
+
+                targetTime = nextClip?.StartPosition ?? TotalTimelineDurationMs / 1000.0;
+            }
+            else // "prev"
+            {
+                // 현재 위치 바로 이전 클립의 시작점 찾기
+                var prevClip = VideoEditor.TimelineClips
+                    .OrderByDescending(c => c.StartPosition)
+                    .FirstOrDefault(c => c.StartPosition < CurrentTimelinePosition - 0.01);
+
+                targetTime = prevClip?.StartPosition ?? 0;
+            }
+
+            SeekTimeline(targetTime);
         }
 
         private void SeekToTimestamp(double timeInSeconds)
@@ -1692,6 +1756,11 @@ namespace VideoEditor.ViewModels
             }
 
             Debug.WriteLine("[VIDEO DRAG] Video clip drag ended in preview - restoring WPF overlays");
+        }
+
+        public Window? GetMainWindow()
+        {
+            return _mainWindow;
         }
     }
 }

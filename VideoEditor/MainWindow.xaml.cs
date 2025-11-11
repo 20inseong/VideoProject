@@ -77,6 +77,11 @@ namespace VideoEditor
         private bool _switchWasOverlayVisible;
         private bool _isProcessingActivation = false; // Prevent reentrant calls
 
+        public void ClearSnapIndicators()
+        {
+            SnapIndicatorCanvas.Children.Clear();
+        }
+
 
         public MainWindow()
         {
@@ -744,31 +749,99 @@ namespace VideoEditor
             var vm = DataContext as MainViewModel;
             if (vm == null) return;
 
+            SnapIndicatorCanvas.Children.Clear();
+
             if (e.Data.GetDataPresent("TimelineClips") && e.Data.GetData("TimelineClips") is List<TimelineClipBase> draggedClips)
             {
                 e.Effects = DragDropEffects.Move;
 
                 // 드래그 업데이트 간격 조절 (선택사항이지만 성능에 도움됨)
-                if ((DateTime.Now - _lastDragUpdateTime).TotalMilliseconds < 20) // 20ms 간격
+                if ((DateTime.Now - _lastDragUpdateTime).TotalMilliseconds < 16) // 16ms 간격
                 {
                     e.Handled = true;
                     return;
                 }
                 _lastDragUpdateTime = DateTime.Now;
 
-                Point position = e.GetPosition(TimelineCanvas);
-                double deltaTime = (position.X - vm.VideoEditor.DragStartPoint.X) / vm.VideoEditor.PixelsPerSecond;
-                int deltaTrack = (int)Math.Round((position.Y - vm.VideoEditor.DragStartPoint.Y) / 60.0);
+                //Point position = e.GetPosition(TimelineCanvas);
+                //double deltaTime = (position.X - vm.VideoEditor.DragStartPoint.X) / vm.VideoEditor.PixelsPerSecond;
+                //int deltaTrack = (int)Math.Round((position.Y - vm.VideoEditor.DragStartPoint.Y) / 60.0);
 
-                // 실시간 미리보기: 속성 변경 이벤트 폭주를 줄이기 위해 배치 업데이트
+                Point position = e.GetPosition(TimelineCanvas);
+                double mouseDeltaX = position.X - vm.VideoEditor.DragStartPoint.X;
+                double timeDelta = mouseDeltaX / vm.VideoEditor.PixelsPerSecond;
+                int trackDelta = (int)Math.Round((position.Y - vm.VideoEditor.DragStartPoint.Y) / 60.0);
+
+                // --- 2. 스냅 로직 ---
+                const double SNAP_TOLERANCE_PX = 10; // 10픽셀 이내로 가까워지면 스냅
+                double snapToleranceTime = SNAP_TOLERANCE_PX / vm.VideoEditor.PixelsPerSecond;
+                double bestSnapOffset = double.MaxValue; // 가장 가까운 스냅 지점과의 시간 차이
+
+                // 스냅 대상 지점들 수집 (다른 클립들의 시작/끝, 재생 헤드, 타임라인 시작점)
+                var snapPoints = new List<double> { 0.0, vm.CurrentTimelinePosition };
+                var otherClips = vm.VideoEditor.TimelineClips.Except(draggedClips);
+                foreach (var clip in otherClips)
+                {
+                    snapPoints.Add(clip.StartPosition);
+                    snapPoints.Add(clip.StartPosition + clip.Duration);
+                }
+
+                var primaryClip = draggedClips.First(); // 그룹의 기준이 될 클립
+                var primaryClipOriginalState = vm.VideoEditor.DraggedClipsOriginalState[primaryClip];
+                double desiredStartTime = primaryClipOriginalState.OriginalStart + timeDelta;
+                double desiredEndTime = desiredStartTime + primaryClip.Duration;
+
+                // 가장 가까운 스냅 지점 찾기
+                foreach (double snapPoint in snapPoints.Distinct().OrderBy(p => p))
+                {
+                    // 드래그하는 클립의 '시작점'이 스냅 지점에 가까울 때
+                    if (Math.Abs(desiredStartTime - snapPoint) < Math.Abs(bestSnapOffset))
+                    {
+                        bestSnapOffset = snapPoint - desiredStartTime;
+                    }
+                    // 드래그하는 클립의 '끝점'이 스냅 지점에 가까울 때
+                    if (Math.Abs(desiredEndTime - snapPoint) < Math.Abs(bestSnapOffset))
+                    {
+                        bestSnapOffset = snapPoint - desiredEndTime;
+                    }
+                }
+
+                double snappedTimeDelta = timeDelta;
+                // 찾은 가장 가까운 스냅 지점이 허용 오차 이내라면, 위치 보정
+                if (Math.Abs(bestSnapOffset) < snapToleranceTime)
+                {
+                    snappedTimeDelta += bestSnapOffset;
+
+                    // 시각적 안내선 그리기
+                    double snapLineX = (primaryClipOriginalState.OriginalStart + snappedTimeDelta) * vm.VideoEditor.PixelsPerSecond;
+                    if (Math.Abs(desiredEndTime - (primaryClipOriginalState.OriginalStart + snappedTimeDelta + primaryClip.Duration)) > 0.001)
+                    {
+                        snapLineX += primaryClip.Width; // 끝점에 스냅된 경우
+                    }
+                    var snapLine = new Line
+                    {
+                        X1 = snapLineX,
+                        Y1 = 0,
+                        X2 = snapLineX,
+                        Y2 = TimelineCanvas.ActualHeight,
+                        Stroke = Brushes.Red,
+                        StrokeThickness = 1.5,
+                        StrokeDashArray = new DoubleCollection { 4, 2 }
+                    };
+                    SnapIndicatorCanvas.Children.Add(snapLine);
+                }
+
+                // --- 3. 최종 위치 적용 ---
+                // 계산된 (또는 스냅으로 보정된) 위치를 모든 클립에 적용
                 foreach (var clip in draggedClips)
                 {
                     if (vm.VideoEditor.DraggedClipsOriginalState.TryGetValue(clip, out var originalState))
                     {
-                        double desiredStart = originalState.OriginalStart + deltaTime;
-                        int desiredTrack = Math.Clamp(originalState.OriginalTrack + deltaTrack, 0, 8);
-                        clip.StartPosition = Math.Max(0, desiredStart);
-                        clip.TrackIndex = desiredTrack;
+                        double finalStartPosition = originalState.OriginalStart + snappedTimeDelta;
+                        int finalTrackIndex = Math.Clamp(originalState.OriginalTrack + trackDelta, 0, 8);
+
+                        clip.StartPosition = Math.Max(0, finalStartPosition);
+                        clip.TrackIndex = finalTrackIndex;
                     }
                 }
 
@@ -1483,6 +1556,11 @@ namespace VideoEditor
                 RulerScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset);
                 DrawTimelineRuler();
             }
+        }
+
+        private void Exit_Click(object sender, RoutedEventArgs e)
+        {
+            Application.Current.Shutdown();
         }
     }
 }

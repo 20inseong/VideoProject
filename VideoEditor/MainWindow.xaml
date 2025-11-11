@@ -233,12 +233,6 @@
         <Common:FontFamilyConverter x:Key="FontFamilyConverter" />
         <Common:HalfValueConverter x:Key="HalfValueConverter" />
         <Common:ClipZIndexConverter x:Key="ClipZIndexConverter" />
-
-        <DataTemplate DataType="{x:Type viewmodels:PlayerViewModel}">
-            <views:SpeedEditorView/>
-        </DataTemplate>
-
-
     </Window.Resources>
 
     <WindowChrome.WindowChrome>
@@ -275,7 +269,6 @@
                     <MenuItem Header="새 프로젝트" Click="NewProject_Click"/>
                     <MenuItem Header="프로젝트 열기" Command="{Binding LoadProjectCommand}"/>
                     <MenuItem Header="프로젝트 초기화" Click="Project_Reset_Click"/>
-                    <MenuItem Header="최근 파일 열기" />
                     <Separator/>
                     <MenuItem Header="미디어 가져오기" Click="btnSelectMedia_Click"/>
                     <Separator/>
@@ -283,68 +276,56 @@
                     <Separator/>
                     <MenuItem Header="렌더링" 
                               Command="{Binding DataContext.ExportVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
-                    <MenuItem Header="렌더링 파일 미리보기" />
                     <Separator/>
-                    <MenuItem Header="프로젝트 설정" />
-                    <Separator/>
-                    <MenuItem Header="환경 설정" />
-                    <Separator/>
-                    <MenuItem Header="종료" />
+                    <MenuItem Header="종료" Click="Exit_Click"/>
                 </MenuItem>
 
                 <!-- 편집 -->
                 <MenuItem Header="편집">
-                    <MenuItem Header="되돌리기(ctrl+z)" />
-                    <MenuItem Header="다시 실행" />
-                    <Separator/>
-                    <MenuItem Header="자르기" />
-                    <MenuItem Header="복사하기(ctrl+c)" />
-                    <MenuItem Header="붙여넣기(ctrl+v)" />
-                    <MenuItem Header="삭제(Del)" />
-                    <MenuItem Header="모두 선택" />
-                    <Separator/>
+                    <MenuItem Header="자르기" 
+                              Command="{Binding VideoEditor.SplitClipCommand}"
+                              CommandParameter="{Binding CurrentTimelinePosition}"/>
+                    <MenuItem Header="복사하기(ctrl+c)" Command="{Binding VideoEditor.CopySelectedClipCommand}"/>
+                    <MenuItem Header="붙여넣기(ctrl+v)" Command="{Binding VideoEditor.PasteClipCommand}" CommandParameter="{Binding CurrentTimelinePosition}"/>
+                    <MenuItem Header="삭제(Del)" Command="{Binding VideoEditor.DeleteSelectedClipCommand}"/>
                 </MenuItem>
 
                 <!-- 도구 -->
                 <MenuItem Header="도구">
                     <MenuItem Header="비디오">
                         <MenuItem Header="오디오 분리" Command="{Binding VideoEditor.SeparateAudioCommand}"/>
-                        <MenuItem Header="시계 방향 90도 회전" />
-                        <MenuItem Header="시계 반대 방향 90도 회전" />
+                        <MenuItem Header="시계 방향 90도 회전" Command="{Binding VideoEditor.RotateSelectedClipCommand}" CommandParameter="90"/>
+                        <MenuItem Header="시계 반대 방향 90도 회전" Command="{Binding VideoEditor.RotateSelectedClipCommand}" CommandParameter="-90"/>
                     </MenuItem>
                     <MenuItem Header="오디오">
-                        <MenuItem Header="뮤트" />
+                        <MenuItem Header="뮤트 토글" Command="{Binding VideoEditor.ToggleMuteSelectedClipCommand}"/>
                         <MenuItem Header="음성 텍스트 변환" Command="{Binding TranscribeVideoCommand}" />
                     </MenuItem>
-                    <MenuItem Header="배속" Command="{Binding EditorHost.ShowSpeedEditorCommand}"/>
                     <MenuItem Header="자막">
                         <MenuItem Header="자막 생성" 
                                   Command="{Binding VideoEditor.AddTextClipCommand}"
                                   CommandParameter="{Binding CurrentTimelinePosition}"/>
-                        <MenuItem Header="음성 인식 자막 생성" />
+                        <MenuItem Header="음성 인식 자막 생성" Command="{Binding VideoEditor.CreateSubtitlesFromTranscriptionCommand}"/>
                     </MenuItem>
                     <Separator/>
-                    <MenuItem Header="클립 추출"/>
-                    <MenuItem Header="자르기" x:Name="CutVideoButton"/>
-                    <MenuItem Header="앞에 것만 남기고 삭제" />
-                    <MenuItem Header="뒤에 것만 남기고 삭제" />
-
+                    <MenuItem Header="그룹 만들기 (Ctrl+G)" Command="{Binding VideoEditor.GroupSelectedClipsCommand}"/>
+                    <MenuItem Header="그룹 해제 (Ctrl+Shift+G)" Command="{Binding VideoEditor.UngroupSelectedClipsCommand}"/>
                 </MenuItem>
 
                 <!-- 보기 -->
                 <MenuItem Header="보기">
-                    <MenuItem Header="재생 / 일시 정지" />
-                    <MenuItem Header="중지" />
-                    <MenuItem Header="전체 화면 / 복원" />
+                    <MenuItem Header="재생 / 일시 정지" Command="{Binding PlayPauseTimelineCommand}"/>
+                    <MenuItem Header="중지" Command="{Binding StopTimelineCommand}"/>
                     <Separator/>
-                    <MenuItem Header="배율" />
+                    <MenuItem Header="배율">
+                        <MenuItem Header="확대 (+)" Command="{Binding VideoEditor.ZoomInCommand}"/>
+                        <MenuItem Header="축소 (-)" Command="{Binding VideoEditor.ZoomOutCommand}"/>
+                    </MenuItem>
                     <MenuItem Header="이동">
-                        <MenuItem Header="이전 프레임" />
-                        <MenuItem Header="다음 프레임" />
-                        <MenuItem Header="이전 클립" />
-                        <MenuItem Header="다음 클립" />
-                        <MenuItem Header="1초 이전" />
-                        <MenuItem Header="1초 다음" />
+                        <MenuItem Header="이전 프레임" Command="{Binding SeekFramesCommand}" CommandParameter="-1"/>
+                        <MenuItem Header="다음 프레임" Command="{Binding SeekFramesCommand}" CommandParameter="1"/>
+                        <MenuItem Header="1초 이전" Command="{Binding SeekSecondsCommand}" CommandParameter="-1"/>
+                        <MenuItem Header="1초 다음" Command="{Binding SeekSecondsCommand}" CommandParameter="1"/>
                     </MenuItem>
                 </MenuItem>
             </Menu>
@@ -662,7 +643,9 @@
                                     <Line X1="0" Y1="540" X2="10000" Y2="540" Stroke="#2D2D30" StrokeThickness="1"/>
                                 </Canvas>
 
-                                <Canvas x:Name="PlayheadCanvas"
+                                    <Canvas x:Name="SnapIndicatorCanvas" IsHitTestVisible="False" Panel.ZIndex="12"/>
+
+                                    <Canvas x:Name="PlayheadCanvas"
                                         Height="540"
                                         IsHitTestVisible="False"
                                         Panel.ZIndex="20"/>

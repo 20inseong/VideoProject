@@ -18,8 +18,6 @@ namespace VideoEditor.ViewModels
         public VideoEditorViewModel VideoEditorViewModel { get; }
 
         public ICommand ShowClipEditorCommand { get; }
-        public ICommand ShowSpeedEditorCommand { get; }
-        public ICommand ShowEmotionEditorCommand { get; }
 
         public EditorHostViewModel(PlayerViewModel playerViewModel, VideoEditorViewModel videoEditorViewModel)
         {
@@ -27,8 +25,6 @@ namespace VideoEditor.ViewModels
             VideoEditorViewModel = videoEditorViewModel;
 
             ShowClipEditorCommand = new RelayCommand(() => CurrentEditor = VideoEditorViewModel);
-            ShowSpeedEditorCommand = new RelayCommand(() => CurrentEditor = PlayerViewModel);
-            ShowEmotionEditorCommand = new RelayCommand(() => { /* 나중에 EmotionViewModel 할당 */ });
 
             VideoEditorViewModel.PropertyChanged += (s, e) =>
             {
