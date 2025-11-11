@@ -1,23 +1,23 @@
 ﻿using System.ComponentModel;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Windows.Threading;
+using LibVLCSharp.Shared;
 using Microsoft.Win32;
 using VideoEditor.Common;
 using VideoEditor.Models;
 using VideoEditor.ViewModels;
-using System.Windows.Threading;
-using System.Runtime.InteropServices;
-using System.Windows.Interop;
-
 using VideoEditor.Views;
 
 namespace VideoEditor
@@ -65,6 +65,22 @@ namespace VideoEditor
         private DispatcherTimer _rulerRedrawTimer;
         private DispatcherTimer _videoClippingTimer;
         private bool _needsZOrderUpdate = false;
+        
+        // Selection rectangle for drag selection
+        private bool _isSelectingWithRectangle = false;
+        private Point _selectionStartPoint;
+        private Rectangle _selectionRectangle;
+        private List<TimelineClipBase> _clipsBeforeSelection = new List<TimelineClipBase>();
+
+        // State for hiding/restoring preview objects when switching to other programs
+        private List<TimelineClipBase>? _switchSavedActiveWpfOverlays;
+        private bool _switchWasOverlayVisible;
+        private bool _isProcessingActivation = false; // Prevent reentrant calls
+
+        public void ClearSnapIndicators()
+        {
+            SnapIndicatorCanvas.Children.Clear();
+        }
 
 
         public MainWindow()
@@ -78,10 +94,16 @@ namespace VideoEditor
             _mainViewModel.ExportStarted += MainViewModel_ExportStarted;
 
             this.Loaded += MainWindow_Loaded;
+            this.Activated += MainWindow_Activated;
+            this.Deactivated += MainWindow_Deactivated;
             _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
 
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
-
+            
+            // Subscribe to menu events to manage OverlayWindow z-order
+            this.AddHandler(MenuItem.SubmenuOpenedEvent, new RoutedEventHandler(Menu_SubmenuOpened));
+            this.AddHandler(MenuItem.SubmenuClosedEvent, new RoutedEventHandler(Menu_SubmenuClosed));
+            
             // Monitor dragging state to update clipping more frequently
             _mainViewModel.VideoEditor.PropertyChanged += (s, e) =>
             {
@@ -102,23 +124,23 @@ namespace VideoEditor
                     }
                 }
             };
-
+            
             // Subscribe to Z-order change events
             _mainViewModel.VideoClipZOrderChanged += (s, e) =>
             {
                 _needsZOrderUpdate = true;
             };
-
+            
             // Subscribe to ActiveVideoClips changes to apply clipping and Z-order
-            _mainViewModel.ActiveVideoClips.CollectionChanged += (s, e) =>
+            _mainViewModel.ActiveVideoClips.CollectionChanged += (s, e) => 
             {
                 _needsZOrderUpdate = true; // Mark that Z-order needs update
-                Dispatcher.BeginInvoke(new Action(() =>
+                Dispatcher.BeginInvoke(new Action(() => 
                 {
                     ClipVideoViewsToPlayerHost();
                 }), DispatcherPriority.Loaded);
             };
-
+            
             // Also clip when video clips properties change (position, size, etc.)
             _mainViewModel.PropertyChanged += (s, e) =>
             {
@@ -128,7 +150,7 @@ namespace VideoEditor
                     Dispatcher.BeginInvoke(new Action(() => ClipVideoViewsToPlayerHost()), DispatcherPriority.Loaded);
                 }
             };
-
+            
             // Periodically check and apply video clipping (especially during drag operations)
             // But only update Z-order when needed
             _videoClippingTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
@@ -136,7 +158,10 @@ namespace VideoEditor
             {
                 ClipVideoViewsToPlayerHost();
                 // OverlayWindow를 주기적으로 최상위로 유지 (비디오 HwndHost가 위로 올라오는 것 방지)
+                // 단, MainWindow가 활성화되어 있을 때만
                 BringOverlayToFront();
+                // Progress windows should always be on top of OverlayWindow
+                BringProgressWindowsToFront();
             };
             _videoClippingTimer.Start();
 
@@ -148,6 +173,16 @@ namespace VideoEditor
             LocationChanged += UpdateOverlayPosition;
             SizeChanged += UpdateOverlayPosition;
             VideoPlayerHost.SizeChanged += UpdateOverlayPosition;
+            
+            // Monitor PreviewViewbox size changes
+            this.Loaded += (s, e) =>
+            {
+                var previewViewbox = this.FindName("PreviewViewbox") as FrameworkElement;
+                if (previewViewbox != null)
+                {
+                    previewViewbox.SizeChanged += UpdateOverlayPosition;
+                }
+            };
 
             _rulerRedrawTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
             _rulerRedrawTimer.Tick += (s, e) =>
@@ -159,6 +194,13 @@ namespace VideoEditor
             TimelineScrollViewer.ScrollChanged += (s, e) =>
             {
                 RulerScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset);
+                
+                // Sync vertical scroll for track labels
+                if (e.VerticalChange != 0)
+                {
+                    TrackLabelsScrollViewer.ScrollToVerticalOffset(TimelineScrollViewer.VerticalOffset);
+                }
+                
                 if (e.HorizontalChange != 0)
                 {
                     // Draw immediately so ticks update without lag
@@ -180,8 +222,10 @@ namespace VideoEditor
 
             VideoPlayerHost.SizeChanged += (s, e) =>
             {
-                _mainViewModel.PlayerHostWidth = e.NewSize.Width;
-                _mainViewModel.PlayerHostHeight = e.NewSize.Height;
+                // VideoPlayerHost is now fixed at 1920x1080 inside a Viewbox
+                // So we always use these fixed dimensions
+                _mainViewModel.PlayerHostWidth = 1920;
+                _mainViewModel.PlayerHostHeight = 1080;
             };
 
             DrawTimelineRuler();
@@ -227,19 +271,38 @@ namespace VideoEditor
 
         private void UpdateOverlayPosition(object? sender, EventArgs e)
         {
-            if (VideoPlayerHost.IsVisible && this.IsVisible)
+            // Find the PreviewViewbox element
+            var previewViewbox = this.FindName("PreviewViewbox") as FrameworkElement;
+            
+            if (previewViewbox != null && previewViewbox.IsVisible && this.IsVisible && 
+                previewViewbox.ActualWidth > 0 && previewViewbox.ActualHeight > 0)
             {
-                Point location = VideoPlayerHost.PointToScreen(new Point(0, 0));
-                _overlayWindow.Left = location.X;
-                _overlayWindow.Top = location.Y;
-                _overlayWindow.Width = VideoPlayerHost.ActualWidth;
-                _overlayWindow.Height = VideoPlayerHost.ActualHeight;
-
-                // OverlayWindow를 항상 최상위로 유지
-                BringOverlayToFront();
-
-                // Apply clipping to video views to ensure they don't render outside VideoPlayerHost
-                Dispatcher.BeginInvoke(new Action(() => ClipVideoViewsToPlayerHost()), DispatcherPriority.Normal);
+                try
+                {
+                    Point location = previewViewbox.PointToScreen(new Point(0, 0));
+                    _overlayWindow.Left = location.X;
+                    _overlayWindow.Top = location.Y;
+                    _overlayWindow.Width = previewViewbox.ActualWidth;
+                    _overlayWindow.Height = previewViewbox.ActualHeight;
+                    
+                    // Calculate scale factor (actual size / fixed size)
+                    // Fixed size is 1920x1080, actual size is the Viewbox's scaled size
+                    double scaleX = previewViewbox.ActualWidth / 1920.0;
+                    double scaleY = previewViewbox.ActualHeight / 1080.0;
+                    
+                    // Apply scale to overlay window
+                    _overlayWindow.SetScale(scaleX, scaleY);
+                    
+                    // OverlayWindow를 항상 최상위로 유지
+                    BringOverlayToFront();
+                    
+                    // Apply clipping to video views to ensure they don't render outside VideoPlayerHost
+                    Dispatcher.BeginInvoke(new Action(() => ClipVideoViewsToPlayerHost()), DispatcherPriority.Normal);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[UpdateOverlayPosition] Error: {ex.Message}");
+                }
             }
         }
 
@@ -248,16 +311,23 @@ namespace VideoEditor
 
         private static readonly IntPtr HWND_TOP = new IntPtr(0);
         private static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
+        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        private static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
         private const uint SWP_NOMOVE = 0x0002;
         private const uint SWP_NOSIZE = 0x0001;
         private const uint SWP_NOACTIVATE = 0x0010;
+        
+        private bool _isMenuOpen = false;
 
         private void ClipVideoViewsToPlayerHost()
         {
-            if (_mainViewModel?.ActiveVideoClips == null || VideoPlayerHost == null)
+            // Find the PreviewViewbox element
+            var previewViewbox = this.FindName("PreviewViewbox") as FrameworkElement;
+            
+            if (_mainViewModel?.ActiveVideoClips == null || previewViewbox == null)
                 return;
 
-            if (VideoPlayerHost.ActualWidth <= 0 || VideoPlayerHost.ActualHeight <= 0)
+            if (previewViewbox.ActualWidth <= 0 || previewViewbox.ActualHeight <= 0)
                 return;
 
             // --- 여기부터 수정: DPI 스케일링 팩터 가져오기 ---
@@ -269,10 +339,10 @@ namespace VideoEditor
             var dpiX = source.CompositionTarget.TransformToDevice.M11;
             var dpiY = source.CompositionTarget.TransformToDevice.M22;
 
-            // Get VideoPlayerHost bounds in screen coordinates (WPF DIPs)
+            // Get PreviewViewbox bounds in screen coordinates (WPF DIPs)
             var hostBoundsDIP = new Rect(
-                VideoPlayerHost.PointToScreen(new Point(0, 0)),
-                new Size(VideoPlayerHost.ActualWidth, VideoPlayerHost.ActualHeight)
+                previewViewbox.PointToScreen(new Point(0, 0)),
+                new Size(previewViewbox.ActualWidth, previewViewbox.ActualHeight)
             );
 
             // DIPs를 실제 물리적 픽셀로 변환
@@ -335,16 +405,16 @@ namespace VideoEditor
 
             // Apply Z-order from back to front
             IntPtr insertAfter = overlayHwnd != IntPtr.Zero ? overlayHwnd : HWND_TOP;
-
+            
             for (int i = sortedClips.Count - 1; i >= 0; i--)
             {
                 var kvp = sortedClips[i];
                 IntPtr hwnd = kvp.Key;
-
+                
                 SetWindowPos(hwnd, insertAfter, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
                 insertAfter = hwnd;
             }
-
+            
             // Ensure OverlayWindow stays on top
             if (overlayHwnd != IntPtr.Zero)
             {
@@ -377,7 +447,7 @@ namespace VideoEditor
 
                     // Check if the HwndHost is completely outside VideoPlayerHost bounds
                     bool isCompletelyOutside = intersection.IsEmpty || intersection.Width <= 0 || intersection.Height <= 0;
-
+                    
                     if (!isCompletelyOutside && intersection.Width > 0 && intersection.Height > 0)
                     {
                         // 교차 영역을 HwndHost 기준 상대 픽셀 좌표로 변환
@@ -429,7 +499,7 @@ namespace VideoEditor
             if (emptyRgn != IntPtr.Zero)
             {
                 SetWindowRgn(parentHwnd, emptyRgn, true);
-
+                
                 // Also hide all child windows
                 EnumChildWindows(parentHwnd, (hwnd, lParam) =>
                 {
@@ -507,10 +577,12 @@ namespace VideoEditor
 
         private void Project_Reset_Click(object sender, RoutedEventArgs e)
         {
+            _mainViewModel.HidePreviewObjectsForModal();
             var result = MessageBox.Show("현재 프로젝트의 초기화를 시작하시겠습니까? 저장하지 않은 내용은 사라집니다.",
                                          "새 프로젝트",
                                          MessageBoxButton.YesNo,
                                          MessageBoxImage.Question);
+            _mainViewModel.RestorePreviewObjectsAfterModal();
 
             if (result == MessageBoxResult.Yes)
             {
@@ -559,7 +631,7 @@ namespace VideoEditor
             _progressWindow.Show();
         }
 
-        private void btnSelectMedia_Click(object sender, RoutedEventArgs e)
+        private async void btnSelectMedia_Click(object sender, RoutedEventArgs e)
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
 
@@ -578,26 +650,96 @@ namespace VideoEditor
 
             openFileDialog.Multiselect = true;
 
-            if (openFileDialog.ShowDialog() == true)
+            _mainViewModel.HidePreviewObjectsForModal();
+            bool? dialogResult = openFileDialog.ShowDialog();
+            _mainViewModel.RestorePreviewObjectsAfterModal();
+
+            // Force complete resync: Stop all players and reinitialize them
+            Common.UIDispatcher.InvokeAsync(async () =>
             {
-                foreach (string videoPath in openFileDialog.FileNames)
+                // Stop all existing players first
+                _mainViewModel.PlayerViewModel.Stop();
+                
+                // Clear and force complete re-sync
+                _mainViewModel.ActiveVideoClips.Clear();
+                _mainViewModel.ActiveWpfOverlays.Clear();
+                
+                await Task.Delay(100); // Wait for cleanup
+                
+                // Now perform full sync to recreate everything
+                _mainViewModel.SyncPlayersToTimeline();
+            });
+
+            if (dialogResult == true)
+            {
+                // --- ▼ [추가] 유효성 검사 결과를 저장할 리스트 ▼ ---
+                var invalidFiles = new List<string>();
+                int addedCount = 0;
+
+                // --- ▼ [추가] 작업 중임을 나타내는 커서 변경 ▼ ---
+                this.Cursor = Cursors.Wait;
+
+                foreach (string filePath in openFileDialog.FileNames)
                 {
-                    string videoTitle = System.IO.Path.GetFileNameWithoutExtension(videoPath);
+                    string extension = System.IO.Path.GetExtension(filePath).ToLowerInvariant();
+                    bool isValid = true; // 기본적으로 유효하다고 가정
 
-                    Myvideo newVideo = new Myvideo
+                    // 비디오 파일 확장자인 경우에만 유효성 검사 수행
+                    if (extension is ".mp4" or ".avi" or ".mkv" or ".mov" or ".wmv")
                     {
-                        Title = videoTitle,
-                        FullPath = videoPath,
-                        Category = "사용자 추가"
-                    };
+                        try
+                        {
+                            // LibVLC를 사용하여 파일 유효성 검사
+                            using (var media = new LibVLCSharp.Shared.Media(_mainViewModel.PlayerViewModel._libVLC, new Uri(filePath)))
+                            {
+                                await media.Parse(MediaParseOptions.ParseNetwork);
+                                if (media.Duration <= 0 || !media.Tracks.Any(t => t.TrackType == LibVLCSharp.Shared.TrackType.Video))
+                                {
+                                    isValid = false;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            isValid = false; // 파싱 중 예외 발생 시 유효하지 않음
+                        }
+                    }
 
-                    _mainViewModel.VideoList.AddVideo(newVideo);
+                    // 유효한 파일만 목록에 추가
+                    if (isValid)
+                    {
+                        string fileTitle = System.IO.Path.GetFileNameWithoutExtension(filePath);
+                        Myvideo newMedia = new Myvideo
+                        {
+                            Title = fileTitle,
+                            FullPath = filePath,
+                            Category = "사용자 추가"
+                        };
+                        _mainViewModel.VideoList.AddVideo(newMedia);
+                        addedCount++;
+                    }
+                    else
+                    {
+                        invalidFiles.Add(System.IO.Path.GetFileName(filePath));
+                    }
                 }
 
-                if (openFileDialog.FileNames.Any())
+                // --- ▼ [추가] 커서 복원 ▼ ---
+                this.Cursor = Cursors.Arrow;
+
+                // --- ▼ [추가] 손상된 파일이 있었을 경우 사용자에게 알림 ▼ ---
+                if (invalidFiles.Any())
+                {
+                    string message = $"선택한 파일 중 다음 {invalidFiles.Count}개는 손상되었거나 지원하지 않는 형식으로, 목록에서 제외되었습니다:\n\n" +
+                                     string.Join("\n", invalidFiles);
+                    _mainViewModel.HidePreviewObjectsForModal();
+                    MessageBox.Show(this, message, "파일 추가 오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    _mainViewModel.RestorePreviewObjectsAfterModal();
+                }
+
+                if (addedCount > 0)
                 {
                     _mainViewModel.VideoList.SelectedVideoItem = _mainViewModel.VideoList.MyVideoes.LastOrDefault();
-                    //StatusTextBlock.Text = $"{openFileDialog.FileNames.Length}개의 미디어가 목록에 추가되었습니다.";
                 }
             }
         }
@@ -607,33 +749,105 @@ namespace VideoEditor
             var vm = DataContext as MainViewModel;
             if (vm == null) return;
 
+            SnapIndicatorCanvas.Children.Clear();
+
             if (e.Data.GetDataPresent("TimelineClips") && e.Data.GetData("TimelineClips") is List<TimelineClipBase> draggedClips)
             {
                 e.Effects = DragDropEffects.Move;
 
                 // 드래그 업데이트 간격 조절 (선택사항이지만 성능에 도움됨)
-                if ((DateTime.Now - _lastDragUpdateTime).TotalMilliseconds < 20) // 20ms 간격
+                if ((DateTime.Now - _lastDragUpdateTime).TotalMilliseconds < 16) // 16ms 간격
                 {
                     e.Handled = true;
                     return;
                 }
                 _lastDragUpdateTime = DateTime.Now;
 
-                Point position = e.GetPosition(TimelineCanvas);
-                double deltaTime = (position.X - vm.VideoEditor.DragStartPoint.X) / vm.VideoEditor.PixelsPerSecond;
-                int deltaTrack = (int)Math.Round((position.Y - vm.VideoEditor.DragStartPoint.Y) / 60.0);
+                //Point position = e.GetPosition(TimelineCanvas);
+                //double deltaTime = (position.X - vm.VideoEditor.DragStartPoint.X) / vm.VideoEditor.PixelsPerSecond;
+                //int deltaTrack = (int)Math.Round((position.Y - vm.VideoEditor.DragStartPoint.Y) / 60.0);
 
-                // 실시간 미리보기: 속성 변경 이벤트 폭주를 줄이기 위해 배치 업데이트
+                Point position = e.GetPosition(TimelineCanvas);
+                double mouseDeltaX = position.X - vm.VideoEditor.DragStartPoint.X;
+                double timeDelta = mouseDeltaX / vm.VideoEditor.PixelsPerSecond;
+                int trackDelta = (int)Math.Round((position.Y - vm.VideoEditor.DragStartPoint.Y) / 60.0);
+
+                // --- 2. 스냅 로직 ---
+                const double SNAP_TOLERANCE_PX = 10; // 10픽셀 이내로 가까워지면 스냅
+                double snapToleranceTime = SNAP_TOLERANCE_PX / vm.VideoEditor.PixelsPerSecond;
+                double bestSnapOffset = double.MaxValue; // 가장 가까운 스냅 지점과의 시간 차이
+
+                // 스냅 대상 지점들 수집 (다른 클립들의 시작/끝, 재생 헤드, 타임라인 시작점)
+                var snapPoints = new List<double> { 0.0, vm.CurrentTimelinePosition };
+                var otherClips = vm.VideoEditor.TimelineClips.Except(draggedClips);
+                foreach (var clip in otherClips)
+                {
+                    snapPoints.Add(clip.StartPosition);
+                    snapPoints.Add(clip.StartPosition + clip.Duration);
+                }
+
+                var primaryClip = draggedClips.First(); // 그룹의 기준이 될 클립
+                var primaryClipOriginalState = vm.VideoEditor.DraggedClipsOriginalState[primaryClip];
+                double desiredStartTime = primaryClipOriginalState.OriginalStart + timeDelta;
+                double desiredEndTime = desiredStartTime + primaryClip.Duration;
+
+                // 가장 가까운 스냅 지점 찾기
+                foreach (double snapPoint in snapPoints.Distinct().OrderBy(p => p))
+                {
+                    // 드래그하는 클립의 '시작점'이 스냅 지점에 가까울 때
+                    if (Math.Abs(desiredStartTime - snapPoint) < Math.Abs(bestSnapOffset))
+                    {
+                        bestSnapOffset = snapPoint - desiredStartTime;
+                    }
+                    // 드래그하는 클립의 '끝점'이 스냅 지점에 가까울 때
+                    if (Math.Abs(desiredEndTime - snapPoint) < Math.Abs(bestSnapOffset))
+                    {
+                        bestSnapOffset = snapPoint - desiredEndTime;
+                    }
+                }
+
+                double snappedTimeDelta = timeDelta;
+                // 찾은 가장 가까운 스냅 지점이 허용 오차 이내라면, 위치 보정
+                if (Math.Abs(bestSnapOffset) < snapToleranceTime)
+                {
+                    snappedTimeDelta += bestSnapOffset;
+
+                    // 시각적 안내선 그리기
+                    double snapLineX = (primaryClipOriginalState.OriginalStart + snappedTimeDelta) * vm.VideoEditor.PixelsPerSecond;
+                    if (Math.Abs(desiredEndTime - (primaryClipOriginalState.OriginalStart + snappedTimeDelta + primaryClip.Duration)) > 0.001)
+                    {
+                        snapLineX += primaryClip.Width; // 끝점에 스냅된 경우
+                    }
+                    var snapLine = new Line
+                    {
+                        X1 = snapLineX,
+                        Y1 = 0,
+                        X2 = snapLineX,
+                        Y2 = TimelineCanvas.ActualHeight,
+                        Stroke = Brushes.Red,
+                        StrokeThickness = 1.5,
+                        StrokeDashArray = new DoubleCollection { 4, 2 }
+                    };
+                    SnapIndicatorCanvas.Children.Add(snapLine);
+                }
+
+                // --- 3. 최종 위치 적용 ---
+                // 계산된 (또는 스냅으로 보정된) 위치를 모든 클립에 적용
                 foreach (var clip in draggedClips)
                 {
                     if (vm.VideoEditor.DraggedClipsOriginalState.TryGetValue(clip, out var originalState))
                     {
-                        double desiredStart = originalState.OriginalStart + deltaTime;
-                        int desiredTrack = Math.Clamp(originalState.OriginalTrack + deltaTrack, 0, 4);
-                        clip.StartPosition = Math.Max(0, desiredStart);
-                        clip.TrackIndex = desiredTrack;
+                        double finalStartPosition = originalState.OriginalStart + snappedTimeDelta;
+                        int finalTrackIndex = Math.Clamp(originalState.OriginalTrack + trackDelta, 0, 8);
+
+                        clip.StartPosition = Math.Max(0, finalStartPosition);
+                        clip.TrackIndex = finalTrackIndex;
                     }
                 }
+
+                // Auto-scroll when dragging near edges
+                HandleTimelineAutoScroll(e);
+
                 // 드래그 중에도 눈금/폭은 즉시 반영되도록 총 길이 바인딩은 이미 ViewModel에서 업데이트됨
                 // 무거운 동기화는 드랍 완료 시에만 수행
             }
@@ -648,7 +862,40 @@ namespace VideoEditor
             e.Handled = true;
         }
 
-        private void VideoList_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void HandleTimelineAutoScroll(DragEventArgs e)
+        {
+            const double scrollMargin = 50; // Edge zone for auto-scroll
+            const double scrollSpeed = 15; // Pixels to scroll per update
+            const double verticalScrollSpeed = 10; // Vertical scroll speed
+            
+            Point positionInScrollViewer = e.GetPosition(TimelineScrollViewer);
+            
+            // Horizontal auto-scroll
+            if (positionInScrollViewer.X < scrollMargin && TimelineScrollViewer.HorizontalOffset > 0)
+            {
+                // Scroll left
+                TimelineScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset - scrollSpeed);
+            }
+            else if (positionInScrollViewer.X > TimelineScrollViewer.ActualWidth - scrollMargin)
+            {
+                // Scroll right
+                TimelineScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset + scrollSpeed);
+            }
+            
+            // Vertical auto-scroll
+            if (positionInScrollViewer.Y < scrollMargin && TimelineScrollViewer.VerticalOffset > 0)
+            {
+                // Scroll up
+                TimelineScrollViewer.ScrollToVerticalOffset(TimelineScrollViewer.VerticalOffset - verticalScrollSpeed);
+            }
+            else if (positionInScrollViewer.Y > TimelineScrollViewer.ActualHeight - scrollMargin)
+            {
+                // Scroll down
+                TimelineScrollViewer.ScrollToVerticalOffset(TimelineScrollViewer.VerticalOffset + verticalScrollSpeed);
+            }
+        }
+
+        private void VideoList_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e) 
         {
             _dragStartPoint = e.GetPosition(null);
             if (e.OriginalSource is DependencyObject source)
@@ -661,7 +908,7 @@ namespace VideoEditor
             }
         }
 
-        private void VideoList_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        private void VideoList_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e) 
         {
             if (e.LeftButton == MouseButtonState.Pressed && _draggedVideo != null)
             {
@@ -769,24 +1016,137 @@ namespace VideoEditor
         {
             _overlayWindow.Owner = this;
             _overlayWindow.Show();
-
+            
             // OverlayWindow를 항상 비디오 HwndHost 위에 유지
             BringOverlayToFront();
-
-            UpdateOverlayPosition(null, null);
+            
+            // Delay the initial update to ensure everything is laid out
+            Dispatcher.BeginInvoke(new Action(() => 
+            {
+                UpdateOverlayPosition(null, null);
+            }), DispatcherPriority.Loaded);
 
             InitializePlayhead();
             DrawTimelineRuler();
         }
 
-        private void BringOverlayToFront()
+        private void MainWindow_Activated(object? sender, EventArgs e)
         {
-            // OverlayWindow의 핸들을 가져와서 Z-Order를 최상위로 설정
+            // Prevent reentrant calls
+            if (_isProcessingActivation) return;
+            _isProcessingActivation = true;
+
+            try
+            {
+                // Recompute and restore only currently active overlays at this timeline position
+                if (_switchSavedActiveWpfOverlays != null)
+                {
+                    var currentTime = _mainViewModel.CurrentTimelinePosition;
+                    var activeNow = _mainViewModel.VideoEditor.TimelineClips
+                        .Where(c => (c is ImageClip || c is TextClip) && c.StartPosition <= currentTime && (c.StartPosition + c.Duration) > currentTime)
+                        .OrderBy(c => c.TrackIndex)
+                        .ToList();
+                    foreach (var clip in activeNow)
+                    {
+                        if (!_mainViewModel.ActiveWpfOverlays.Contains(clip))
+                            _mainViewModel.ActiveWpfOverlays.Add(clip);
+                    }
+                    _switchSavedActiveWpfOverlays = null; // discard old snapshot
+                }
+
+                if (_overlayWindow != null && _switchWasOverlayVisible)
+                {
+                    _overlayWindow.Show();
+                    _switchWasOverlayVisible = false;
+                }
+
+                // Bring progress windows to front when MainWindow is activated
+                BringProgressWindowsToFront();
+            }
+            finally
+            {
+                _isProcessingActivation = false;
+            }
+        }
+
+        private void MainWindow_Deactivated(object? sender, EventArgs e)
+        {
+            // Prevent reentrant calls
+            if (_isProcessingActivation) return;
+            _isProcessingActivation = true;
+
+            try
+            {
+                // 항상 다른 프로그램으로 포커스가 이동하면 오버레이를 숨김 (내부 소유창 여부 상관없이 단순화)
+                if (_switchSavedActiveWpfOverlays == null && (_mainViewModel.ActiveWpfOverlays.Count > 0 || (_overlayWindow != null && _overlayWindow.IsVisible)))
+                {
+                    _switchSavedActiveWpfOverlays = new List<TimelineClipBase>(_mainViewModel.ActiveWpfOverlays);
+                    _switchWasOverlayVisible = _overlayWindow != null && _overlayWindow.IsVisible;
+
+                    _mainViewModel.ActiveWpfOverlays.Clear();
+                    if (_overlayWindow != null && _overlayWindow.IsVisible)
+                    {
+                        _overlayWindow.Hide();
+                    }
+                }
+            }
+            finally
+            {
+                _isProcessingActivation = false;
+            }
+        }
+
+        private void BringProgressWindowsToFront()
+        {
+            // Find all owned windows and bring them to front (excluding OverlayWindow)
+            foreach (Window ownedWindow in this.OwnedWindows)
+            {
+                if (ownedWindow is OverlayWindow)
+                    continue;
+
+                if (ownedWindow.IsLoaded && ownedWindow.IsVisible)
+                {
+                    var windowHandle = new WindowInteropHelper(ownedWindow).Handle;
+                    if (windowHandle != IntPtr.Zero)
+                    {
+                        SetWindowPos(windowHandle, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                    }
+                }
+            }
+        }
+
+        private void Menu_SubmenuOpened(object sender, RoutedEventArgs e)
+        {
+            _isMenuOpen = true;
+            // 메뉴가 열릴 때 OverlayWindow를 완전히 숨김
             if (_overlayWindow != null && _overlayWindow.IsLoaded)
             {
-                var overlayHandle = new WindowInteropHelper(_overlayWindow).Handle;
-                SetWindowPos(overlayHandle, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                _overlayWindow.SetVisible(false);
             }
+        }
+
+        private void Menu_SubmenuClosed(object sender, RoutedEventArgs e)
+        {
+            _isMenuOpen = false;
+            // 메뉴가 닫힐 때 OverlayWindow를 다시 표시
+            if (_overlayWindow != null && _overlayWindow.IsLoaded)
+            {
+                _overlayWindow.SetVisible(true);
+                BringOverlayToFront(); // Update overlay position immediately
+            }
+        }
+
+        private void BringOverlayToFront()
+        {
+            // 메뉴가 열려있을 때는 OverlayWindow가 숨겨져 있으므로 아무것도 하지 않음
+            if (_isMenuOpen || _overlayWindow == null || !_overlayWindow.IsLoaded || !this.IsActive)
+                return;
+                
+            // OverlayWindow의 핸들을 가져와서 Z-Order를 최상위로 설정
+            var overlayHandle = new WindowInteropHelper(_overlayWindow).Handle;
+            _overlayWindow.SetTopmost(true);
+            _overlayWindow.SetHitTestable(true);
+            SetWindowPos(overlayHandle, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         }
 
         private void InitializePlayhead()
@@ -796,7 +1156,7 @@ namespace VideoEditor
                 Stroke = Brushes.Red,
                 StrokeThickness = 2,
                 Y1 = 0,
-                Y2 = PlayheadCanvas.ActualHeight > 0 ? PlayheadCanvas.ActualHeight : 300
+                Y2 = PlayheadCanvas.ActualHeight > 0 ? PlayheadCanvas.ActualHeight : 540
             };
             PlayheadCanvas.Children.Add(_playheadLine);
         }
@@ -860,11 +1220,15 @@ namespace VideoEditor
             {
                 Point position = e.GetPosition(canvas);
                 double clickedTimeSec = position.X / _mainViewModel.VideoEditor.PixelsPerSecond;
+                
+                // Ensure the time is not negative
+                clickedTimeSec = Math.Max(0, clickedTimeSec);
 
                 _mainViewModel.SeekTimeline(clickedTimeSec, isScrubbing: false);
 
-                _playheadLine.X1 = position.X;
-                _playheadLine.X2 = position.X;
+                double clampedX = Math.Max(0, position.X);
+                _playheadLine.X1 = clampedX;
+                _playheadLine.X2 = clampedX;
             }
         }
 
@@ -930,6 +1294,10 @@ namespace VideoEditor
             IInputElement relativeTo = Mouse.Captured == TimelineRulerCanvas ? (IInputElement)TimelineRulerCanvas : (IInputElement)PlayheadCanvas;
             Point position = e.GetPosition(relativeTo);
             double clickedTimeSec = position.X / _mainViewModel.VideoEditor.PixelsPerSecond;
+            
+            // Ensure the time is not negative
+            clickedTimeSec = Math.Max(0, clickedTimeSec);
+            
             _mainViewModel.CurrentTimelineTimeMs = (long)(clickedTimeSec * 1000);
         }
 
@@ -943,7 +1311,55 @@ namespace VideoEditor
             e.Handled = true;
         }
 
+        
 
+        private void TimelineCanvas_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // Check if click was on empty space (not on a clip)
+            if (e.OriginalSource == sender || e.OriginalSource == TimelineCanvas)
+            {
+                // If Ctrl is not pressed, deselect all clips
+                if (!Keyboard.IsKeyDown(Key.LeftCtrl) && !Keyboard.IsKeyDown(Key.RightCtrl))
+                {
+                    foreach (var clip in _mainViewModel.VideoEditor.TimelineClips)
+                    {
+                        clip.IsSelected = false;
+                    }
+                    _mainViewModel.VideoEditor.SelectedClip = null;
+                }
+                
+                // Start rectangle selection
+                _isSelectingWithRectangle = true;
+                _selectionStartPoint = e.GetPosition(TimelineCanvas);
+                
+                // Save current selection state if Ctrl is pressed
+                if (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl))
+                {
+                    _clipsBeforeSelection = _mainViewModel.VideoEditor.TimelineClips
+                        .Where(c => c.IsSelected)
+                        .ToList();
+                }
+                else
+                {
+                    _clipsBeforeSelection.Clear();
+                }
+                
+                // Create selection rectangle if it doesn't exist
+                if (_selectionRectangle == null)
+                {
+                    _selectionRectangle = new Rectangle
+                    {
+                        Stroke = Brushes.DodgerBlue,
+                        StrokeThickness = 2,
+                        Fill = new SolidColorBrush(Color.FromArgb(50, 30, 144, 255)),
+                        StrokeDashArray = new DoubleCollection { 4, 2 }
+                    };
+                }
+                
+                TimelineCanvas.CaptureMouse();
+                e.Handled = true;
+            }
+        }
 
         private void TimelineCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
         {
@@ -959,7 +1375,76 @@ namespace VideoEditor
             {
                 _mainViewModel.VideoEditor.UpdateClipResize(e.GetPosition(TimelineCanvas));
                 e.Handled = true;
+                return;
             }
+            
+            // Handle rectangle selection
+            if (_isSelectingWithRectangle && Mouse.Captured == TimelineCanvas)
+            {
+                Point currentPoint = e.GetPosition(TimelineCanvas);
+                
+                // Calculate rectangle bounds
+                double left = Math.Min(_selectionStartPoint.X, currentPoint.X);
+                double top = Math.Min(_selectionStartPoint.Y, currentPoint.Y);
+                double width = Math.Abs(currentPoint.X - _selectionStartPoint.X);
+                double height = Math.Abs(currentPoint.Y - _selectionStartPoint.Y);
+                
+                // Only show rectangle if dragged at least a few pixels
+                if (width > 5 || height > 5)
+                {
+                    // Update selection rectangle
+                    Canvas.SetLeft(_selectionRectangle, left);
+                    Canvas.SetTop(_selectionRectangle, top);
+                    _selectionRectangle.Width = width;
+                    _selectionRectangle.Height = height;
+                    
+                    // Add to SelectionCanvas if not already added
+                    if (!SelectionCanvas.Children.Contains(_selectionRectangle))
+                    {
+                        SelectionCanvas.Children.Add(_selectionRectangle);
+                    }
+                    
+                    // Select clips within rectangle
+                    UpdateClipSelection(left, top, width, height);
+                }
+                
+                e.Handled = true;
+            }
+        }
+        
+        private void UpdateClipSelection(double left, double top, double width, double height)
+        {
+            var selectionRect = new Rect(left, top, width, height);
+            bool ctrlPressed = Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl);
+            
+            foreach (var clip in _mainViewModel.VideoEditor.TimelineClips)
+            {
+                // Calculate clip bounds
+                double clipLeft = clip.StartPosition * _mainViewModel.VideoEditor.PixelsPerSecond;
+                double clipTop = clip.TrackIndex * 60;
+                double clipWidth = clip.Width;
+                double clipHeight = 50;
+                
+                var clipRect = new Rect(clipLeft, clipTop, clipWidth, clipHeight);
+                
+                // Check if clip intersects with selection rectangle
+                bool intersects = selectionRect.IntersectsWith(clipRect);
+                
+                if (ctrlPressed)
+                {
+                    // Ctrl pressed: toggle selection
+                    bool wasSelectedBefore = _clipsBeforeSelection.Contains(clip);
+                    clip.IsSelected = wasSelectedBefore ? !intersects : intersects;
+                }
+                else
+                {
+                    // Normal selection: select only intersecting clips
+                    clip.IsSelected = intersects;
+                }
+            }
+            
+            // Synchronize the ViewModel's internal selected clips list
+            _mainViewModel.VideoEditor.SynchronizeSelectedClips();
         }
 
         private void TimelineCanvas_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -980,13 +1465,36 @@ namespace VideoEditor
                 (sender as UIElement)?.ReleaseMouseCapture();
                 e.Handled = true;
             }
+            else if (_isSelectingWithRectangle)
+            {
+                // End rectangle selection
+                _isSelectingWithRectangle = false;
+                
+                // Remove selection rectangle from canvas
+                if (_selectionRectangle != null && SelectionCanvas.Children.Contains(_selectionRectangle))
+                {
+                    SelectionCanvas.Children.Remove(_selectionRectangle);
+                }
+                
+                // Synchronize selected clips in ViewModel
+                _mainViewModel.VideoEditor.SynchronizeSelectedClips();
+                
+                _clipsBeforeSelection.Clear();
+                
+                if (Mouse.Captured == TimelineCanvas)
+                {
+                    TimelineCanvas.ReleaseMouseCapture();
+                }
+                
+                e.Handled = true;
+            }
         }
 
         private void TimelineResizeThumb_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
         {
             double newWidth = TimelineRulerCanvas.Width + e.HorizontalChange;
             double pixelsPerSecond = _mainViewModel.VideoEditor.PixelsPerSecond;
-
+    
             // 최소 너비 제어 (예: 10초에 해당하는 너비)
             double minWidth = 10 * pixelsPerSecond;
             if (newWidth < minWidth)
@@ -995,7 +1503,7 @@ namespace VideoEditor
             }
 
             _currentTimelineDurationSec = newWidth / pixelsPerSecond;
-
+    
             // MainViewModel의 TotalTimelineDurationMs 업데이트
             _mainViewModel.TotalTimelineDurationMs = (long)(_currentTimelineDurationSec * 1000);
 
@@ -1048,6 +1556,11 @@ namespace VideoEditor
                 RulerScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset);
                 DrawTimelineRuler();
             }
+        }
+
+        private void Exit_Click(object sender, RoutedEventArgs e)
+        {
+            Application.Current.Shutdown();
         }
     }
 }

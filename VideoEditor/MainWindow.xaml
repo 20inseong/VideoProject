@@ -232,12 +232,7 @@
         <Common:ColorToBrushConverter x:Key="ColorToBrushConverter" />
         <Common:FontFamilyConverter x:Key="FontFamilyConverter" />
         <Common:HalfValueConverter x:Key="HalfValueConverter" />
-
-        <DataTemplate DataType="{x:Type viewmodels:PlayerViewModel}">
-            <views:SpeedEditorView/>
-        </DataTemplate>
-
-
+        <Common:ClipZIndexConverter x:Key="ClipZIndexConverter" />
     </Window.Resources>
 
     <WindowChrome.WindowChrome>
@@ -274,7 +269,6 @@
                     <MenuItem Header="새 프로젝트" Click="NewProject_Click"/>
                     <MenuItem Header="프로젝트 열기" Command="{Binding LoadProjectCommand}"/>
                     <MenuItem Header="프로젝트 초기화" Click="Project_Reset_Click"/>
-                    <MenuItem Header="최근 파일 열기" />
                     <Separator/>
                     <MenuItem Header="미디어 가져오기" Click="btnSelectMedia_Click"/>
                     <Separator/>
@@ -282,68 +276,56 @@
                     <Separator/>
                     <MenuItem Header="렌더링" 
                               Command="{Binding DataContext.ExportVideoCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
-                    <MenuItem Header="렌더링 파일 미리보기" />
                     <Separator/>
-                    <MenuItem Header="프로젝트 설정" />
-                    <Separator/>
-                    <MenuItem Header="환경 설정" />
-                    <Separator/>
-                    <MenuItem Header="종료" />
+                    <MenuItem Header="종료" Click="Exit_Click"/>
                 </MenuItem>
 
                 <!-- 편집 -->
                 <MenuItem Header="편집">
-                    <MenuItem Header="되돌리기(ctrl+z)" />
-                    <MenuItem Header="다시 실행" />
-                    <Separator/>
-                    <MenuItem Header="자르기" />
-                    <MenuItem Header="복사하기(ctrl+c)" />
-                    <MenuItem Header="붙여넣기(ctrl+v)" />
-                    <MenuItem Header="삭제(Del)" />
-                    <MenuItem Header="모두 선택" />
-                    <Separator/>
+                    <MenuItem Header="자르기" 
+                              Command="{Binding VideoEditor.SplitClipCommand}"
+                              CommandParameter="{Binding CurrentTimelinePosition}"/>
+                    <MenuItem Header="복사하기(ctrl+c)" Command="{Binding VideoEditor.CopySelectedClipCommand}"/>
+                    <MenuItem Header="붙여넣기(ctrl+v)" Command="{Binding VideoEditor.PasteClipCommand}" CommandParameter="{Binding CurrentTimelinePosition}"/>
+                    <MenuItem Header="삭제(Del)" Command="{Binding VideoEditor.DeleteSelectedClipCommand}"/>
                 </MenuItem>
 
                 <!-- 도구 -->
                 <MenuItem Header="도구">
                     <MenuItem Header="비디오">
                         <MenuItem Header="오디오 분리" Command="{Binding VideoEditor.SeparateAudioCommand}"/>
-                        <MenuItem Header="시계 방향 90도 회전" />
-                        <MenuItem Header="시계 반대 방향 90도 회전" />
+                        <MenuItem Header="시계 방향 90도 회전" Command="{Binding VideoEditor.RotateSelectedClipCommand}" CommandParameter="90"/>
+                        <MenuItem Header="시계 반대 방향 90도 회전" Command="{Binding VideoEditor.RotateSelectedClipCommand}" CommandParameter="-90"/>
                     </MenuItem>
                     <MenuItem Header="오디오">
-                        <MenuItem Header="뮤트" />
+                        <MenuItem Header="뮤트 토글" Command="{Binding VideoEditor.ToggleMuteSelectedClipCommand}"/>
                         <MenuItem Header="음성 텍스트 변환" Command="{Binding TranscribeVideoCommand}" />
                     </MenuItem>
-                    <MenuItem Header="배속" Command="{Binding EditorHost.ShowSpeedEditorCommand}"/>
                     <MenuItem Header="자막">
                         <MenuItem Header="자막 생성" 
                                   Command="{Binding VideoEditor.AddTextClipCommand}"
                                   CommandParameter="{Binding CurrentTimelinePosition}"/>
-                        <MenuItem Header="음성 인식 자막 생성" />
+                        <MenuItem Header="음성 인식 자막 생성" Command="{Binding VideoEditor.CreateSubtitlesFromTranscriptionCommand}"/>
                     </MenuItem>
                     <Separator/>
-                    <MenuItem Header="클립 추출"/>
-                    <MenuItem Header="자르기" x:Name="CutVideoButton"/>
-                    <MenuItem Header="앞에 것만 남기고 삭제" />
-                    <MenuItem Header="뒤에 것만 남기고 삭제" />
-
+                    <MenuItem Header="그룹 만들기 (Ctrl+G)" Command="{Binding VideoEditor.GroupSelectedClipsCommand}"/>
+                    <MenuItem Header="그룹 해제 (Ctrl+Shift+G)" Command="{Binding VideoEditor.UngroupSelectedClipsCommand}"/>
                 </MenuItem>
 
                 <!-- 보기 -->
                 <MenuItem Header="보기">
-                    <MenuItem Header="재생 / 일시 정지" />
-                    <MenuItem Header="중지" />
-                    <MenuItem Header="전체 화면 / 복원" />
+                    <MenuItem Header="재생 / 일시 정지" Command="{Binding PlayPauseTimelineCommand}"/>
+                    <MenuItem Header="중지" Command="{Binding StopTimelineCommand}"/>
                     <Separator/>
-                    <MenuItem Header="배율" />
+                    <MenuItem Header="배율">
+                        <MenuItem Header="확대 (+)" Command="{Binding VideoEditor.ZoomInCommand}"/>
+                        <MenuItem Header="축소 (-)" Command="{Binding VideoEditor.ZoomOutCommand}"/>
+                    </MenuItem>
                     <MenuItem Header="이동">
-                        <MenuItem Header="이전 프레임" />
-                        <MenuItem Header="다음 프레임" />
-                        <MenuItem Header="이전 클립" />
-                        <MenuItem Header="다음 클립" />
-                        <MenuItem Header="1초 이전" />
-                        <MenuItem Header="1초 다음" />
+                        <MenuItem Header="이전 프레임" Command="{Binding SeekFramesCommand}" CommandParameter="-1"/>
+                        <MenuItem Header="다음 프레임" Command="{Binding SeekFramesCommand}" CommandParameter="1"/>
+                        <MenuItem Header="1초 이전" Command="{Binding SeekSecondsCommand}" CommandParameter="-1"/>
+                        <MenuItem Header="1초 다음" Command="{Binding SeekSecondsCommand}" CommandParameter="1"/>
                     </MenuItem>
                 </MenuItem>
             </Menu>
@@ -372,7 +354,11 @@
                                  SelectedItem="{Binding VideoList.SelectedVideoItem}"
                                  AllowDrop="True"
                                  PreviewMouseLeftButtonDown="VideoList_PreviewMouseLeftButtonDown"
-                                 PreviewMouseMove="VideoList_PreviewMouseMove"/>
+                                 PreviewMouseMove="VideoList_PreviewMouseMove">
+                            <ListBox.InputBindings>
+                                <KeyBinding Key="Delete" Command="{Binding VideoList.DeleteSelectedVideoCommand}"/>
+                            </ListBox.InputBindings>
+                        </ListBox>
                     </Expander>
                 </Border>
 
@@ -387,9 +373,16 @@
                             <!-- 영상 조작 UI (StackPanel) -->
                         </Grid.RowDefinitions>
 
-                        <Grid Grid.Row="0" Margin="5,5,5,0" x:Name="VideoPlayerHost" ClipToBounds="True">
-                            <Border Background="{Binding PlayerViewModel.VideoViewBackground}" ClipToBounds="True" />
-                            <views:VideoPreviewOverlay DataContext="{Binding}" ClipToBounds="True" />
+                        <!-- 16:9 비율을 유지하는 컨테이너 -->
+                        <Grid Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center" ClipToBounds="True">
+                            <!-- Viewbox로 16:9 비율 유지 -->
+                            <Viewbox Stretch="Uniform" x:Name="PreviewViewbox">
+                                <Grid x:Name="VideoPlayerHost" Width="1920" Height="1080" ClipToBounds="True">
+                                    <Border Background="{Binding PlayerViewModel.VideoViewBackground}" ClipToBounds="True" />
+                                    <!-- Video clips inside Viewbox -->
+                                    <views:VideoPreviewOverlay DataContext="{Binding}" ClipToBounds="True" IsHitTestVisible="False" />
+                                </Grid>
+                            </Viewbox>
 
                             <!-- Performance Warning Overlay -->
                             <Border Background="#80000000" CornerRadius="5"
@@ -405,13 +398,13 @@
                             <!-- 자막을 Popup 컨트롤 안에 배치 -->
                             <Popup x:Name="SubtitlePopup"
                                    IsOpen="{Binding IsTextVisible, Mode=OneWay}"
-                                   PlacementTarget="{Binding ElementName=VideoPlayerHost}"
+                                   PlacementTarget="{Binding ElementName=PreviewViewbox}"
                                    Placement="Relative"
                                    AllowsTransparency="True">
 
                                 <!-- Popup 내부의 Grid가 비디오 영역과 동일한 크기를 갖도록 설정 -->
-                                <Grid Width="{Binding ElementName=VideoPlayerHost, Path=ActualWidth}"
-                                      Height="{Binding ElementName=VideoPlayerHost, Path=ActualHeight}">
+                                <Grid Width="{Binding ElementName=PreviewViewbox, Path=ActualWidth}"
+                                      Height="{Binding ElementName=PreviewViewbox, Path=ActualHeight}">
 
                                     <Border Margin="10" Padding="10,5" CornerRadius="5"
                                             HorizontalAlignment="Center"
@@ -527,12 +520,18 @@
                         <!-- 시간 눈금자 -->
                         <Grid Grid.Row="1" Background="Transparent">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="50"/>
+                                <!-- 트랙 번호 영역 -->
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
+                            
+                            <!-- 트랙 번호 헤더 영역 (빈 공간) -->
+                            <Border Grid.Column="0" Background="#3E3E42" BorderBrush="#2D2D30" BorderThickness="0,0,1,0"/>
+                            
                             <ScrollViewer x:Name="RulerScrollViewer"
-                                          Grid.Column="0"
+                                          Grid.Column="1"
                                           HorizontalScrollBarVisibility="Hidden"
                                           VerticalScrollBarVisibility="Disabled"
                                           Height="40"
@@ -549,14 +548,14 @@
                             </ScrollViewer>
 
                             <Thumb x:Name="TimelineResizeThumb"
-                                   Grid.Column="1"
+                                   Grid.Column="2"
                                    Width="10"
                                    Cursor="SizeWE"
                                    DragDelta="TimelineResizeThumb_DragDelta"
                                    Background="LightGray"/>
 
                             <TextBox x:Name="TimelineDurationTextBox"
-                                     Grid.Column="2"
+                                     Grid.Column="3"
                                      Width="80"
                                      VerticalAlignment="Center"
                                      GotFocus="TimelineDurationTextBox_GotFocus"
@@ -565,18 +564,60 @@
                                      Text="{Binding TotalTimelineDurationMs, Converter={StaticResource Converter}, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
                         </Grid>
 
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="50"/>
+                                <!-- 트랙 번호 영역 -->
+                                <ColumnDefinition Width="*"/>
+                                <!-- 타임라인 영역 -->
+                            </Grid.ColumnDefinitions>
+                            
+                            <!-- 트랙 번호 레이블 (스크롤과 독립적) -->
+                            <Border Grid.Column="0" Background="#3E3E42" BorderBrush="#2D2D30" BorderThickness="0,0,1,0">
+                                <ScrollViewer x:Name="TrackLabelsScrollViewer"
+                                            VerticalScrollBarVisibility="Hidden"
+                                            HorizontalScrollBarVisibility="Hidden"
+                                            IsHitTestVisible="False">
+                                    <Canvas x:Name="TrackLabelsCanvas" Width="50" Height="540" Background="Transparent">
+                                        <!-- 트랙 구분선들 -->
+                                        <Line X1="0" Y1="0" X2="50" Y2="0" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="60" X2="50" Y2="60" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="120" X2="50" Y2="120" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="180" X2="50" Y2="180" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="240" X2="50" Y2="240" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="300" X2="50" Y2="300" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="360" X2="50" Y2="360" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="420" X2="50" Y2="420" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="480" X2="50" Y2="480" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="540" X2="50" Y2="540" Stroke="#2D2D30" StrokeThickness="1"/>
+                                        
+                                        <!-- 트랙 번호 텍스트 -->
+                                        <TextBlock Canvas.Left="20" Canvas.Top="20" Text="1" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="80" Text="2" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="140" Text="3" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="200" Text="4" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="260" Text="5" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="320" Text="6" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="380" Text="7" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="440" Text="8" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="20" Canvas.Top="500" Text="9" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold"/>
+                                    </Canvas>
+                                </ScrollViewer>
+                            </Border>
+
                         <ScrollViewer x:Name="TimelineScrollViewer"
-                                      Grid.Row="2"
+                                      Grid.Column="1"
                                       HorizontalScrollBarVisibility="Auto"
                                       VerticalScrollBarVisibility="Auto"
                                       AllowDrop="True"
                                       Background="Transparent">
 
                             <!-- 모든 타임라인 요소를 담을 Grid -->
-                            <Grid x:Name="TimelineCanvas" Height="300" 
+                            <Grid x:Name="TimelineCanvas" Height="540" 
                                   Background="Transparent"
                                   AllowDrop="True"
                                   DragOver="Timeline_DragOver"
+                                  PreviewMouseLeftButtonDown="TimelineCanvas_PreviewMouseLeftButtonDown"
                                   HorizontalAlignment="Left">
                                 <b:Interaction.Triggers>
                                     <b:EventTrigger EventName="Drop">
@@ -585,10 +626,34 @@
                                     </b:EventTrigger>
                                 </b:Interaction.Triggers>
 
-                                <Canvas x:Name="PlayheadCanvas"
-                                        Height="300"
+                                <!-- 트랙 구분선들 (배경) -->
+                                <Canvas x:Name="TrackLinesCanvas" 
+                                        Height="540"
+                                        IsHitTestVisible="False"
+                                        Panel.ZIndex="1">
+                                    <Line X1="0" Y1="0" X2="10000" Y2="0" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="60" X2="10000" Y2="60" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="120" X2="10000" Y2="120" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="180" X2="10000" Y2="180" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="240" X2="10000" Y2="240" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="300" X2="10000" Y2="300" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="360" X2="10000" Y2="360" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="420" X2="10000" Y2="420" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="480" X2="10000" Y2="480" Stroke="#2D2D30" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="540" X2="10000" Y2="540" Stroke="#2D2D30" StrokeThickness="1"/>
+                                </Canvas>
+
+                                    <Canvas x:Name="SnapIndicatorCanvas" IsHitTestVisible="False" Panel.ZIndex="12"/>
+
+                                    <Canvas x:Name="PlayheadCanvas"
+                                        Height="540"
                                         IsHitTestVisible="False"
                                         Panel.ZIndex="20"/>
+                                
+                                <Canvas x:Name="SelectionCanvas"
+                                        Height="540"
+                                        IsHitTestVisible="False"
+                                        Panel.ZIndex="15"/>
 
                                 <ItemsControl x:Name="ClipsItemsControl" 
                                               ItemsSource="{Binding VideoEditor.TimelineClips}"
@@ -605,12 +670,14 @@
                                         <Style TargetType="ContentPresenter">
                                             <Setter Property="Canvas.Left" Value="{Binding StartPosition, Converter={StaticResource TimeToPixelConverter}}"/>
                                             <Setter Property="Canvas.Top" Value="{Binding TrackIndex, Converter={StaticResource TrackToPositionConverter}}"/>
+                                            <Setter Property="Panel.ZIndex" Value="{Binding ., Converter={StaticResource ClipZIndexConverter}}" />
                                         </Style>
                                     </ItemsControl.ItemContainerStyle>
 
                                 </ItemsControl>
                             </Grid>
                         </ScrollViewer>
+                        </Grid>
                     </Grid>
                 </Border>
             </Grid>

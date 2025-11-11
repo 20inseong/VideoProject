@@ -10,13 +10,33 @@
         mc:Ignorable="d"
         Title="OverlayWindow"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        Topmost="False" ShowInTaskbar="False" IsHitTestVisible="True">
+        Topmost="True" ShowInTaskbar="False">
     <Window.Resources>
         <common:InverseTrackIndexConverter x:Key="InverseTrackIndexConverter" />
+        <common:OverlayZIndexConverter x:Key="OverlayZIndexConverter" />
+        <common:OpacityPercentToDecimalConverter x:Key="OpacityPercentToDecimalConverter" />
     </Window.Resources>
-    <Grid>
-        <ItemsControl ItemsSource="{Binding ActiveWpfOverlays}">
+    <Grid Background="Transparent">
+        <!-- Apply scale transform to match the actual display size -->
+        <Grid.RenderTransform>
+            <ScaleTransform x:Name="OverlayScaleTransform" ScaleX="1" ScaleY="1" />
+        </Grid.RenderTransform>
+        
+        <!-- Grid의 IsHitTestVisible은 항목이 있을 때만 True -->
+        <Grid.Style>
+            <Style TargetType="Grid">
+                <Setter Property="IsHitTestVisible" Value="True"/>
+                <Style.Triggers>
+                    <!-- ActiveWpfOverlays가 비어있으면 마우스 이벤트를 통과시킴 -->
+                    <DataTrigger Binding="{Binding ActiveWpfOverlays.Count}" Value="0">
+                        <Setter Property="IsHitTestVisible" Value="False"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Grid.Style>
+        <ItemsControl ItemsSource="{Binding ActiveWpfOverlays}" Background="Transparent">
             <ItemsControl.Resources>
+                <!-- DataTemplate for ImageClip -->
                 <DataTemplate DataType="{x:Type models:ImageClip}">
                     <AdornerDecorator>
                         <Image Source="{Binding ImagePath}"
@@ -25,11 +45,10 @@
                                Stretch="Fill"
                                HorizontalAlignment="Left"
                                VerticalAlignment="Top"
-                               Opacity="{Binding Opacity}">
+                               Opacity="{Binding Opacity, Converter={StaticResource OpacityPercentToDecimalConverter}}"
+                               RenderTransformOrigin="0.5,0.5">
                             <Image.RenderTransform>
-                                <RotateTransform Angle="{Binding Rotation}"
-                                 CenterX="{Binding RenderWidth, Converter={StaticResource HalfValueConverter}}"
-                                 CenterY="{Binding RenderHeight, Converter={StaticResource HalfValueConverter}}" />
+                                <RotateTransform Angle="{Binding Rotation}" />
                             </Image.RenderTransform>
                             <adorners:AdornerService.IsAdornerEnabled>
                                 <Binding Path="IsSelected" />
@@ -38,41 +57,55 @@
                     </AdornerDecorator>
                 </DataTemplate>
 
+                <!-- DataTemplate for TextClip -->
                 <DataTemplate DataType="{x:Type models:TextClip}">
                     <AdornerDecorator>
-                        <TextBlock Text="{Binding Text}"
-                                   Width="{Binding RenderWidth}"
-                                   Height="{Binding RenderHeight}"
-                                   Foreground="{Binding ForegroundColor, Converter={StaticResource ColorToBrushConverter}}"
-                                   FontSize="{Binding FontSize}"
-                                   TextWrapping="Wrap"
-                                   TextAlignment="Center"
-                                   HorizontalAlignment="Left"
-                                   VerticalAlignment="Top"
-                                   FontFamily="{Binding FontFamily}"
-                                   Opacity="{Binding Opacity}">
-                            <TextBlock.RenderTransform>
+                        <Border Width="{Binding RenderWidth}"
+                                Height="{Binding RenderHeight}"
+                                Background="Transparent"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                                Padding="10,5">
+                            <Border.RenderTransform>
                                 <RotateTransform Angle="{Binding Rotation}"
                                  CenterX="{Binding RenderWidth, Converter={StaticResource HalfValueConverter}}"
                                  CenterY="{Binding RenderHeight, Converter={StaticResource HalfValueConverter}}" />
-                            </TextBlock.RenderTransform>
+                            </Border.RenderTransform>
+                            <TextBlock Text="{Binding Text}"
+                                       Foreground="{Binding ForegroundColor, Converter={StaticResource ColorToBrushConverter}}"
+                                       FontSize="{Binding FontSize}"
+                                       FontWeight="Bold"
+                                       TextWrapping="Wrap"
+                                       TextAlignment="Center"
+                                       HorizontalAlignment="Stretch"
+                                       VerticalAlignment="Center"
+                                       FontFamily="{Binding FontFamily}"
+                                       Opacity="{Binding Opacity}"/>
                             <adorners:AdornerService.IsAdornerEnabled>
                                 <Binding Path="IsSelected" />
                             </adorners:AdornerService.IsAdornerEnabled>
-                        </TextBlock>
+                        </Border>
                     </AdornerDecorator>
                 </DataTemplate>
             </ItemsControl.Resources>
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <Canvas />
+                    <Canvas Background="Transparent"/>
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemContainerStyle>
                 <Style TargetType="ContentPresenter">
                     <Setter Property="Canvas.Left" Value="{Binding X}" />
                     <Setter Property="Canvas.Top" Value="{Binding Y}" />
-                    <Setter Property="Canvas.ZIndex" Value="{Binding TrackIndex, Converter={StaticResource InverseTrackIndexConverter}}" />
+                    <!-- ZIndex considers both TrackIndex and IsSelected state -->
+                    <Setter Property="Canvas.ZIndex">
+                        <Setter.Value>
+                            <MultiBinding Converter="{StaticResource OverlayZIndexConverter}">
+                                <Binding Path="TrackIndex" />
+                                <Binding Path="IsSelected" />
+                            </MultiBinding>
+                        </Setter.Value>
+                    </Setter>
                 </Style>
             </ItemsControl.ItemContainerStyle>
         </ItemsControl>

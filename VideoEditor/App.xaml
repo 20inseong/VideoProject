@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:VideoEditor"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-             xmlns:Common="clr-namespace:VideoEditor.Common" 
+             xmlns:Common="clr-namespace:VideoEditor.Common"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>

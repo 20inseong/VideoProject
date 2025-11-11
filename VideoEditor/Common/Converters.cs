@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
@@ -141,12 +142,51 @@ namespace VideoEditor.Common
         {
             if (value is int trackIndex)
             {
-                return -trackIndex;
+                // Return trackIndex as-is so higher track numbers appear on top
+                // Track 0 = ZIndex 0 (bottom), Track 8 = ZIndex 8 (top)
+                return trackIndex;
             }
             return 0;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converter that sets Z-Index based on TrackIndex and Selection state
+    /// Selected clips get a boost to appear on top
+    /// </summary>
+    public class OverlayZIndexConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (values.Length < 2)
+                return 0;
+
+            int trackIndex = 0;
+            bool isSelected = false;
+
+            if (values[0] is int ti)
+                trackIndex = ti;
+            
+            if (values[1] is bool sel)
+                isSelected = sel;
+
+            // Base Z-Index: higher track index appears on top (Track 0 = bottom, Track 8 = top)
+            int baseZ = trackIndex * 10;
+            
+            // If selected, add a modest boost to bring it above siblings on the same track
+            // But keep it below 100 to avoid blocking UI elements
+            if (isSelected)
+                baseZ += 50;
+
+            return baseZ;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
         }
@@ -188,8 +228,9 @@ namespace VideoEditor.Common
 
                 if (clip is VideoClip)
                 {
-                    // Video clips get a penalty to appear behind other overlays on the same track
-                    return baseZ - 5;
+                    // Video clips get a BOOST to appear in front of other overlays on the same track
+                    // This ensures video clips receive mouse events first in the timeline
+                    return baseZ + 5;
                 }
                 else // ImageClips, TextClips, etc.
                 {
@@ -205,6 +246,27 @@ namespace VideoEditor.Common
         }
     }
 
+    public class OpacityPercentToDecimalConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is double percent)
+            {
+                return percent / 100.0;
+            }
+            return 1.0; // Default to fully opaque
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is double decimal_value)
+            {
+                return decimal_value * 100.0;
+            }
+            return 100.0;
+        }
+    }
+
     public class ColorToBrushConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -215,7 +277,6 @@ namespace VideoEditor.Common
             }
             return Brushes.Transparent;
         }
-
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
@@ -228,14 +289,8 @@ namespace VideoEditor.Common
         {
             if (value is string fontFamilyName)
             {
-                try
-                {
-                    return new FontFamily(fontFamilyName);
-                }
-                catch (Exception)
-                {
-                    return SystemFonts.MessageFontFamily;
-                }
+                try { return new FontFamily(fontFamilyName); }
+                catch (Exception) { return SystemFonts.MessageFontFamily; }
             }
             return Binding.DoNothing;
         }
@@ -244,22 +299,14 @@ namespace VideoEditor.Common
         {
             if (value is FontFamily fontFamily)
             {
-                // --- ★★★ 핵심 수정 부분 ★★★ ---
-
-                // 1. 현재 UI 문화권(한국어)에 맞는 이름을 우선적으로 찾습니다.
                 if (fontFamily.FamilyNames.TryGetValue(XmlLanguage.GetLanguage(CultureInfo.CurrentUICulture.Name), out string localizedName))
                 {
                     return localizedName;
                 }
-
-                // 2. 만약 한국어 이름이 없다면, '미국 영어(en-US)' 이름을 찾습니다.
-                //    Wingdings 같은 심볼 폰트들은 보통 여기에 이름을 가지고 있습니다.
                 if (fontFamily.FamilyNames.TryGetValue(XmlLanguage.GetLanguage("en-US"), out string englishName))
                 {
                     return englishName;
                 }
-
-                // 3. 위 두 가지 방법으로도 이름을 찾지 못했다면, 최후의 수단으로 Source 속성을 사용합니다.
                 return fontFamily.Source.Split(',').FirstOrDefault()?.Trim();
             }
             return Binding.DoNothing;
@@ -274,6 +321,29 @@ namespace VideoEditor.Common
             return 0;
         }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class AbsoluteTimestampConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            //Debug.WriteLine($"[AbsoluteTimestampConverter] values[0]: {values[0]}, values[1]: {values[1]}");
+
+            if (values.Length == 2 && values[0] is double startPosition && values[1] is double relativeTimestamp)
+            {
+                double result = startPosition + relativeTimestamp;
+                //Debug.WriteLine($"[AbsoluteTimestampConverter] Result: {result}");
+                return result;
+            }
+
+            //Debug.WriteLine("[AbsoluteTimestampConverter] Invalid values, returning 0.0");
+            return 0.0;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
         }

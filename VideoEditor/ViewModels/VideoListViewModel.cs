@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using VideoEditor.Models;
 using VideoEditor.Common;
+using Wpf.Ui.Input;
 
 namespace VideoEditor.ViewModels
 {
@@ -27,19 +28,34 @@ namespace VideoEditor.ViewModels
             {
                 if (SetProperty(ref _selectedVideoItem, value))
                 {
-                    // 선택된 비디오가 변경될 때 어떤 동작을 수행할 수 있음
-                    // 예를 들어, 메인 ViewModel에 이 변경을 알릴 수 있음
-                    // 이 예시에서는 메인 ViewModel에서 이 속성을 구독할 예정
+                    (DeleteSelectedVideoCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
                 }
             }
         }
 
         public ICommand AddVideoCommand { get; }
+        public ICommand DeleteSelectedVideoCommand { get; }
 
         public VideoListViewModel()
         {
             MyVideoes = new ObservableCollection<Myvideo>();
+            DeleteSelectedVideoCommand = new RelayCommand<object>(ExecuteDeleteSelectedVideo, CanExecuteDeleteSelectedVideo);
         }
+
+        private void ExecuteDeleteSelectedVideo(object? _)
+        {
+            if (SelectedVideoItem != null)
+            {
+                MyVideoes.Remove(SelectedVideoItem);
+                SelectedVideoItem = null;
+            }
+        }
+
+        private bool CanExecuteDeleteSelectedVideo(object? _)
+        {
+            return SelectedVideoItem != null;
+        }
+
 
         public void AddVideo(Myvideo videoItem)
         {

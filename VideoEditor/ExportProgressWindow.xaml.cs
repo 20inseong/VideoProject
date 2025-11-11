@@ -26,6 +26,12 @@ namespace VideoEditor
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
+            // 완료 버튼 클릭 시 미리보기 객체 복원
+            if (Owner?.DataContext is ViewModels.MainViewModel mainViewModel)
+            {
+                // Use the same robust restore path as other modals to fully rebuild MediaPlayers
+                mainViewModel.RestorePreviewObjectsAfterModal();
+            }
             this.Close();
         }
 

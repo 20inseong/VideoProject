@@ -51,6 +51,20 @@ namespace VideoEditor.Common.Adorners
             _bottomRight = GetResizeThumb(Cursors.SizeNWSE, HorizontalAlignment.Right, VerticalAlignment.Bottom);
             _middle = GetMoveThumb(Cursors.SizeAll);
 
+            // Add drag started/completed handlers for video clip overlay hiding
+            if (_clip is VideoClip)
+            {
+                _topLeft.DragStarted += Resize_DragStarted;
+                _topRight.DragStarted += Resize_DragStarted;
+                _bottomLeft.DragStarted += Resize_DragStarted;
+                _bottomRight.DragStarted += Resize_DragStarted;
+
+                _topLeft.DragCompleted += Resize_DragCompleted;
+                _topRight.DragCompleted += Resize_DragCompleted;
+                _bottomLeft.DragCompleted += Resize_DragCompleted;
+                _bottomRight.DragCompleted += Resize_DragCompleted;
+            }
+
             _topLeft.DragDelta += TopLeft_DragDelta;
             _topRight.DragDelta += TopRight_DragDelta;
             _bottomLeft.DragDelta += BottomLeft_DragDelta;
@@ -65,6 +79,40 @@ namespace VideoEditor.Common.Adorners
             _visuals.Add(_topRight);
             _visuals.Add(_bottomLeft);
             _visuals.Add(_bottomRight);
+        }
+
+        private void Resize_DragStarted(object sender, DragStartedEventArgs e)
+        {
+            // Pause playback during resize to prevent performance issues
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
+                {
+                    mainViewModel.StopPlayback();
+                    
+                    if (_clip is VideoClip)
+                    {
+                        mainViewModel.StartVideoClipPreviewDrag();
+                    }
+                }
+            });
+        }
+
+        private void Resize_DragCompleted(object sender, DragCompletedEventArgs e)
+        {
+            // Resume playback if it was playing before resize
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
+                {
+                    if (_clip is VideoClip)
+                    {
+                        mainViewModel.EndVideoClipPreviewDrag();
+                    }
+                    
+                    mainViewModel.ResumePlaybackIfNeeded();
+                }
+            });
         }
 
         private Thumb GetResizeThumb(Cursor cursor, HorizontalAlignment horizontalAlignment, VerticalAlignment verticalAlignment)
@@ -108,68 +156,175 @@ namespace VideoEditor.Common.Adorners
 
         private void TopLeft_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            double newWidth = _clip.RenderWidth - e.HorizontalChange;
-            double newHeight = newWidth / _aspectRatio;
-
-            if (newWidth > 0 && newHeight > 0)
+            // TextClip은 비율 무시, 자유롭게 크기 조절
+            if (_clip is TextClip)
             {
-                double widthChange = _clip.RenderWidth - newWidth;
-                double heightChange = _clip.RenderHeight - newHeight;
-                
-                _clip.X += widthChange;
-                _clip.Y += heightChange;
-                _clip.RenderWidth = newWidth;
-                _clip.RenderHeight = newHeight;
-                
-                ForceClipUpdate();
+                double newWidth = _clip.RenderWidth - e.HorizontalChange;
+                double newHeight = _clip.RenderHeight - e.VerticalChange;
+
+                if (newWidth > 20 && newHeight > 20) // 최소 크기
+                {
+                    double widthChange = _clip.RenderWidth - newWidth;
+                    double heightChange = _clip.RenderHeight - newHeight;
+                    
+                    _clip.X += widthChange;
+                    _clip.Y += heightChange;
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    ForceClipUpdate();
+                }
+            }
+            else
+            {
+                // VideoClip, ImageClip은 비율 유지
+                double newWidth = _clip.RenderWidth - e.HorizontalChange;
+                double newHeight = newWidth / _aspectRatio;
+
+                if (newWidth > 0 && newHeight > 0)
+                {
+                    double widthChange = _clip.RenderWidth - newWidth;
+                    double heightChange = _clip.RenderHeight - newHeight;
+                    
+                    _clip.X += widthChange;
+                    _clip.Y += heightChange;
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    // ImageClip인 경우 CustomWidth/Height도 업데이트
+                    if (_clip is ImageClip imageClip)
+                    {
+                        imageClip.UpdateCustomSizeFromRenderSize();
+                    }
+                    
+                    ForceClipUpdate();
+                }
             }
         }
 
         private void TopRight_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            double newWidth = _clip.RenderWidth + e.HorizontalChange;
-            double newHeight = newWidth / _aspectRatio;
-
-            if (newWidth > 0 && newHeight > 0)
+            // TextClip은 비율 무시, 자유롭게 크기 조절
+            if (_clip is TextClip)
             {
-                double heightChange = _clip.RenderHeight - newHeight;
-                
-                _clip.Y += heightChange;
-                _clip.RenderWidth = newWidth;
-                _clip.RenderHeight = newHeight;
-                
-                ForceClipUpdate();
+                double newWidth = _clip.RenderWidth + e.HorizontalChange;
+                double newHeight = _clip.RenderHeight - e.VerticalChange;
+
+                if (newWidth > 20 && newHeight > 20) // 최소 크기
+                {
+                    double heightChange = _clip.RenderHeight - newHeight;
+                    
+                    _clip.Y += heightChange;
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    ForceClipUpdate();
+                }
+            }
+            else
+            {
+                // VideoClip, ImageClip은 비율 유지
+                double newWidth = _clip.RenderWidth + e.HorizontalChange;
+                double newHeight = newWidth / _aspectRatio;
+
+                if (newWidth > 0 && newHeight > 0)
+                {
+                    double heightChange = _clip.RenderHeight - newHeight;
+                    
+                    _clip.Y += heightChange;
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    // ImageClip인 경우 CustomWidth/Height도 업데이트
+                    if (_clip is ImageClip imageClip)
+                    {
+                        imageClip.UpdateCustomSizeFromRenderSize();
+                    }
+                    
+                    ForceClipUpdate();
+                }
             }
         }
 
         private void BottomLeft_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            double newWidth = _clip.RenderWidth - e.HorizontalChange;
-            double newHeight = newWidth / _aspectRatio;
-
-            if (newWidth > 0 && newHeight > 0)
+            // TextClip은 비율 무시, 자유롭게 크기 조절
+            if (_clip is TextClip)
             {
-                double widthChange = _clip.RenderWidth - newWidth;
-                
-                _clip.X += widthChange;
-                _clip.RenderWidth = newWidth;
-                _clip.RenderHeight = newHeight;
-                
-                ForceClipUpdate();
+                double newWidth = _clip.RenderWidth - e.HorizontalChange;
+                double newHeight = _clip.RenderHeight + e.VerticalChange;
+
+                if (newWidth > 20 && newHeight > 20) // 최소 크기
+                {
+                    double widthChange = _clip.RenderWidth - newWidth;
+                    
+                    _clip.X += widthChange;
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    ForceClipUpdate();
+                }
+            }
+            else
+            {
+                // VideoClip, ImageClip은 비율 유지
+                double newWidth = _clip.RenderWidth - e.HorizontalChange;
+                double newHeight = newWidth / _aspectRatio;
+
+                if (newWidth > 0 && newHeight > 0)
+                {
+                    double widthChange = _clip.RenderWidth - newWidth;
+                    
+                    _clip.X += widthChange;
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    // ImageClip인 경우 CustomWidth/Height도 업데이트
+                    if (_clip is ImageClip imageClip)
+                    {
+                        imageClip.UpdateCustomSizeFromRenderSize();
+                    }
+                    
+                    ForceClipUpdate();
+                }
             }
         }
 
         private void BottomRight_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            double newWidth = _clip.RenderWidth + e.HorizontalChange;
-            double newHeight = newWidth / _aspectRatio;
-
-            if (newWidth > 0 && newHeight > 0)
+            // TextClip은 비율 무시, 자유롭게 크기 조절
+            if (_clip is TextClip)
             {
-                _clip.RenderWidth = newWidth;
-                _clip.RenderHeight = newHeight;
-                
-                ForceClipUpdate();
+                double newWidth = _clip.RenderWidth + e.HorizontalChange;
+                double newHeight = _clip.RenderHeight + e.VerticalChange;
+
+                if (newWidth > 20 && newHeight > 20) // 최소 크기
+                {
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    ForceClipUpdate();
+                }
+            }
+            else
+            {
+                // VideoClip, ImageClip은 비율 유지
+                double newWidth = _clip.RenderWidth + e.HorizontalChange;
+                double newHeight = newWidth / _aspectRatio;
+
+                if (newWidth > 0 && newHeight > 0)
+                {
+                    _clip.RenderWidth = newWidth;
+                    _clip.RenderHeight = newHeight;
+                    
+                    // ImageClip인 경우 CustomWidth/Height도 업데이트
+                    if (_clip is ImageClip imageClip)
+                    {
+                        imageClip.UpdateCustomSizeFromRenderSize();
+                    }
+                    
+                    ForceClipUpdate();
+                }
             }
         }
         
@@ -202,6 +357,21 @@ namespace VideoEditor.Common.Adorners
             // Store initial position when drag starts
             _initialX = _clip.X;
             _initialY = _clip.Y;
+
+            // Pause playback during position drag to prevent performance issues
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
+                {
+                    mainViewModel.StopPlayback();
+                    
+                    // If this is a VideoClip, notify MainViewModel to hide WPF overlays
+                    if (_clip is VideoClip)
+                    {
+                        mainViewModel.StartVideoClipPreviewDrag();
+                    }
+                }
+            });
         }
 
         private void Middle_DragDelta(object sender, DragDeltaEventArgs e)
@@ -215,6 +385,21 @@ namespace VideoEditor.Common.Adorners
 
         private void Middle_DragCompleted(object sender, DragCompletedEventArgs e)
         {
+            // Resume playback if it was playing before position drag
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
+                {
+                    // If this is a VideoClip, notify MainViewModel to restore WPF overlays
+                    if (_clip is VideoClip)
+                    {
+                        mainViewModel.EndVideoClipPreviewDrag();
+                    }
+                    
+                    mainViewModel.ResumePlaybackIfNeeded();
+                }
+            });
+
             // Force final update when drag completes to ensure accurate clipping
             if (_clip is VideoClip)
             {

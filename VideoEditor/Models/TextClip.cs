@@ -16,24 +16,40 @@ namespace VideoEditor.Models
             set => SetProperty(ref _text, value);
         }
 
-        private string _fontFamily = "맑은 고딕";
-        public string FontFamily { get => _fontFamily; set => SetProperty(ref _fontFamily, value); }
-
-        private Color _foregroundColor = Colors.White;
-        public Color ForegroundColor { get => _foregroundColor; set => SetProperty(ref _foregroundColor, value); }
-
-        private double _fontSize = 14.0;
+        private double _fontSize = 48.0; // 1080p 기준으로 적절한 크기
         public double FontSize
         {
             get => _fontSize;
             set => SetProperty(ref _fontSize, value);
         }
 
+        private string _fontFamily = "맑은 고딕";
+        public string FontFamily 
+        { 
+            get => _fontFamily; 
+            set => SetProperty(ref _fontFamily, value); 
+        }
+
+        private Color _foregroundColor = Colors.White;
+        public Color ForegroundColor 
+        { 
+            get => _foregroundColor; 
+            set => SetProperty(ref _foregroundColor, value); 
+        }
+
         private double _opacity = 1.0;
-        public double Opacity { get => _opacity; set => SetProperty(ref _opacity, value); }
+        public double Opacity 
+        { 
+            get => _opacity; 
+            set => SetProperty(ref _opacity, value); 
+        }
 
         private double _rotation = 0.0;
-        public double Rotation { get => _rotation; set => SetProperty(ref _rotation, value); }
+        public double Rotation 
+        { 
+            get => _rotation; 
+            set => SetProperty(ref _rotation, value); 
+        }
 
         public override TimelineClipBase Clone()
         {
@@ -42,9 +58,9 @@ namespace VideoEditor.Models
                 Name = this.Name + " (복사본)",
                 Text = this.Text,
                 FontSize = this.FontSize,
-                FontFamily = this.FontFamily,
+                FontFamily = this.FontFamily, 
                 ForegroundColor = this.ForegroundColor,
-                Opacity = this.Opacity,
+                Opacity = this.Opacity, 
                 Rotation = this.Rotation
             };
             
