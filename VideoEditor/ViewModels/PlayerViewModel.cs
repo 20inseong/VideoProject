@@ -108,7 +108,7 @@ namespace VideoEditor.ViewModels
         public PlayerViewModel()
         {
             Core.Initialize();
-                                    _libVLC = new LibVLC("--file-caching=1500");
+            _libVLC = new LibVLC("--file-caching=1500");
 
             VideoPlayers = new List<MediaPlayer>();
             for (int i = 0; i < VIDEO_PLAYER_COUNT; i++)

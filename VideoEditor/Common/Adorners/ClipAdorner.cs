@@ -83,30 +83,36 @@ namespace VideoEditor.Common.Adorners
 
         private void Resize_DragStarted(object sender, DragStartedEventArgs e)
         {
-            if (_clip is VideoClip)
+            // Pause playback during resize to prevent performance issues
+            Application.Current?.Dispatcher.Invoke(() =>
             {
-                Application.Current?.Dispatcher.Invoke(() =>
+                if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
                 {
-                    if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
+                    mainViewModel.StopPlayback();
+                    
+                    if (_clip is VideoClip)
                     {
                         mainViewModel.StartVideoClipPreviewDrag();
                     }
-                });
-            }
+                }
+            });
         }
 
         private void Resize_DragCompleted(object sender, DragCompletedEventArgs e)
         {
-            if (_clip is VideoClip)
+            // Resume playback if it was playing before resize
+            Application.Current?.Dispatcher.Invoke(() =>
             {
-                Application.Current?.Dispatcher.Invoke(() =>
+                if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
                 {
-                    if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
+                    if (_clip is VideoClip)
                     {
                         mainViewModel.EndVideoClipPreviewDrag();
                     }
-                });
-            }
+                    
+                    mainViewModel.ResumePlaybackIfNeeded();
+                }
+            });
         }
 
         private Thumb GetResizeThumb(Cursor cursor, HorizontalAlignment horizontalAlignment, VerticalAlignment verticalAlignment)
@@ -352,17 +358,20 @@ namespace VideoEditor.Common.Adorners
             _initialX = _clip.X;
             _initialY = _clip.Y;
 
-            // If this is a VideoClip, notify MainViewModel to hide WPF overlays
-            if (_clip is VideoClip)
+            // Pause playback during position drag to prevent performance issues
+            Application.Current?.Dispatcher.Invoke(() =>
             {
-                Application.Current?.Dispatcher.Invoke(() =>
+                if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
                 {
-                    if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
+                    mainViewModel.StopPlayback();
+                    
+                    // If this is a VideoClip, notify MainViewModel to hide WPF overlays
+                    if (_clip is VideoClip)
                     {
                         mainViewModel.StartVideoClipPreviewDrag();
                     }
-                });
-            }
+                }
+            });
         }
 
         private void Middle_DragDelta(object sender, DragDeltaEventArgs e)
@@ -376,17 +385,20 @@ namespace VideoEditor.Common.Adorners
 
         private void Middle_DragCompleted(object sender, DragCompletedEventArgs e)
         {
-            // If this is a VideoClip, notify MainViewModel to restore WPF overlays
-            if (_clip is VideoClip)
+            // Resume playback if it was playing before position drag
+            Application.Current?.Dispatcher.Invoke(() =>
             {
-                Application.Current?.Dispatcher.Invoke(() =>
+                if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
                 {
-                    if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
+                    // If this is a VideoClip, notify MainViewModel to restore WPF overlays
+                    if (_clip is VideoClip)
                     {
                         mainViewModel.EndVideoClipPreviewDrag();
                     }
-                });
-            }
+                    
+                    mainViewModel.ResumePlaybackIfNeeded();
+                }
+            });
 
             // Force final update when drag completes to ensure accurate clipping
             if (_clip is VideoClip)

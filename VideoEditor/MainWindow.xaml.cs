@@ -1004,47 +1004,13 @@ namespace VideoEditor
 
             try
             {
-                // Hide overlay objects when switching to another program
-                // But not if we're switching to our own progress window or overlay window
-                if (_progressWindow != null && _progressWindow.IsActive)
-                {
-                    // Don't hide if switching to our own progress window
-                    return;
-                }
-
-                if (_overlayWindow != null && _overlayWindow.IsActive)
-                {
-                    // Don't hide if switching to overlay window (shouldn't happen but just in case)
-                    return;
-                }
-
-                // Check if any of our owned windows is being activated
-                foreach (Window ownedWindow in this.OwnedWindows)
-                {
-                    if (ownedWindow.IsActive)
-                    {
-                        // Don't hide if switching to one of our own windows
-                        return;
-                    }
-                }
-
-                // ADDITIONAL CHECK: Don't hide if OverlayWindow is visible (even if not yet active)
-                // This prevents clearing overlays when clicking on the OverlayWindow
-                if (_overlayWindow != null && _overlayWindow.IsVisible)
-                {
-                    // Don't hide when interacting with overlay window
-                    return;
-                }
-
-                // Save and hide overlay objects only (keep video clips visible)
-                if ((_mainViewModel.ActiveWpfOverlays.Count > 0 || (_overlayWindow != null && _overlayWindow.IsVisible)) &&
-                    _switchSavedActiveWpfOverlays == null)
+                // 항상 다른 프로그램으로 포커스가 이동하면 오버레이를 숨김 (내부 소유창 여부 상관없이 단순화)
+                if (_switchSavedActiveWpfOverlays == null && (_mainViewModel.ActiveWpfOverlays.Count > 0 || (_overlayWindow != null && _overlayWindow.IsVisible)))
                 {
                     _switchSavedActiveWpfOverlays = new List<TimelineClipBase>(_mainViewModel.ActiveWpfOverlays);
                     _switchWasOverlayVisible = _overlayWindow != null && _overlayWindow.IsVisible;
 
                     _mainViewModel.ActiveWpfOverlays.Clear();
-
                     if (_overlayWindow != null && _overlayWindow.IsVisible)
                     {
                         _overlayWindow.Hide();
