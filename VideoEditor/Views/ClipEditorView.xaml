@@ -9,7 +9,8 @@
              xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="300"
-             x:Name="ClipEditorRoot">
+             x:Name="ClipEditorRoot"
+             DataContextChanged="ClipEditorView_DataContextChanged">
 
     <UserControl.Resources>
         <common:ClipTypeToStringConverter x:Key="ClipTypeToStringConverter" />
@@ -357,12 +358,12 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <!-- 1. 감정 분석 실행 버튼 (이전과 동일) -->
                         <Button Grid.Row="0" Content="감정 분석 실행"
                                 Command="{Binding DataContext.AnalyzeEmotionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                IsEnabled="{Binding IsAnalyzingEmotion, Converter={StaticResource InverseBooleanConverter}}"
                                 Margin="0,0,0,10" HorizontalAlignment="Left" Width="120">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
@@ -376,9 +377,14 @@
                             </Button.Style>
                         </Button>
 
+                        <ProgressBar Grid.Row="1" 
+                                     Value="{Binding DataContext.AnalysisProgress, RelativeSource={RelativeSource AncestorType=Window}}"
+                                     Visibility="{Binding IsAnalyzingEmotion, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                     Height="10" 
+                                     Margin="0,0,0,10"/>
+
                         <!-- 2. 분석 결과 토글 헤더 (분석 후에만 보임) -->
                         <ToggleButton Grid.Row="1" x:Name="EmotionToggleHeader" Cursor="Hand">
-                            <!-- ... (ToggleButton 스타일은 이전과 동일) ... -->
                             <ToggleButton.Style>
                                 <Style TargetType="ToggleButton">
                                     <Setter Property="Background" Value="Transparent"/>
@@ -388,7 +394,20 @@
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="ToggleButton">
-                                                <ContentPresenter/>
+                                                <Border Background="{TemplateBinding Background}" Padding="0">
+                                                    <!-- StackPanel을 Template 안으로 옮깁니다. -->
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <!-- 화살표 Path -->
+                                                        <Path x:Name="Arrow" Fill="White" VerticalAlignment="Center"
+                                      Width="8" Height="8" Data="M 0 0 L 0 8 L 4 4 Z">
+                                                            <Path.RenderTransform>
+                                                                <RotateTransform Angle="0" CenterX="4" CenterY="4" />
+                                                            </Path.RenderTransform>
+                                                        </Path>
+                                                        <!-- 텍스트 -->
+                                                        <TextBlock Text="감정 분석 결과" FontWeight="Bold" Foreground="White" FontSize="16" Margin="10,0,0,0"/>
+                                                    </StackPanel>
+                                                </Border>
                                             </ControlTemplate>
                                         </Setter.Value>
                                     </Setter>
@@ -399,17 +418,7 @@
                                     </Style.Triggers>
                                 </Style>
                             </ToggleButton.Style>
-                            <StackPanel Orientation="Horizontal">
-                                <!-- 화살표 Path에 RotateTransform 추가 -->
-                                <Path x:Name="Arrow" Fill="White" VerticalAlignment="Center"
-                                      Width="8" Height="8" Data="M 0 0 L 0 8 L 4 4 Z">
-                                    <Path.RenderTransform>
-                                        <!-- 회전의 중심을 화살표의 중앙으로 설정 (가로 4, 세로 4) -->
-                                        <RotateTransform Angle="0" CenterX="4" CenterY="4" />
-                                    </Path.RenderTransform>
-                                </Path>
-                                <TextBlock Text="감정 분석 결과" FontWeight="Bold" Foreground="White" FontSize="16" Margin="10,0,0,0"/>
-                            </StackPanel>
+                            <!-- Template 안으로 내용이 옮겨졌으므로 이 부분은 비워둡니다. -->
                         </ToggleButton>
 
                         <!-- 3. 감정 분석 결과 ListView (애니메이션 적용) -->

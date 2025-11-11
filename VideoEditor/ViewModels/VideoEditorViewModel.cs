@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -113,6 +113,9 @@ namespace VideoEditor.ViewModels
                     (CreateSubtitlesFromTranscriptionCommand as RelayCommand<object>)?.NotifyCanExecuteChanged();
 
                     (_mainViewModel.AnalyzeEmotionCommand as IRelayCommand)?.NotifyCanExecuteChanged();
+
+                    // ✨ [수정] 클립 선택이 변경될 때 감정 분석 커맨드의 상태를 갱신하도록 명시적으로 호출합니다.
+                    _mainViewModel.AnalyzeEmotionCommand.NotifyCanExecuteChanged();
                 }
             }
         }
@@ -819,13 +822,47 @@ namespace VideoEditor.ViewModels
                     }
                     else
                     {
-                        // ⭐️ [이동 실패] 겹치는 위치이므로, 드래그 시작 전의 원래 위치로 모든 클립을 되돌립니다.
-                        foreach (var clip in droppedClips)
+                        // ⭐ [이동 실패] 겹치는 위치이거나 타임라인 끝을 넘어간 경우
+                        // 기준이 되는 클립 (그룹 이동 시 위치 계산의 기준점)
+                        var primaryClip = droppedClips.OrderBy(c => c.StartPosition).First();
+                        var primaryClipOriginalState = DraggedClipsOriginalState[primaryClip];
+                        double primaryClipDesiredStart = primaryClipOriginalState.OriginalStart + deltaTime;
+                        int primaryClipNewTrack = Math.Clamp(primaryClipOriginalState.OriginalTrack + deltaTrack, 0, 8);
+
+                        // 타겟 트랙의 마지막 클립이 끝나는 시간을 찾습니다.
+                        double endOfTrack = GetTimelineEndOfTrack(primaryClipNewTrack, droppedClips);
+
+                        // 사용자가 타임라인의 기존 콘텐츠 끝 너머로 드래그했는지 확인합니다.
+                        if (primaryClipDesiredStart >= endOfTrack)
                         {
-                            if (DraggedClipsOriginalState.TryGetValue(clip, out var originalState))
+                            // [스냅 성공] 사용자의 의도를 '끝에 붙이기'로 판단하고, 위치를 보정하여 스냅합니다.
+                            // 기준 클립을 트랙 끝에 붙이기 위해 필요한 시간 보정치 계산
+                            double timeOffset = endOfTrack - primaryClipDesiredStart;
+
+                            foreach (var clip in droppedClips)
                             {
-                                clip.StartPosition = originalState.OriginalStart;
-                                clip.TrackIndex = originalState.OriginalTrack;
+                                var originalState = DraggedClipsOriginalState[clip];
+                                // 모든 클립에 동일한 보정치를 적용하여 그룹 형태를 유지하며 이동
+                                clip.StartPosition = originalState.OriginalStart + deltaTime + timeOffset;
+                                clip.TrackIndex = Math.Clamp(originalState.OriginalTrack + deltaTrack, 0, 8);
+                            }
+
+                            if (droppedClips.Any(c => c is VideoClip))
+                            {
+                                _mainViewModel.TriggerVideoClipZOrderUpdate();
+                            }
+                            _mainViewModel.SyncPlayersToTimeline();
+                        }
+                        else
+                        {
+                            // [단순 충돌] 타임라인 중간에서 다른 클립과 겹친 것이므로 원래 위치로 되돌립니다.
+                            foreach (var clip in droppedClips)
+                            {
+                                if (DraggedClipsOriginalState.TryGetValue(clip, out var originalState))
+                                {
+                                    clip.StartPosition = originalState.OriginalStart;
+                                    clip.TrackIndex = originalState.OriginalTrack;
+                                }
                             }
                         }
                     }
@@ -1161,6 +1198,15 @@ namespace VideoEditor.ViewModels
 
             if ((e.Source as FrameworkElement)?.DataContext is TimelineClipBase clickedClip)
             {
+                if (clickedClip is VideoClip videoClip)
+                {
+                    Debug.WriteLine($"[Clip Clicked] Name: '{videoClip.Name}', IsEmotionAnalyzed: {videoClip.IsEmotionAnalyzed}");
+                }
+                else
+                {
+                    Debug.WriteLine($"[Clip Clicked] Name: '{clickedClip.Name}', Type: {clickedClip.GetType().Name} (Not a VideoClip)");
+                }
+
                 bool isCtrlPressed = Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl);
 
                 // 1. 그룹화된 클립을 클릭했는지 확인
@@ -1453,6 +1499,17 @@ namespace VideoEditor.ViewModels
             }
 
             return true; // 겹치는 클립이 없으므로 이동 가능
+        }
+
+        private double GetTimelineEndOfTrack(int trackIndex, IEnumerable<TimelineClipBase> clipsToExclude)
+        {
+            // clipsToExclude를 제외한 나머지 클립들 중에서
+            return TimelineClips
+                .Except(clipsToExclude)
+                .Where(c => c.TrackIndex == trackIndex) // 해당 트랙에 있는 클립만 필터링
+                .Select(c => c.StartPosition + c.Duration) // 각 클립의 끝나는 시간 계산
+                .DefaultIfEmpty(0.0) // 만약 트랙이 비어있다면 기본값 0.0 사용
+                .Max(); // 그중 가장 큰 값(가장 늦게 끝나는 시간)을 반환
         }
 
         public void Dispose()

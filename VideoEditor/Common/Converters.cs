@@ -330,16 +330,16 @@ namespace VideoEditor.Common
     {
         public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
         {
-            Debug.WriteLine($"[AbsoluteTimestampConverter] values[0]: {values[0]}, values[1]: {values[1]}");
+            //Debug.WriteLine($"[AbsoluteTimestampConverter] values[0]: {values[0]}, values[1]: {values[1]}");
 
             if (values.Length == 2 && values[0] is double startPosition && values[1] is double relativeTimestamp)
             {
                 double result = startPosition + relativeTimestamp;
-                Debug.WriteLine($"[AbsoluteTimestampConverter] Result: {result}");
+                //Debug.WriteLine($"[AbsoluteTimestampConverter] Result: {result}");
                 return result;
             }
 
-            Debug.WriteLine("[AbsoluteTimestampConverter] Invalid values, returning 0.0");
+            //Debug.WriteLine("[AbsoluteTimestampConverter] Invalid values, returning 0.0");
             return 0.0;
         }
 

@@ -34,9 +34,11 @@ namespace VideoEditor.ViewModels
 
     public class MainViewModel : ViewModelBase 
     {
+        public event Action? AnalysisCompleted;
+
         private readonly ProjectService _projectService;
         private readonly FFmpegExportService _ffmpegExportService;
-        private readonly EmotionDetectTestDataService _emotionDetectService;
+        private readonly EmotionDetect _emotionDetect;
 
         public PlayerViewModel PlayerViewModel { get; }
         public VideoListViewModel VideoList { get; }
@@ -247,6 +249,14 @@ namespace VideoEditor.ViewModels
                 }
             }
         }
+
+        private int _analysisProgress;
+        public int AnalysisProgress
+        {
+            get => _analysisProgress;
+            set => SetProperty(ref _analysisProgress, value);
+        }
+
         private CancellationTokenSource? _clipUpdateCts;
 
         private readonly Dictionary<TimelineClipBase, MediaPlayer> _activeVisualClipPlayers = new();
@@ -281,7 +291,10 @@ namespace VideoEditor.ViewModels
 
             _ffmpegExportService = new FFmpegExportService();
             _projectService = new ProjectService();
-            _emotionDetectService = new EmotionDetectTestDataService();
+            //_emotionDetectService = new EmotionDetectTestDataService();
+            string pythonExePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "Test", "python.exe");
+            string pythonScriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "Common", "EmotionDetect.py");
+            _emotionDetect = new EmotionDetect(pythonExePath, pythonScriptPath);
 
             PlayerViewModel = new PlayerViewModel();
             VideoList = new VideoListViewModel();
@@ -463,8 +476,9 @@ namespace VideoEditor.ViewModels
 
         private bool CanAnalyzeEmotion()
         {
-            // 비디오 클립이 선택되었고, 아직 분석되지 않았을 때만 명령을 활성화합니다.
-            return VideoEditor.SelectedClip is VideoClip clip && !clip.IsEmotionAnalyzed;
+            return VideoEditor.SelectedClip is VideoClip clip &&
+                   !clip.IsEmotionAnalyzed &&
+                   !clip.IsAnalyzingEmotion;
         }
 
         private async Task AnalyzeEmotionAsync()
@@ -472,47 +486,91 @@ namespace VideoEditor.ViewModels
             if (VideoEditor.SelectedClip is not VideoClip selectedClip) return;
 
             selectedClip.IsAnalyzingEmotion = true;
+            AnalyzeEmotionCommand.NotifyCanExecuteChanged();
             StatusMessage = "클립 감정 분석 중...";
+            AnalysisProgress = 0;
             OnPropertyChanged(nameof(StatusMessage));
+            AnalyzeEmotionCommand.NotifyCanExecuteChanged(); // 버튼 비활성화를 위해 상태 변경 즉시 알림
 
-            // Hide preview objects during analysis (script generation style)
+            // 분석 중 다른 UI 조작을 막기 위해 오버레이 등을 숨깁니다.
             HidePreviewObjectsForModal();
 
             try
             {
-                var allResults = await _emotionDetectService.AnalyzeVideoEmotionAsync(
-                    selectedClip.Name,
-                    selectedClip.Duration,
-                    30,
-                    120
-                );
+                string? videoPath = selectedClip.VideoPath;
+                double videoDuration = selectedClip.Duration;
+                const int fps = 30; // 초당 30프레임 기준
+                const int frameInterval = 120; // 120프레임마다(즉, 4초마다) 1프레임 추출
 
-                var clipSpecificResults = allResults.Where(r => r.ClipTitle == selectedClip.Name).ToList();
+                // 1단계: 프레임 추출
+                StatusMessage = "분석을 위한 프레임 추출 중...";
+                OnPropertyChanged(nameof(StatusMessage));
 
+                // 임시 폴더를 초기화합니다. (이 로직은 EmotionDetect 클래스로 옮겨도 좋습니다.)
+                var tempFrameFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TempFramesDebug");
+                if (Directory.Exists(tempFrameFolder)) Directory.Delete(tempFrameFolder, true);
+                Directory.CreateDirectory(tempFrameFolder);
+
+                double intervalSeconds = frameInterval / (double)fps;
+                if (intervalSeconds <= 0) intervalSeconds = 1; // 0으로 나누는 오류 방지
+
+                int totalSteps = (int)(videoDuration / intervalSeconds);
+
+                for (int step = 0; step <= totalSteps; step++)
+                {
+                    double timestamp = step * intervalSeconds;
+                    await _emotionDetect.ExtractFrameAsync(videoPath, timestamp);
+
+                    // 프레임 추출 진행률을 0% ~ 50% 범위로 계산하여 UI에 업데이트
+                    AnalysisProgress = (int)((double)step / totalSteps * 50);
+                }
+                Debug.WriteLine("[Emotion Analysis] Frame extraction complete.");
+
+                // 2단계: Python AI 모델 실행
+                StatusMessage = "AI 모델로 감정 분석 중...";
+                OnPropertyChanged(nameof(StatusMessage));
+
+                var pythonProgress = new Progress<int>(percent =>
+                {
+                    // Python에서 받은 진행률(p)을 50~100 범위로 스케일링하여 업데이트
+                    AnalysisProgress = 50 + (int)(percent / 2.0);
+                });
+
+                Debug.WriteLine("[Emotion Analysis] Starting Python script...");
+                var analysisResults = await _emotionDetect.RunPythonEmotionDetectionAsync(selectedClip.Name, pythonProgress);
+
+                if (analysisResults == null)
+                {
+                    throw new Exception("감정 분석 결과를 받지 못했습니다. Python 스크립트 실행 로그를 확인하세요.");
+                }
+
+                // 3단계: 결과 처리
                 selectedClip.EmotionAnalysisResults.Clear();
-                foreach (var result in clipSpecificResults)
+                foreach (var result in analysisResults)
                 {
                     selectedClip.EmotionAnalysisResults.Add(result);
                 }
 
+                AnalysisProgress = 100;
                 selectedClip.IsEmotionAnalyzed = true;
-                selectedClip.ShowEmotionAnalysis = true;
+                selectedClip.ShowEmotionAnalysis = true; // 결과를 바로 표시
                 StatusMessage = "클립 감정 분석 완료.";
             }
             catch (Exception ex)
             {
-                StatusMessage = "클립 감정 분석 실패.";
-                HidePreviewObjectsForModal();
+                StatusMessage = "클립 감정 분석 중 오류 발생.";
                 MessageBox.Show($"감정 분석 중 오류가 발생했습니다: {ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
-                RestorePreviewObjectsAfterModal();
                 selectedClip.IsEmotionAnalyzed = false;
             }
             finally
             {
                 selectedClip.IsAnalyzingEmotion = false;
+                AnalysisProgress = 0; // 작업이 끝나면 진행률 초기화
                 OnPropertyChanged(nameof(StatusMessage));
-                AnalyzeEmotionCommand.NotifyCanExecuteChanged();
+                AnalyzeEmotionCommand.NotifyCanExecuteChanged(); // 버튼 상태 최종 갱신
                 RestorePreviewObjectsAfterModal();
+
+                AnalysisCompleted?.Invoke();
             }
         }
 
