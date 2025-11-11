@@ -65,8 +65,10 @@ namespace VideoEditor
         private DispatcherTimer _rulerRedrawTimer;
         private DispatcherTimer _videoClippingTimer;
         private DispatcherTimer _deactivationCheckTimer; // Timer to check if deactivation is temporary
+        private DispatcherTimer _focusCheckTimer; // Timer to periodically check window focus
         private bool _needsZOrderUpdate = false;
         private bool _isOverlayInteractionActive = false; // Track if user is interacting with overlay
+        private bool _wasApplicationActive = true; // Track if any app window was active
         
         // Selection rectangle for drag selection
         private bool _isSelectingWithRectangle = false;
@@ -77,7 +79,6 @@ namespace VideoEditor
         // State for hiding/restoring preview objects when switching to other programs
         private List<TimelineClipBase>? _switchSavedActiveWpfOverlays;
         private bool _switchWasOverlayVisible;
-        private bool _isProcessingActivation = false; // Prevent reentrant calls
 
         public void ClearSnapIndicators()
         {
@@ -209,9 +210,13 @@ namespace VideoEditor
             };
             
             // Timer to check if deactivation is temporary (overlay click) or real (app switch)
-            // 500ms should be enough for activation event to fire after overlay click
-            _deactivationCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+            _deactivationCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
             _deactivationCheckTimer.Tick += DeactivationCheckTimer_Tick;
+            
+            // Timer to periodically check if window focus changed (backup for missed Deactivated events)
+            _focusCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _focusCheckTimer.Tick += FocusCheckTimer_Tick;
+            _focusCheckTimer.Start();
 
             TimelineScrollViewer.ScrollChanged += (s, e) =>
             {
@@ -1052,49 +1057,36 @@ namespace VideoEditor
             DrawTimelineRuler();
         }
 
-        private void DeactivationCheckTimer_Tick(object? sender, EventArgs e)
+        private void FocusCheckTimer_Tick(object? sender, EventArgs e)
         {
-            _deactivationCheckTimer.Stop();
+            // Periodically check if any window in our application is active
+            var activeWindow = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
+            bool isAnyWindowActive = activeWindow != null;
             
-            if (_isOverlayInteractionActive)
+            // If we were active and now we're not, hide overlays
+            if (_wasApplicationActive && !isAnyWindowActive)
             {
-                return;
-            }
-            
-            if (this.IsActive)
-            {
-                _switchSavedActiveWpfOverlays = null;
-                _switchWasOverlayVisible = false;
-                return;
-            }
-            
-            if (_switchSavedActiveWpfOverlays == null && (_mainViewModel.ActiveWpfOverlays.Count > 0 || (_overlayWindow != null && _overlayWindow.IsVisible)))
-            {
-                _switchSavedActiveWpfOverlays = new List<TimelineClipBase>(_mainViewModel.ActiveWpfOverlays);
-                _switchWasOverlayVisible = _overlayWindow != null && _overlayWindow.IsVisible;
-
-                _mainViewModel.ActiveWpfOverlays.Clear();
-                if (_overlayWindow != null && _overlayWindow.IsVisible)
+                System.Diagnostics.Debug.WriteLine("[FOCUS CHECK] App lost focus - hiding overlays");
+                
+                if (!_isOverlayInteractionActive && _switchSavedActiveWpfOverlays == null)
                 {
-                    _overlayWindow.Hide();
+                    if (_mainViewModel.ActiveWpfOverlays.Count > 0 || (_overlayWindow != null && _overlayWindow.IsVisible))
+                    {
+                        _switchSavedActiveWpfOverlays = new List<TimelineClipBase>(_mainViewModel.ActiveWpfOverlays);
+                        _switchWasOverlayVisible = _overlayWindow != null && _overlayWindow.IsVisible;
+
+                        _mainViewModel.ActiveWpfOverlays.Clear();
+                        if (_overlayWindow != null && _overlayWindow.IsVisible)
+                        {
+                            _overlayWindow.Hide();
+                        }
+                    }
                 }
             }
-        }
-
-        private void MainWindow_Activated(object? sender, EventArgs e)
-        {
-            if (_isProcessingActivation) return;
-            _isProcessingActivation = true;
-
-            try
+            // If we weren't active and now we are, restore overlays
+            else if (!_wasApplicationActive && isAnyWindowActive)
             {
-                if (_deactivationCheckTimer.IsEnabled)
-                {
-                    _deactivationCheckTimer.Stop();
-                    _switchSavedActiveWpfOverlays = null;
-                    _switchWasOverlayVisible = false;
-                    return;
-                }
+                System.Diagnostics.Debug.WriteLine("[FOCUS CHECK] App gained focus - restoring overlays");
                 
                 if (_switchSavedActiveWpfOverlays != null)
                 {
@@ -1112,40 +1104,139 @@ namespace VideoEditor
                     _overlayWindow.Show();
                     _switchWasOverlayVisible = false;
                 }
+            }
+            
+            _wasApplicationActive = isAnyWindowActive;
+        }
+
+        private void DeactivationCheckTimer_Tick(object? sender, EventArgs e)
+        {
+            _deactivationCheckTimer.Stop();
+            System.Diagnostics.Debug.WriteLine("[TIMER] Deactivation timer fired");
+            
+            if (_isOverlayInteractionActive)
+            {
+                System.Diagnostics.Debug.WriteLine("[TIMER] Overlay interaction active - not hiding");
+                return;
+            }
+            
+            // Check if MainWindow or any owned window is active
+            // If MainWindow is active again OR OverlayWindow is active, it was a temporary deactivation
+            bool isMainWindowActive = this.IsActive;
+            bool isOwnedWindowActive = this.OwnedWindows.OfType<Window>().Any(w => w.IsActive);
+            
+            System.Diagnostics.Debug.WriteLine($"[TIMER] MainWindow active: {isMainWindowActive}, Owned window active: {isOwnedWindowActive}");
+            
+            if (isMainWindowActive || isOwnedWindowActive)
+            {
+                System.Diagnostics.Debug.WriteLine("[TIMER] Window is active again - temporary deactivation");
+                _switchSavedActiveWpfOverlays = null;
+                _switchWasOverlayVisible = false;
+                return;
+            }
+            
+            // Check if any window from this application is currently focused
+            var activeWindow = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
+            System.Diagnostics.Debug.WriteLine($"[TIMER] Active app window: {activeWindow?.GetType().Name ?? "null"}");
+            
+            if (activeWindow != null)
+            {
+                // Some window in our app is active, don't hide overlays
+                System.Diagnostics.Debug.WriteLine("[TIMER] App window is active - not hiding");
+                _switchSavedActiveWpfOverlays = null;
+                _switchWasOverlayVisible = false;
+                return;
+            }
+            
+            // No window from our app is active - user switched to another application
+            if (_switchSavedActiveWpfOverlays == null && (_mainViewModel.ActiveWpfOverlays.Count > 0 || (_overlayWindow != null && _overlayWindow.IsVisible)))
+            {
+                System.Diagnostics.Debug.WriteLine($"[TIMER] Hiding {_mainViewModel.ActiveWpfOverlays.Count} overlays");
+                _switchSavedActiveWpfOverlays = new List<TimelineClipBase>(_mainViewModel.ActiveWpfOverlays);
+                _switchWasOverlayVisible = _overlayWindow != null && _overlayWindow.IsVisible;
+
+                _mainViewModel.ActiveWpfOverlays.Clear();
+                if (_overlayWindow != null && _overlayWindow.IsVisible)
+                {
+                    _overlayWindow.Hide();
+                }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("[TIMER] Already saved or no overlays to hide");
+            }
+        }
+
+        private void MainWindow_Activated(object? sender, EventArgs e)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("[ACTIVATION] MainWindow activated");
+                
+                if (_deactivationCheckTimer.IsEnabled)
+                {
+                    System.Diagnostics.Debug.WriteLine("[ACTIVATION] Timer is running - stopping it (temporary deactivation)");
+                    _deactivationCheckTimer.Stop();
+                    _switchSavedActiveWpfOverlays = null;
+                    _switchWasOverlayVisible = false;
+                    return;
+                }
+                
+                if (_switchSavedActiveWpfOverlays != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[ACTIVATION] Restoring {_switchSavedActiveWpfOverlays.Count} overlays");
+                    _mainViewModel.ActiveWpfOverlays.Clear();
+                    
+                    foreach (var clip in _switchSavedActiveWpfOverlays)
+                    {
+                        _mainViewModel.ActiveWpfOverlays.Add(clip);
+                    }
+                    _switchSavedActiveWpfOverlays = null;
+                }
+
+                if (_overlayWindow != null && _switchWasOverlayVisible)
+                {
+                    _overlayWindow.Show();
+                    _switchWasOverlayVisible = false;
+                }
 
                 BringProgressWindowsToFront();
             }
-            finally
+            catch (Exception ex)
             {
-                _isProcessingActivation = false;
+                System.Diagnostics.Debug.WriteLine($"[ACTIVATION ERROR] {ex.Message}");
             }
         }
 
         private void MainWindow_Deactivated(object? sender, EventArgs e)
         {
-            if (_isProcessingActivation) return;
-            _isProcessingActivation = true;
-
             try
             {
+                System.Diagnostics.Debug.WriteLine("[DEACTIVATION] MainWindow deactivated");
+                System.Diagnostics.Debug.WriteLine($"[DEACTIVATION] _isOverlayInteractionActive: {_isOverlayInteractionActive}");
+                
                 if (_isOverlayInteractionActive)
                 {
+                    System.Diagnostics.Debug.WriteLine("[DEACTIVATION] Overlay interaction active - ignoring");
                     return;
                 }
                 
                 var activeWindow = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
+                System.Diagnostics.Debug.WriteLine($"[DEACTIVATION] Active window: {activeWindow?.GetType().Name ?? "null"}");
                 
                 if (activeWindow is OverlayWindow)
                 {
+                    System.Diagnostics.Debug.WriteLine("[DEACTIVATION] OverlayWindow is active - ignoring");
                     return;
                 }
                 
+                System.Diagnostics.Debug.WriteLine("[DEACTIVATION] Starting timer");
                 _deactivationCheckTimer.Stop();
                 _deactivationCheckTimer.Start();
             }
-            finally
+            catch (Exception ex)
             {
-                _isProcessingActivation = false;
+                System.Diagnostics.Debug.WriteLine($"[DEACTIVATION ERROR] {ex.Message}");
             }
         }
 
