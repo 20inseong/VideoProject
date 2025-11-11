@@ -10,7 +10,7 @@
         mc:Ignorable="d"
         Title="OverlayWindow"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        Topmost="True" ShowInTaskbar="False">
+        Topmost="True" ShowInTaskbar="False" Focusable="False">
     <Window.Resources>
         <common:InverseTrackIndexConverter x:Key="InverseTrackIndexConverter" />
         <common:OverlayZIndexConverter x:Key="OverlayZIndexConverter" />

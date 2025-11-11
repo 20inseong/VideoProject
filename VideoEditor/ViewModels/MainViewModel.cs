@@ -1373,11 +1373,18 @@ namespace VideoEditor.ViewModels
 
             // --- WPF Overlays Management ---
             var wpfOverlaysToDeactivate = ActiveWpfOverlays.Except(activeWpfOverlays).ToList();
-            foreach (var clip in wpfOverlaysToDeactivate) { ActiveWpfOverlays.Remove(clip); }
-
+            
             foreach (var clip in activeWpfOverlays)
             {
-                if (!ActiveWpfOverlays.Contains(clip)) { ActiveWpfOverlays.Add(clip); }
+                if (!ActiveWpfOverlays.Contains(clip)) 
+                { 
+                    ActiveWpfOverlays.Add(clip); 
+                }
+            }
+            
+            foreach (var clip in wpfOverlaysToDeactivate) 
+            { 
+                ActiveWpfOverlays.Remove(clip); 
             }
 
             // --- Update Active Players (Playback state) ---
@@ -1783,24 +1790,20 @@ namespace VideoEditor.ViewModels
 
         public void StartVideoClipPreviewDrag()
         {
-            if (_isVideoClipBeingDraggedInPreview) return; // Already dragging
+            if (_isVideoClipBeingDraggedInPreview) return;
 
             _isVideoClipBeingDraggedInPreview = true;
 
-            // Save current WPF overlays and hide them
             _wpfOverlaysHiddenDuringVideoDrag = new List<TimelineClipBase>(ActiveWpfOverlays);
             ActiveWpfOverlays.Clear();
-
-            Debug.WriteLine("[VIDEO DRAG] Video clip drag started in preview - hiding WPF overlays");
         }
 
         public void EndVideoClipPreviewDrag()
         {
-            if (!_isVideoClipBeingDraggedInPreview) return; // Not dragging
+            if (!_isVideoClipBeingDraggedInPreview) return;
 
             _isVideoClipBeingDraggedInPreview = false;
 
-            // Restore WPF overlays
             if (_wpfOverlaysHiddenDuringVideoDrag != null)
             {
                 foreach (var clip in _wpfOverlaysHiddenDuringVideoDrag)
@@ -1812,8 +1815,6 @@ namespace VideoEditor.ViewModels
                 }
                 _wpfOverlaysHiddenDuringVideoDrag = null;
             }
-
-            Debug.WriteLine("[VIDEO DRAG] Video clip drag ended in preview - restoring WPF overlays");
         }
 
         public Window? GetMainWindow()

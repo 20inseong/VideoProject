@@ -371,14 +371,31 @@ namespace VideoEditor.Common.Adorners
                         mainViewModel.StartVideoClipPreviewDrag();
                     }
                 }
+                
+                // Mark overlay interaction as active AND cancel any pending timer
+                if (Application.Current.MainWindow is MainWindow mainWindow)
+                {
+                    mainWindow.SetOverlayInteractionActive(true);
+                    mainWindow.CancelDeactivationTimer(); // Cancel timer if already running
+                }
             });
         }
 
         private void Middle_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            // Update position based on drag delta
-            _clip.X += e.HorizontalChange;
-            _clip.Y += e.VerticalChange;
+            double newX = _clip.X + e.HorizontalChange;
+            double newY = _clip.Y + e.VerticalChange;
+            
+            double minX = -_clip.RenderWidth + 50;
+            double minY = -_clip.RenderHeight + 50;
+            double maxX = 1920 - 50;
+            double maxY = 1080 - 50;
+            
+            newX = Math.Max(minX, Math.Min(maxX, newX));
+            newY = Math.Max(minY, Math.Min(maxY, newY));
+            
+            _clip.X = newX;
+            _clip.Y = newY;
             
             ForceClipUpdate();
         }
@@ -397,6 +414,12 @@ namespace VideoEditor.Common.Adorners
                     }
                     
                     mainViewModel.ResumePlaybackIfNeeded();
+                }
+                
+                // Mark overlay interaction as inactive
+                if (Application.Current.MainWindow is MainWindow mainWindow)
+                {
+                    mainWindow.SetOverlayInteractionActive(false);
                 }
             });
 
