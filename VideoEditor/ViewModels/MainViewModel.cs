@@ -75,6 +75,7 @@ namespace VideoEditor.ViewModels
         public event EventHandler? VideoClipZOrderChanged;
         private Window? _mainWindow;
         private TranscriptionProgressWindow? _transcriptionProgressWindow;
+        private EmotionAnalysisProgressWindow? _emotionAnalysisProgressWindow;
         private CancellationTokenSource? _exportCts;
 
         public ObservableCollection<TimelineClipBase> ActiveVideoClips { get; } = new();
@@ -267,7 +268,7 @@ namespace VideoEditor.ViewModels
         private readonly Stopwatch _timelineStopwatch = new Stopwatch();
         private TimeSpan _lastStopwatchElapsed = TimeSpan.Zero;
 
-        private bool _isSyncingPlayers = false; // Prevent reentrant calls to SyncPlayersToTimeline
+        private bool _isSyncingPlayers = false; 
 
         private void ScrubSeekTimer_Tick(object? sender, EventArgs e)
         {
@@ -326,7 +327,7 @@ namespace VideoEditor.ViewModels
             PlayerViewModel._libVLC.Log += OnLibVLCLog;
 
             _performanceWarningTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
-            _performanceWarningTimer.Tick += (s, e) => _performanceWarningCounter = 0; // Reset counter every 10 seconds
+            _performanceWarningTimer.Tick += (s, e) => _performanceWarningCounter = 0; 
 
             VideoEditor.TimelineClips.CollectionChanged += (s, e) =>
             {
@@ -420,7 +421,7 @@ namespace VideoEditor.ViewModels
         private void ExecuteSeekFrames(string? direction)
         {
             if (!double.TryParse(direction, out double frameDirection)) return;
-            const double frameRate = 30.0; // 30fps로 가정
+            const double frameRate = 30.0; 
             double timeChange = frameDirection / frameRate;
             double newPosition = Math.Max(0, CurrentTimelinePosition + timeChange);
             SeekTimeline(newPosition);
@@ -482,15 +483,35 @@ namespace VideoEditor.ViewModels
         {
             if (VideoEditor.SelectedClip is not VideoClip selectedClip) return;
 
+            if (IsTimelinePlaying)
+            {
+                _timelineTimer.Stop();
+                PlayerViewModel.PauseAllPlayers();
+                IsTimelinePlaying = false;
+            }
+
+            HidePreviewObjectsForModal();
+
+            _emotionAnalysisProgressWindow = new EmotionAnalysisProgressWindow
+            {
+                DataContext = this,
+                Owner = _mainWindow
+            };
+
+            if (_mainWindow != null)
+            {
+                _mainWindow.LocationChanged += OwnerWindow_PositionChanged;
+                _mainWindow.SizeChanged += OwnerWindow_PositionChanged;
+            }
+
+            _emotionAnalysisProgressWindow.Show();
+
             selectedClip.IsAnalyzingEmotion = true;
             AnalyzeEmotionCommand.NotifyCanExecuteChanged();
             StatusMessage = "클립 감정 분석 중...";
             AnalysisProgress = 0;
             OnPropertyChanged(nameof(StatusMessage));
             AnalyzeEmotionCommand.NotifyCanExecuteChanged(); // 버튼 비활성화를 위해 상태 변경 즉시 알림
-
-            // 분석 중 다른 UI 조작을 막기 위해 오버레이 등을 숨깁니다.
-            HidePreviewObjectsForModal();
 
             try
             {
@@ -564,6 +585,16 @@ namespace VideoEditor.ViewModels
                 AnalysisProgress = 0; // 작업이 끝나면 진행률 초기화
                 OnPropertyChanged(nameof(StatusMessage));
                 AnalyzeEmotionCommand.NotifyCanExecuteChanged(); // 버튼 상태 최종 갱신
+
+                if (_mainWindow != null)
+                {
+                    _mainWindow.LocationChanged -= OwnerWindow_PositionChanged;
+                    _mainWindow.SizeChanged -= OwnerWindow_PositionChanged;
+                }
+
+                _emotionAnalysisProgressWindow?.Close();
+                _emotionAnalysisProgressWindow = null;
+
                 RestorePreviewObjectsAfterModal();
 
                 AnalysisCompleted?.Invoke();
@@ -1496,6 +1527,12 @@ if (delta > 0) CurrentTimelinePosition += delta;
             {
                 _transcriptionProgressWindow.Left = _mainWindow.Left + (_mainWindow.Width - _transcriptionProgressWindow.Width) / 2;
                 _transcriptionProgressWindow.Top = _mainWindow.Top + (_mainWindow.Height - _transcriptionProgressWindow.Height) / 2;
+            }
+
+            if (_emotionAnalysisProgressWindow != null && _mainWindow != null)
+            {
+                _emotionAnalysisProgressWindow.Left = _mainWindow.Left + (_mainWindow.Width - _emotionAnalysisProgressWindow.Width) / 2;
+                _emotionAnalysisProgressWindow.Top = _mainWindow.Top + (_mainWindow.Height - _emotionAnalysisProgressWindow.Height) / 2;
             }
         }
 
