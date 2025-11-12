@@ -1288,12 +1288,12 @@ namespace VideoEditor.ViewModels
                     var itemsControl = (e.Source as FrameworkElement)?.FindAncestor<ItemsControl>();
                     if (itemsControl != null) DragStartPoint = e.GetPosition(itemsControl);
 
-                    // 선택된 모든 클립의 현재 상태를 저장 (여기서만 캡처)
-                    DraggedClipsOriginalState.Clear();
-                    foreach (var clip in _selectedClips)
-                    {
-                        DraggedClipsOriginalState[clip] = (clip.StartPosition, clip.TrackIndex);
-                    }
+                    //// 선택된 모든 클립의 현재 상태를 저장 (여기서만 캡처)
+                    //DraggedClipsOriginalState.Clear();
+                    //foreach (var clip in _selectedClips)
+                    //{
+                    //    DraggedClipsOriginalState[clip] = (clip.StartPosition, clip.TrackIndex);
+                    //}
 
                     // 드래그 시작 신호는 MouseMove에서 임계치 통과 시에만 보냅니다.
                 }
@@ -1338,6 +1338,12 @@ namespace VideoEditor.ViewModels
 
             // 드래그 시작: 재생 일시중지 신호
             ClipInteractionStarted?.Invoke();
+
+            DraggedClipsOriginalState.Clear();
+            foreach (var clip in _selectedClips)
+            {
+                DraggedClipsOriginalState[clip] = (clip.StartPosition, clip.TrackIndex);
+            }
 
             // 선택된 모든 클립을 함께 드래그
             DataObject dragData = new DataObject("TimelineClips", _selectedClips.ToList());

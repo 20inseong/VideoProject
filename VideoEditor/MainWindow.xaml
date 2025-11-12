@@ -294,8 +294,6 @@
                 <MenuItem Header="도구">
                     <MenuItem Header="비디오">
                         <MenuItem Header="오디오 분리" Command="{Binding VideoEditor.SeparateAudioCommand}"/>
-                        <MenuItem Header="시계 방향 90도 회전" Command="{Binding VideoEditor.RotateSelectedClipCommand}" CommandParameter="90"/>
-                        <MenuItem Header="시계 반대 방향 90도 회전" Command="{Binding VideoEditor.RotateSelectedClipCommand}" CommandParameter="-90"/>
                     </MenuItem>
                     <MenuItem Header="오디오">
                         <MenuItem Header="뮤트 토글" Command="{Binding VideoEditor.ToggleMuteSelectedClipCommand}"/>

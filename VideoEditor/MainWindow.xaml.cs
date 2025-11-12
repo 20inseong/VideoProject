@@ -104,6 +104,7 @@ namespace VideoEditor
         public MainWindow()
         {
             InitializeComponent();
+            FontManager.LoadValidFonts();
 
             Common.UIDispatcher.Initialize();
             _mainViewModel = new MainViewModel(this);
@@ -778,7 +779,7 @@ namespace VideoEditor
 
             SnapIndicatorCanvas.Children.Clear();
 
-            if (e.Data.GetDataPresent("TimelineClips") && e.Data.GetData("TimelineClips") is List<TimelineClipBase> draggedClips)
+            if (e.Data.GetDataPresent("TimelineClips") && e.Data.GetData("TimelineClips") is List<TimelineClipBase> draggedClips && draggedClips.Any())
             {
                 e.Effects = DragDropEffects.Move;
 
