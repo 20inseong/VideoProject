@@ -466,10 +466,30 @@ namespace VideoEditor.ViewModels
         {
             Debug.WriteLine($"[SeekToTimestamp] Received time: {timeInSeconds}");
             Debug.WriteLine($"[SeekToTimestamp] Before - CurrentTimelinePosition: {CurrentTimelinePosition}");
+            Debug.WriteLine($"[SeekToTimestamp] IsTimelinePlaying: {IsTimelinePlaying}");
 
-            SeekTimeline(timeInSeconds);
-
-            Debug.WriteLine($"[SeekToTimestamp] After - CurrentTimelinePosition: {CurrentTimelinePosition}");
+            // 재생 중이면 먼저 일시정지
+            if (IsTimelinePlaying)
+            {
+                Debug.WriteLine($"[SeekToTimestamp] Timeline is playing, pausing first...");
+                _timelineTimer.Stop();
+                PlayerViewModel.PauseAllPlayers();
+                IsTimelinePlaying = false;
+                
+                // UI 업데이트를 위해 잠시 대기
+                UIDispatcher.InvokeAsync(async () =>
+                {
+                    await Task.Delay(50); // 플레이어가 완전히 일시정지될 때까지 대기
+                    SeekTimeline(timeInSeconds);
+                    Debug.WriteLine($"[SeekToTimestamp] After - CurrentTimelinePosition: {CurrentTimelinePosition}");
+                }, System.Windows.Threading.DispatcherPriority.Normal);
+            }
+            else
+            {
+                // 일시정지 상태면 바로 이동
+                SeekTimeline(timeInSeconds);
+                Debug.WriteLine($"[SeekToTimestamp] After - CurrentTimelinePosition: {CurrentTimelinePosition}");
+            }
         }
 
         private bool CanAnalyzeEmotion()
@@ -1301,18 +1321,31 @@ if (delta > 0) CurrentTimelinePosition += delta;
         public void SeekTimeline(double timeSec, bool isScrubbing = false)
         {
             Debug.WriteLine($"[SeekTimeline] Setting CurrentTimelinePosition to: {timeSec}");
+            
+            // 재생 중이면 먼저 정지
             if (IsTimelinePlaying)
             {
+                Debug.WriteLine($"[SeekTimeline] Stopping timeline playback before seek");
                 _timelineTimer.Stop();
                 PlayerViewModel.PauseAllPlayers();
                 IsTimelinePlaying = false;
             }
+            
             _lastStopwatchElapsed = TimeSpan.Zero;
-            _timelineStopwatch.Restart();
-
+            _timelineStopwatch.Reset();
 
             CurrentTimelinePosition = timeSec;
-            SyncPlayersToTimeline();
+            
+            // SyncPlayersToTimeline을 안전하게 호출
+            try
+            {
+                SyncPlayersToTimeline();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[SeekTimeline] Error during SyncPlayersToTimeline: {ex.Message}");
+                // 에러가 발생해도 프로그램이 멈추지 않도록 함
+            }
         }
 
         public void SyncPlayersToTimeline()
