@@ -366,74 +366,56 @@ namespace VideoEditor.Services
             double positionScaleX = OutputWidth / previewWidth;
             double positionScaleY = OutputHeight / previewHeight;
 
-            // 텍스트 클립을 ASS로 작성하여 단일 subtitles 필터로 처리 (성능 개선)
-            string? assFilePath = null;
+            var assFilesByTrack = new Dictionary<int, string>();
+            var appliedSubtitleTracks = new HashSet<int>();
             if (textClips.Count > 0)
             {
-                var sbAss = new StringBuilder();
-                sbAss.AppendLine("[Script Info]");
-                sbAss.AppendLine("ScriptType: v4.00+");
-                sbAss.AppendLine("PlayResX: 1920");
-                sbAss.AppendLine("PlayResY: 1080");
-                sbAss.AppendLine("ScaledBorderAndShadow: yes");
-                sbAss.AppendLine();
-                sbAss.AppendLine("[V4+ Styles]");
-                sbAss.AppendLine("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding");
-                // 기본 스타일: 가운데 정렬(5), 굵게, 흰색, 얇은 외곽선
-                sbAss.AppendLine("Style: Default,Malgun Gothic,48,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,2,0,5,10,10,10,1");
-                sbAss.AppendLine();
-                sbAss.AppendLine("[Events]");
-                sbAss.AppendLine("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text");
-
-                // 텍스트 클립 그대로 사용 (병합 없음)
-                var ordered = textClips.OrderBy(t => t.StartPosition).ToList();
-
-                foreach (var m in ordered)
+                foreach (var grp in textClips.GroupBy(t => t.TrackIndex))
                 {
-                    // 최소 표시 시간 1.0s
-                    if (m.Duration < 1.0) m.Duration = 1.0;
+                    var sbAss = new StringBuilder();
+                    sbAss.AppendLine("[Script Info]");
+                    sbAss.AppendLine("ScriptType: v4.00+");
+                    sbAss.AppendLine("PlayResX: 1920");
+                    sbAss.AppendLine("PlayResY: 1080");
+                    sbAss.AppendLine("ScaledBorderAndShadow: yes");
+                    sbAss.AppendLine();
+                    sbAss.AppendLine("[V4+ Styles]");
+                    sbAss.AppendLine("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding");
+                    sbAss.AppendLine("Style: Default,Malgun Gothic,48,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,2,0,5,10,10,10,1");
+                    sbAss.AppendLine();
+                    sbAss.AppendLine("[Events]");
+                    sbAss.AppendLine("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text");
 
-                    // 위치: 텍스트 박스 중앙
-                    double posX = (m.X + m.RenderWidth / 2.0) * positionScaleX;
-                    double posY = (m.Y + m.RenderHeight / 2.0) * positionScaleY;
-
-                    // 라인 래핑: 줄당 32자, 최대 2줄
-                    string text = m.Text?.Trim() ?? string.Empty;
-                    if (text.Length > 64)
+                    foreach (var m in grp.OrderBy(t => t.StartPosition))
                     {
-                        text = text.Substring(0, 64);
+                        if (m.Duration < 1.0) m.Duration = 1.0;
+                        double posX = (m.X + m.RenderWidth / 2.0) * positionScaleX;
+                        double posY = (m.Y + m.RenderHeight / 2.0) * positionScaleY;
+                        string text = m.Text?.Trim() ?? string.Empty;
+                        if (text.Length > 64) text = text.Substring(0, 64);
+                        text = WrapText(text, 32, 2);
+                        var color = m.ForegroundColor;
+                        double op = m.Opacity > 1.0 ? m.Opacity / 100.0 : m.Opacity;
+                        op = Math.Clamp(op, 0.0, 1.0);
+                        byte a = (byte)Math.Clamp((int)Math.Round((1.0 - op) * 255.0), 0, 255);
+                        string colorBgr = $"&H{color.B:X2}{color.G:X2}{color.R:X2}";
+                        string alphaTag = $"&H{a:X2}&";
+                        int fontSize = (int)Math.Max(10, Math.Round(m.FontSize * positionScaleY));
+                        int align = 5; int ml = 10, mr = 10, mv = 10;
+                        string fontName = string.IsNullOrWhiteSpace(m.FontFamily) ? "Malgun Gothic" : m.FontFamily;
+                        if (fontName == "맑은 고딕") fontName = "Malgun Gothic";
+                        fontName = fontName.Replace("{", string.Empty).Replace("}", string.Empty);
+                        string start = ToAssTime(m.StartPosition);
+                        string end = ToAssTime(m.StartPosition + m.Duration);
+                        string ov = $"{{\\pos({posX:F2},{posY:F2})\\fn{fontName}\fs{fontSize}\\c{colorBgr}\\alpha{alphaTag}\\an{align}" + (Math.Abs(m.Rotation) > 0.01 ? $"\\frz{-m.Rotation:F1}" : "") + "}";
+                        string safe = EscapeAssText(text);
+                        sbAss.AppendLine($"Dialogue: 0,{start},{end},Default,,{ml},{mr},{mv},,{ov}{safe}");
                     }
-                    text = WrapText(text, 32, 2);
 
-                    // 색상/투명도/폰트 크기
-                    var color = m.ForegroundColor;
-                    double op = m.Opacity > 1.0 ? m.Opacity / 100.0 : m.Opacity;
-                    op = Math.Clamp(op, 0.0, 1.0);
-                    byte a = (byte)Math.Clamp((int)Math.Round((1.0 - op) * 255.0), 0, 255);
-                    // 자막 태그: 색상은 &HBBGGRR, 알파는 &HAA&
-                    string colorBgr = $"&H{color.B:X2}{color.G:X2}{color.R:X2}";
-                    string alphaTag = $"&H{a:X2}&";
-                    int fontSize = (int)Math.Max(10, Math.Round(m.FontSize * positionScaleY));
-                    int align = 5; // Middle Center
-                    int ml = 10, mr = 10, mv = 10;
-
-
-                    // 폰트 패밀리 오버라이드 (ASS \\fn 사용). 한글 폰트명 매핑
-                    string fontName = string.IsNullOrWhiteSpace(m.FontFamily) ? "Malgun Gothic" : m.FontFamily;
-                    if (fontName == "맑은 고딕") fontName = "Malgun Gothic";
-                    fontName = fontName.Replace("{", string.Empty).Replace("}", string.Empty);
-
-                    string start = ToAssTime(m.StartPosition);
-                    string end = ToAssTime(m.StartPosition + m.Duration);
-
-                    // 이벤트 텍스트: 스타일 오버라이드 (회전 보정: 부호 반전, 폰트 적용)
-                    string ov = $"{{\\pos({posX:F2},{posY:F2})\\fn{fontName}\\fs{fontSize}\\c{colorBgr}\\alpha{alphaTag}\\an{align}" + (Math.Abs(m.Rotation) > 0.01 ? $"\\frz{-m.Rotation:F1}" : "") + "}";
-                    string safe = EscapeAssText(text);
-                    sbAss.AppendLine($"Dialogue: 0,{start},{end},Default,,{ml},{mr},{mv},,{ov}{safe}");
+                    var assPath = Path.Combine(tempDirectory, $"subs_track_{grp.Key}.ass");
+                    await File.WriteAllTextAsync(assPath, sbAss.ToString(), cancellationToken);
+                    assFilesByTrack[grp.Key] = assPath;
                 }
-
-                assFilePath = Path.Combine(tempDirectory, "subs.ass");
-                await File.WriteAllTextAsync(assFilePath, sbAss.ToString(), cancellationToken);
             }
 
             // 한글 폰트(맑은 고딕)를 사용하도록 수정합니다.
@@ -502,20 +484,34 @@ namespace VideoEditor.Services
                 }
                 else if (clip is TextClip textClip)
                 {
-                    // 텍스트 클립은 ASS 자막으로 일괄 처리하므로 여기서는 건너뜁니다.
+                    // 텍스트 클립: 현재 위치에서 해당 트랙의 ASS를 삽입하여 오버레이 순서를 보장
+                    if (!appliedSubtitleTracks.Contains(textClip.TrackIndex) && assFilesByTrack.TryGetValue(textClip.TrackIndex, out var assPathForTrack))
+                    {
+                        string nextVideoStream2 = $"[final_v_{overlayCounter}]";
+                        var assEscaped2 = assPathForTrack.Replace("\\", "/").Replace(":", "\\:");
+                        filterComplex.AppendLine($"{lastVideoStream}subtitles=filename='{assEscaped2}':fontsdir='C\\:/Windows/Fonts'{nextVideoStream2};");
+                        lastVideoStream = nextVideoStream2;
+                        overlayCounter++;
+                        appliedSubtitleTracks.Add(textClip.TrackIndex);
+                    }
                     continue;
                 }
             }
-            // 최종 비디오
-            if (!string.IsNullOrEmpty(assFilePath))
+            // 텍스트 트랙을 오버레이 순서에 맞게 삽입
+            var fontsDir = "C\\:/Windows/Fonts";
+            foreach (var clip in overlayClips)
             {
-                // 단일 subtitles 필터로 자막 전체 적용 (Windows 경로 이스케이프 및 fontsdir 명시)
-                string nextVideoStream = $"[final_v_{overlayCounter}]";
-                var assEscaped = assFilePath.Replace("\\", "/").Replace(":", "\\:");
-                var fontsDir = "C\\:/Windows/Fonts";
-                filterComplex.AppendLine($"{lastVideoStream}subtitles=filename='{assEscaped}':fontsdir='{fontsDir}'{nextVideoStream};");
-                lastVideoStream = nextVideoStream;
-                overlayCounter++;
+                if (clip is TextClip tc && !appliedSubtitleTracks.Contains(tc.TrackIndex) && assFilesByTrack.TryGetValue(tc.TrackIndex, out var assPath))
+                {
+                    string nextVideoStream = $"[final_v_{overlayCounter}]";
+                    var assEscaped = assPath.Replace("\\", "/").Replace(":", "\\:");
+                    string enableOption = $"enable='between(t,{tc.StartPosition.ToString("F6", culture)},{(tc.StartPosition + tc.Duration).ToString("F6", culture)})'";
+                    // subtitles 필터는 enable을 직접 지원하지 않아 trim+overlay로 우회할 수 있으나, 간단히 전체 적용(ASS 이벤트 자체 시간이 적용됨)
+                    filterComplex.AppendLine($"{lastVideoStream}subtitles=filename='{assEscaped}':fontsdir='{fontsDir}'{nextVideoStream};");
+                    lastVideoStream = nextVideoStream;
+                    overlayCounter++;
+                    appliedSubtitleTracks.Add(tc.TrackIndex);
+                }
             }
 
             filterComplex.AppendLine($"{lastVideoStream}trim=duration={totalDurationSeconds.ToString("F6", culture)}[final_v];");
