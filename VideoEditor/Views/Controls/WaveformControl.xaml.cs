@@ -55,14 +55,13 @@ namespace VideoEditor.Views.Controls
             for (int i = 0; i < linePoints.Count; i++)
             {
                 double x = (double)i / linePoints.Count * width;
-                double max = linePoints[i].Y; // Max amplitude
-                double min = linePoints[i].X; // Min amplitude
+                double max = linePoints[i].Y;
+                double min = linePoints[i].X;
 
                 topSegment.Points.Add(new Point(x, (1 - max) * height / 2));
                 bottomSegment.Points.Add(new Point(x, (1 - min) * height / 2));
             }
 
-            // Reverse the bottom points to draw a single closed shape
             var reversedBottomPoints = new List<Point>(bottomSegment.Points);
             reversedBottomPoints.Reverse();
 

@@ -39,7 +39,7 @@ namespace VideoEditor.Common
 
                 FileStream? fileStream = null;
                 const int maxRetries = 5;
-                const int delayOnRetry = 300; // milliseconds
+                const int delayOnRetry = 300; // ms
                 for (int i = 0; i < maxRetries; i++)
                 {
                     try

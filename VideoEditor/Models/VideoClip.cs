@@ -40,13 +40,11 @@ namespace VideoEditor.Models
             this.SourceWidth = original.SourceWidth;
             this.SourceHeight = original.SourceHeight;
             
-            // Copy transcription data
             foreach (var segment in original.Transcription)
             {
                 this.Transcription.Add(segment);
             }
             
-            // Copy all base properties including duration/speed
             CopyBaseProperties(original);
         }
 

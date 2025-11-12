@@ -24,7 +24,6 @@ namespace VideoEditor.Models
             { 
                 if (SetProperty(ref _x, value))
                 {
-                    // Mark as user-positioned when X is manually set (not during initial layout)
                     if (_initialLayoutComplete)
                         IsUserPositioned = true;
                 }
@@ -39,7 +38,6 @@ namespace VideoEditor.Models
             { 
                 if (SetProperty(ref _y, value))
                 {
-                    // Mark as user-positioned when Y is manually set (not during initial layout)
                     if (_initialLayoutComplete)
                         IsUserPositioned = true;
                 }
@@ -52,8 +50,6 @@ namespace VideoEditor.Models
         private double _renderHeight;
         public double RenderHeight { get => _renderHeight; set => SetProperty(ref _renderHeight, value); }
 
-        // Reference position and size (relative to reference preview size)
-        // These are used to maintain consistent scaling when window size changes
         public double ReferenceX { get; set; }
         public double ReferenceY { get; set; }
         public double ReferenceRenderWidth { get; set; }
@@ -61,10 +57,8 @@ namespace VideoEditor.Models
 
         public double Scale { get; set; } = 1.0;
         
-        // Track if this clip has been manually positioned by the user
         public bool IsUserPositioned { get; set; } = false;
         
-        // Track if initial layout has been completed
         private bool _initialLayoutComplete = false;
 
         private Guid? _groupId;
@@ -85,7 +79,6 @@ namespace VideoEditor.Models
             {
                 if (SetProperty(ref _duration, value))
                 {
-                        // Duration이 직접 설정된 경우, 1x 속도에서의 원래 지속 시간
                     SetProperty(ref _originalDuration, value, nameof(OriginalDuration));
                 }
             }
@@ -99,7 +92,6 @@ namespace VideoEditor.Models
                 double clampedValue = Math.Max(0.1, Math.Min(value, 32.0));
                 if (SetProperty(ref _speedRatio, clampedValue))
                 {
-                            // 속도 변경 시 타임라인 지속 시간을 재계산
                     SetProperty(ref _duration, OriginalDuration / _speedRatio, nameof(Duration));
                 }
             }
@@ -189,7 +181,6 @@ namespace VideoEditor.Models
 
         public abstract TimelineClipBase Clone();
         
-        // Mark that initial layout is complete and future position changes are user-driven
         public void MarkInitialLayoutComplete()
         {
             _initialLayoutComplete = true;
@@ -197,37 +188,28 @@ namespace VideoEditor.Models
 
         protected void CopyBaseProperties(TimelineClipBase source)
         {
-            // Copy basic timeline properties
             this.StartPosition = source.StartPosition;
             this.TrackIndex = source.TrackIndex;
             this.Width = source.Width;
             this.IsSelected = false;
             
-            // Copy audio properties
             this.Volume = source.Volume;
             this.IsMuted = source.IsMuted;
             
-            // Copy rendering properties
             this.X = source.X;
             this.Y = source.Y;
             this.RenderWidth = source.RenderWidth;
             this.RenderHeight = source.RenderHeight;
             this.Scale = source.Scale;
             
-            // Copy waveform data
             this.WaveformData = new System.Collections.Generic.List<System.Windows.Point>(source.WaveformData);
             this.IsGeneratingWaveform = source.IsGeneratingWaveform;
             
-            // Copy transcription properties
             this.IsTranscribed = source.IsTranscribed;
             this.ShowTranscription = source.ShowTranscription;
             
-            // IMPORTANT: Copy duration/speed in correct order to avoid recalculation
-            // First set the original duration directly
             SetProperty(ref _originalDuration, source.OriginalDuration, nameof(OriginalDuration));
-            // Then set speed ratio which will recalculate duration correctly
             SetProperty(ref _speedRatio, source.SpeedRatio, nameof(SpeedRatio));
-            // Finally set the calculated duration
             SetProperty(ref _duration, source.Duration, nameof(Duration));
         }
 

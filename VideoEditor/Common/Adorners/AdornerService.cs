@@ -30,14 +30,12 @@ namespace VideoEditor.Common.Adorners
             {
                 if ((bool)e.NewValue)
                 {
-                    // Adorner enabled - wait for element to be loaded
                     if (adornedElement.IsLoaded)
                     {
                         AddAdorner(adornedElement);
                     }
                     else
                     {
-                        // Wait for Loaded event
                         RoutedEventHandler? loadedHandler = null;
                         loadedHandler = (sender, args) =>
                         {
@@ -49,7 +47,6 @@ namespace VideoEditor.Common.Adorners
                 }
                 else
                 {
-                    // Adorner disabled, remove it
                     RemoveAdorner(adornedElement);
                 }
             }
@@ -60,13 +57,11 @@ namespace VideoEditor.Common.Adorners
             AdornerLayer? adornerLayer = AdornerLayer.GetAdornerLayer(adornedElement);
             if (adornerLayer == null)
             {
-                // Try again after a short delay
                 adornedElement.Dispatcher.BeginInvoke(new System.Action(() =>
                 {
                     AdornerLayer? retryLayer = AdornerLayer.GetAdornerLayer(adornedElement);
                     if (retryLayer != null && adornedElement.DataContext is TimelineClipBase clip)
                     {
-                        // Check if adorner already exists
                         var existingAdorners = retryLayer.GetAdorners(adornedElement);
                         if (existingAdorners == null || !existingAdorners.OfType<ClipAdorner>().Any())
                         {
@@ -79,7 +74,6 @@ namespace VideoEditor.Common.Adorners
 
             if (adornedElement.DataContext is TimelineClipBase clipContext)
             {
-                // Check if adorner already exists to avoid duplicates
                 var existingAdorners = adornerLayer.GetAdorners(adornedElement);
                 if (existingAdorners == null || !existingAdorners.OfType<ClipAdorner>().Any())
                 {

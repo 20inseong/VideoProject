@@ -12,14 +12,12 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <common:TypeToBoolConverter x:Key="TypeToBoolConverter" />
 
-        <!-- DataTemplate for VideoClip - displayed as background -->
         <DataTemplate DataType="{x:Type models:VideoClip}">
             <vlc:VideoView MediaPlayer="{Binding MediaPlayer}"/>
         </DataTemplate>
 
     </UserControl.Resources>
     
-    <!-- Only display VideoClips here, they act as the background video layer -->
     <ItemsControl ItemsSource="{Binding ActiveVisualClips}">
         <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
@@ -28,7 +26,6 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemContainerStyle>
             <Style TargetType="ContentPresenter">
-                <!-- Only show VideoClip types -->
                 <Style.Triggers>
                     <DataTrigger Binding="{Binding}" Value="{x:Null}">
                         <Setter Property="Visibility" Value="Collapsed"/>

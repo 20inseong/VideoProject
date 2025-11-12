@@ -17,12 +17,9 @@
         <common:OpacityPercentToDecimalConverter x:Key="OpacityPercentToDecimalConverter" />
     </Window.Resources>
     <Grid Background="Transparent">
-        <!-- Apply scale transform to match the actual display size -->
         <Grid.RenderTransform>
             <ScaleTransform x:Name="OverlayScaleTransform" ScaleX="1" ScaleY="1" />
-        </Grid.RenderTransform>
-        
-        <!-- Grid의 IsHitTestVisible은 항목이 있을 때만 True -->
+        </Grid.RenderTransform>        
         <Grid.Style>
             <Style TargetType="Grid">
                 <Setter Property="IsHitTestVisible" Value="True"/>
@@ -36,7 +33,6 @@
         </Grid.Style>
         <ItemsControl ItemsSource="{Binding ActiveWpfOverlays}" Background="Transparent">
             <ItemsControl.Resources>
-                <!-- DataTemplate for ImageClip -->
                 <DataTemplate DataType="{x:Type models:ImageClip}">
                     <AdornerDecorator>
                         <Image Source="{Binding ImagePath}"
@@ -57,7 +53,6 @@
                     </AdornerDecorator>
                 </DataTemplate>
 
-                <!-- DataTemplate for TextClip -->
                 <DataTemplate DataType="{x:Type models:TextClip}">
                     <AdornerDecorator>
                         <Border Width="{Binding RenderWidth}"
@@ -97,7 +92,6 @@
                 <Style TargetType="ContentPresenter">
                     <Setter Property="Canvas.Left" Value="{Binding X}" />
                     <Setter Property="Canvas.Top" Value="{Binding Y}" />
-                    <!-- ZIndex considers both TrackIndex and IsSelected state -->
                     <Setter Property="Canvas.ZIndex">
                         <Setter.Value>
                             <MultiBinding Converter="{StaticResource OverlayZIndexConverter}">

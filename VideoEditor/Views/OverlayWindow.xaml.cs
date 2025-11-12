@@ -24,7 +24,6 @@ namespace VideoEditor.Views
         {
             InitializeComponent();
             
-            // Set WS_EX_NOACTIVATE when window is loaded
             this.SourceInitialized += OverlayWindow_SourceInitialized;
             this.IsVisibleChanged += OverlayWindow_IsVisibleChanged;
         }

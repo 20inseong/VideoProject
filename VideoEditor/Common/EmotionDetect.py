@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 import cv2
 import json
@@ -63,7 +61,7 @@ png_files = sorted([f for f in os.listdir(folder_path) if f.endswith(".png")])
 total_frames = len(png_files)
 log(f"Found {total_frames} frames to process.")
 
-# --- ✨ [핵심 수정] 프레임 처리 루프에 진행률 출력 추가 ---
+# --- 프레임 처리 루프에 진행률 출력 추가 ---
 for idx, filename in enumerate(png_files):
     # 표준 출력(stdout)으로 진행 상황을 C#에 알립니다.
     # flush=True는 출력이 버퍼링되지 않고 즉시 전송되게 합니다.
@@ -72,7 +70,6 @@ for idx, filename in enumerate(png_files):
 
     frame_path = os.path.join(folder_path, filename)
     frame = cv2.imread(frame_path)
-    # ... (이하 이미지 처리 및 감정 분석 로직은 그대로 유지) ...
     if frame is None:
         log(f"Failed to load frame: {frame_path}")
         continue

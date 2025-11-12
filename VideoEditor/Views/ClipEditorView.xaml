@@ -44,11 +44,11 @@
                             <Binding Path="DataContext.VideoEditor.TimelineClips" RelativeSource="{RelativeSource AncestorType=Window}"/>
                         </MultiBinding>
                     </DataTrigger.Binding>
-                    <!-- 1. 컨트롤 비활성화 (논리적) -->
+                    <!-- 컨트롤 비활성화 -->
                     <Setter Property="IsEnabled" Value="False"/>
-                    <!-- 2. 시각적 피드백 강화: 글자색을 회색으로 변경 -->
+                    <!-- 시각적 피드백 강화: 글자색을 회색으로 변경 -->
                     <Setter Property="Foreground" Value="Gray"/>
-                    <!-- 3. 물리적 클릭 방지: 마우스 이벤트를 완전히 무시하도록 설정 -->
+                    <!-- 물리적 클릭 방지: 마우스 이벤트를 완전히 무시하도록 설정 -->
                     <Setter Property="IsHitTestVisible" Value="False"/>
                 </DataTrigger>
             </Style.Triggers>
@@ -66,7 +66,6 @@
                     <ControlTemplate TargetType="{x:Type xctk:ColorPicker}">
                         <Grid x:Name="templateRoot">
 
-                            <!-- 1. 컨트롤의 핵심인 ToggleButton (원본 구조 유지) -->
                             <ToggleButton x:Name="PART_ColorPickerToggleButton"
                                       IsChecked="{Binding IsOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                                       Style="{x:Null}">
@@ -103,14 +102,12 @@
                                 </ToggleButton.Template>
                             </ToggleButton>
 
-                            <!-- 2. 컨트롤의 핵심인 Popup (원본 구조 유지) -->
                             <Popup x:Name="PART_Popup"
                                IsOpen="{Binding IsOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                                AllowsTransparency="True"
                                StaysOpen="False"
                                Placement="Bottom"
                                PlacementTarget="{Binding ElementName=PART_ColorPickerToggleButton}">
-                                <!-- 팝업 내부 UI 스타일링 -->
                                 <Border Background="#2B2B2B" BorderBrush="#888888" BorderThickness="1" Padding="5" CornerRadius="3">
                                     <xctk:ColorCanvas x:Name="PART_ColorCanvas"
                                                   SelectedColor="{Binding SelectedColor, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" />
@@ -118,7 +115,6 @@
                             </Popup>
                         </Grid>
 
-                        <!-- 3. 상태 변화에 따른 시각적 효과 (Triggers) -->
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="BorderBrush" Value="White" />
@@ -352,7 +348,7 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
-                    <!-- ✨ 새로 추가할 애니메이션이 포함된 감정 분석 섹션 -->
+                    <!-- 감정 분석 영역 -->
                     <Grid Grid.Row="10" Grid.RowSpan="3" Margin="0,20,0,0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -361,7 +357,7 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <!-- 1. 감정 분석 실행 버튼 (이전과 동일) -->
+                        <!-- 감정 분석 실행 버튼 -->
                         <Button Grid.Row="0" Content="감정 분석 실행"
                                 Command="{Binding DataContext.AnalyzeEmotionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 Margin="0,0,0,10" HorizontalAlignment="Left" Width="120">
@@ -383,7 +379,7 @@
                                      Height="10" 
                                      Margin="0,0,0,10"/>
 
-                        <!-- 2. 분석 결과 토글 헤더 (분석 후에만 보임) -->
+                        <!-- 분석 결과 토글 헤더 -->
                         <ToggleButton Grid.Row="1" x:Name="EmotionToggleHeader" Cursor="Hand">
                             <ToggleButton.Style>
                                 <Style TargetType="ToggleButton">
@@ -395,16 +391,13 @@
                                         <Setter.Value>
                                             <ControlTemplate TargetType="ToggleButton">
                                                 <Border Background="{TemplateBinding Background}" Padding="0">
-                                                    <!-- StackPanel을 Template 안으로 옮깁니다. -->
                                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <!-- 화살표 Path -->
                                                         <Path x:Name="Arrow" Fill="White" VerticalAlignment="Center"
                                       Width="8" Height="8" Data="M 0 0 L 0 8 L 4 4 Z">
                                                             <Path.RenderTransform>
                                                                 <RotateTransform Angle="0" CenterX="4" CenterY="4" />
                                                             </Path.RenderTransform>
                                                         </Path>
-                                                        <!-- 텍스트 -->
                                                         <TextBlock Text="감정 분석 결과" FontWeight="Bold" Foreground="White" FontSize="16" Margin="10,0,0,0"/>
                                                     </StackPanel>
                                                 </Border>
@@ -418,20 +411,16 @@
                                     </Style.Triggers>
                                 </Style>
                             </ToggleButton.Style>
-                            <!-- Template 안으로 내용이 옮겨졌으므로 이 부분은 비워둡니다. -->
                         </ToggleButton>
 
-                        <!-- 3. 감정 분석 결과 ListView (애니메이션 적용) -->
-                        <!-- ClipToBounds=True를 설정하여 애니메이션이 영역을 벗어나지 않도록 함 -->
+                        <!-- 3. 감정 분석 결과 ListView -->
                         <Border Grid.Row="2" ClipToBounds="True">
                             <ListView ItemsSource="{Binding EmotionAnalysisResults}"
                                       HorizontalContentAlignment="Stretch" Background="#36443d" Foreground="White" BorderThickness="0"
                                       Margin="10,5,0,0" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                       RenderTransformOrigin="0.5,0">
-                                <!-- 애니메이션 기준점을 위쪽 중앙으로 설정 -->
                                 <ListView.Style>
                                     <Style TargetType="ListView">
-                                        <!-- 초기 상태: 완전히 투명하고 세로 크기가 0 -->
                                         <Setter Property="Opacity" Value="0"/>
                                         <Setter Property="RenderTransform">
                                             <Setter.Value>
@@ -439,25 +428,21 @@
                                             </Setter.Value>
                                         </Setter>
                                         <Style.Triggers>
-                                            <!-- 토글이 켜지면 펼쳐지는 애니메이션 실행 -->
                                             <DataTrigger Binding="{Binding ElementName=EmotionToggleHeader, Path=IsChecked}" Value="True">
                                                 <DataTrigger.EnterActions>
                                                     <BeginStoryboard>
                                                         <Storyboard>
-                                                            <!-- 세로 크기를 0에서 1로 (원래 크기) -->
                                                             <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
                                                                              To="1" Duration="0:0:0.3">
                                                                 <DoubleAnimation.EasingFunction>
                                                                     <CubicEase EasingMode="EaseOut"/>
                                                                 </DoubleAnimation.EasingFunction>
                                                             </DoubleAnimation>
-                                                            <!-- 투명도를 0에서 1로 (선명하게) -->
                                                             <DoubleAnimation Storyboard.TargetProperty="Opacity"
                                                                              To="1" Duration="0:0:0.2"/>
                                                         </Storyboard>
                                                     </BeginStoryboard>
                                                 </DataTrigger.EnterActions>
-                                                <!-- 토글이 꺼지면 접히는 애니메이션 실행 -->
                                                 <DataTrigger.ExitActions>
                                                     <BeginStoryboard>
                                                         <Storyboard>
@@ -477,7 +462,6 @@
                                     </Style>
                                 </ListView.Style>
 
-                                <!-- ListView의 Resources와 ItemTemplate은 이전과 동일 -->
                                 <ListView.Resources>
                                     <Style x:Key="TimestampButtonStyle" TargetType="Button">
                                         <Setter Property="Background" Value="Transparent"/>
@@ -524,11 +508,9 @@
                             </ListView>
                         </Border>
 
-                        <!-- 화살표 회전 애니메이션 트리거 (Grid의 리소스에 추가) -->
                         <Grid.Resources>
                             <Style TargetType="Path">
                                 <Style.Triggers>
-                                    <!-- 토글 버튼이 체크되면(IsChecked=True) 화살표를 90도 회전 -->
                                     <DataTrigger Binding="{Binding ElementName=EmotionToggleHeader, Path=IsChecked}" Value="True">
                                         <DataTrigger.EnterActions>
                                             <BeginStoryboard>
@@ -537,7 +519,6 @@
                                                 </Storyboard>
                                             </BeginStoryboard>
                                         </DataTrigger.EnterActions>
-                                        <!-- 토글 버튼이 해제되면 화살표를 다시 0도로 회전 -->
                                         <DataTrigger.ExitActions>
                                             <BeginStoryboard>
                                                 <Storyboard>
@@ -736,7 +717,6 @@
                                 <Style TargetType="Button">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                     <Style.Triggers>
-                                        <!-- 스크립트가 표시될 때만 버튼이 보이도록 설정 -->
                                         <DataTrigger Binding="{Binding ShowTranscription}" Value="True">
                                             <Setter Property="Visibility" Value="Visible"/>
                                         </DataTrigger>

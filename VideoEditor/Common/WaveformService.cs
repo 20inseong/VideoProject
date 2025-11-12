@@ -22,11 +22,10 @@ namespace VideoEditor.Common
             try
             {
                 byte[] wavBytes = await File.ReadAllBytesAsync(audioPath);
-                // Standard 44-byte WAV header for PCM
                 const int headerSize = 44; 
                 if (wavBytes.Length <= headerSize) return waveformData;
 
-                int totalSamples = (wavBytes.Length - headerSize) / 2; // 16-bit samples
+                int totalSamples = (wavBytes.Length - headerSize) / 2; ㄴ
                 int samplesPerPoint = totalSamples / resolution;
                 if (samplesPerPoint == 0) samplesPerPoint = 1;
 

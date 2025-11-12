@@ -26,9 +26,7 @@ namespace VideoEditor.Views
         public ClipEditorView()
         {
             InitializeComponent();
-            // UserControl이 로드될 때 이벤트 구독
             this.Loaded += ClipEditorView_Loaded;
-            // UserControl이 언로드될 때 이벤트 구독 해지
             this.Unloaded += ClipEditorView_Unloaded;
         }
 

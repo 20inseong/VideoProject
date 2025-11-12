@@ -93,7 +93,7 @@ namespace VideoEditor.Common
             {
                 return !b;
             }
-            return value; // Return original value if not a boolean
+            return value;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -102,7 +102,7 @@ namespace VideoEditor.Common
             {
                 return !b;
             }
-            return value; // Return original value if not a boolean
+            return value;
         }
     }
 
@@ -142,8 +142,6 @@ namespace VideoEditor.Common
         {
             if (value is int trackIndex)
             {
-                // Return trackIndex as-is so higher track numbers appear on top
-                // Track 0 = ZIndex 0 (bottom), Track 8 = ZIndex 8 (top)
                 return trackIndex;
             }
             return 0;
@@ -155,10 +153,6 @@ namespace VideoEditor.Common
         }
     }
 
-    /// <summary>
-    /// Converter that sets Z-Index based on TrackIndex and Selection state
-    /// Selected clips get a boost to appear on top
-    /// </summary>
     public class OverlayZIndexConverter : IMultiValueConverter
     {
         public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
@@ -175,11 +169,8 @@ namespace VideoEditor.Common
             if (values[1] is bool sel)
                 isSelected = sel;
 
-            // Base Z-Index: higher track index appears on top (Track 0 = bottom, Track 8 = top)
             int baseZ = trackIndex * 10;
             
-            // If selected, add a modest boost to bring it above siblings on the same track
-            // But keep it below 100 to avoid blocking UI elements
             if (isSelected)
                 baseZ += 50;
 
@@ -223,16 +214,13 @@ namespace VideoEditor.Common
         {
             if (value is TimelineClipBase clip)
             {
-                // Base Z-index: lower track index = higher Z-index to appear on top
                 int baseZ = -clip.TrackIndex * 10;
 
                 if (clip is VideoClip)
                 {
-                    // Video clips get a BOOST to appear in front of other overlays on the same track
-                    // This ensures video clips receive mouse events first in the timeline
                     return baseZ + 5;
                 }
-                else // ImageClips, TextClips, etc.
+                else
                 {
                     return baseZ;
                 }
@@ -254,7 +242,7 @@ namespace VideoEditor.Common
             {
                 return percent / 100.0;
             }
-            return 1.0; // Default to fully opaque
+            return 1.0;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -330,8 +318,6 @@ namespace VideoEditor.Common
     {
         public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
         {
-            //Debug.WriteLine($"[AbsoluteTimestampConverter] values[0]: {values[0]}, values[1]: {values[1]}");
-
             if (values.Length == 2 && values[0] is double startPosition && values[1] is double relativeTimestamp)
             {
                 double result = startPosition + relativeTimestamp;

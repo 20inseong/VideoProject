@@ -18,13 +18,11 @@ namespace VideoEditor.Models
                 SourceStartTime = this.SourceStartTime
             };
             
-            // Copy transcription data
             foreach (var segment in this.Transcription)
             {
                 newClip.Transcription.Add(segment);
             }
             
-            // Copy all base properties including duration/speed
             newClip.CopyBaseProperties(this);
             
             return newClip;

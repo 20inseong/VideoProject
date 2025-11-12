@@ -64,19 +64,17 @@ namespace VideoEditor
         private const int DRAG_UPDATE_THROTTLE_MS = 10; // 10ms 간격으로 업데이트
         private DispatcherTimer _rulerRedrawTimer;
         private DispatcherTimer _videoClippingTimer;
-        private DispatcherTimer _deactivationCheckTimer; // Timer to check if deactivation is temporary
-        private DispatcherTimer _focusCheckTimer; // Timer to periodically check window focus
+        private DispatcherTimer _deactivationCheckTimer; 
+        private DispatcherTimer _focusCheckTimer;
         private bool _needsZOrderUpdate = false;
-        private bool _isOverlayInteractionActive = false; // Track if user is interacting with overlay
-        private bool _wasApplicationActive = true; // Track if any app window was active
+        private bool _isOverlayInteractionActive = false;
+        private bool _wasApplicationActive = true;
         
-        // Selection rectangle for drag selection
         private bool _isSelectingWithRectangle = false;
         private Point _selectionStartPoint;
         private Rectangle _selectionRectangle;
         private List<TimelineClipBase> _clipsBeforeSelection = new List<TimelineClipBase>();
 
-        // State for hiding/restoring preview objects when switching to other programs
         private List<TimelineClipBase>? _switchSavedActiveWpfOverlays;
         private bool _switchWasOverlayVisible;
 
@@ -119,48 +117,40 @@ namespace VideoEditor
 
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
             
-            // Subscribe to menu events to manage OverlayWindow z-order
             this.AddHandler(MenuItem.SubmenuOpenedEvent, new RoutedEventHandler(Menu_SubmenuOpened));
             this.AddHandler(MenuItem.SubmenuClosedEvent, new RoutedEventHandler(Menu_SubmenuClosed));
             
-            // Monitor dragging state to update clipping more frequently
             _mainViewModel.VideoEditor.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(VideoEditorViewModel.IsDraggingClip))
                 {
                     if (_mainViewModel.VideoEditor.IsDraggingClip)
                     {
-                        // During drag, update more frequently (every 16ms ~= 60fps)
                         _videoClippingTimer.Interval = TimeSpan.FromMilliseconds(16);
                         _needsZOrderUpdate = true;
                     }
                     else
                     {
-                        // Not dragging, slower update rate is fine
                         _videoClippingTimer.Interval = TimeSpan.FromMilliseconds(100);
-                        // Force one final update when drag ends
                         ClipVideoViewsToPlayerHost();
                     }
                 }
             };
             
-            // Subscribe to Z-order change events
             _mainViewModel.VideoClipZOrderChanged += (s, e) =>
             {
                 _needsZOrderUpdate = true;
             };
             
-            // Subscribe to ActiveVideoClips changes to apply clipping and Z-order
             _mainViewModel.ActiveVideoClips.CollectionChanged += (s, e) => 
             {
-                _needsZOrderUpdate = true; // Mark that Z-order needs update
+                _needsZOrderUpdate = true;
                 Dispatcher.BeginInvoke(new Action(() => 
                 {
                     ClipVideoViewsToPlayerHost();
                 }), DispatcherPriority.Loaded);
             };
             
-            // Also clip when video clips properties change (position, size, etc.)
             _mainViewModel.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(MainViewModel.ActiveVideoClips))
@@ -170,16 +160,11 @@ namespace VideoEditor
                 }
             };
             
-            // Periodically check and apply video clipping (especially during drag operations)
-            // But only update Z-order when needed
             _videoClippingTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
             _videoClippingTimer.Tick += (s, e) =>
             {
                 ClipVideoViewsToPlayerHost();
-                // OverlayWindow를 주기적으로 최상위로 유지 (비디오 HwndHost가 위로 올라오는 것 방지)
-                // 단, MainWindow가 활성화되어 있을 때만
                 BringOverlayToFront();
-                // Progress windows should always be on top of OverlayWindow
                 BringProgressWindowsToFront();
             };
             _videoClippingTimer.Start();
@@ -193,7 +178,6 @@ namespace VideoEditor
             SizeChanged += UpdateOverlayPosition;
             VideoPlayerHost.SizeChanged += UpdateOverlayPosition;
             
-            // Monitor PreviewViewbox size changes
             this.Loaded += (s, e) =>
             {
                 var previewViewbox = this.FindName("PreviewViewbox") as FrameworkElement;
@@ -210,11 +194,9 @@ namespace VideoEditor
                 DrawTimelineRuler();
             };
             
-            // Timer to check if deactivation is temporary (overlay click) or real (app switch)
             _deactivationCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
             _deactivationCheckTimer.Tick += DeactivationCheckTimer_Tick;
             
-            // Timer to periodically check if window focus changed (backup for missed Deactivated events)
             _focusCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
             _focusCheckTimer.Tick += FocusCheckTimer_Tick;
             _focusCheckTimer.Start();
@@ -223,7 +205,6 @@ namespace VideoEditor
             {
                 RulerScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset);
                 
-                // Sync vertical scroll for track labels
                 if (e.VerticalChange != 0)
                 {
                     TrackLabelsScrollViewer.ScrollToVerticalOffset(TimelineScrollViewer.VerticalOffset);
@@ -231,7 +212,6 @@ namespace VideoEditor
                 
                 if (e.HorizontalChange != 0)
                 {
-                    // Draw immediately so ticks update without lag
                     DrawTimelineRuler();
                 }
             };
@@ -240,7 +220,6 @@ namespace VideoEditor
             TimelineRulerCanvas.PreviewMouseMove += TimelineRulerCanvas_PreviewMouseMove;
             TimelineRulerCanvas.PreviewMouseLeftButtonUp += TimelineRulerCanvas_PreviewMouseLeftButtonUp;
 
-            // Enable scrubbing via playhead area as well
             PlayheadCanvas.PreviewMouseLeftButtonDown += PlayheadCanvas_PreviewMouseLeftButtonDown;
             PlayheadCanvas.PreviewMouseMove += PlayheadCanvas_PreviewMouseMove;
             PlayheadCanvas.PreviewMouseLeftButtonUp += PlayheadCanvas_PreviewMouseLeftButtonUp;
@@ -250,8 +229,6 @@ namespace VideoEditor
 
             VideoPlayerHost.SizeChanged += (s, e) =>
             {
-                // VideoPlayerHost is now fixed at 1920x1080 inside a Viewbox
-                // So we always use these fixed dimensions
                 _mainViewModel.PlayerHostWidth = 1920;
                 _mainViewModel.PlayerHostHeight = 1080;
             };
@@ -261,8 +238,6 @@ namespace VideoEditor
 
         private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            // TextBox와 같은 입력 컨트롤에 포커스가 있을 때는 키보드 이동을 막습니다.
-            // 이를 통해 TextBox에서 방향키로 커서를 움직이는 기본 동작을 유지할 수 있습니다.
             if (e.OriginalSource is TextBox || e.OriginalSource is Slider)
             {
                 return;
@@ -293,13 +268,10 @@ namespace VideoEditor
             var newWindow = new MainWindow();
 
             newWindow.Show();
-
-            //this.Close();
         }
 
         private void UpdateOverlayPosition(object? sender, EventArgs e)
         {
-            // Find the PreviewViewbox element
             var previewViewbox = this.FindName("PreviewViewbox") as FrameworkElement;
             
             if (previewViewbox != null && previewViewbox.IsVisible && this.IsVisible && 
@@ -313,18 +285,13 @@ namespace VideoEditor
                     _overlayWindow.Width = previewViewbox.ActualWidth;
                     _overlayWindow.Height = previewViewbox.ActualHeight;
                     
-                    // Calculate scale factor (actual size / fixed size)
-                    // Fixed size is 1920x1080, actual size is the Viewbox's scaled size
                     double scaleX = previewViewbox.ActualWidth / 1920.0;
                     double scaleY = previewViewbox.ActualHeight / 1080.0;
                     
-                    // Apply scale to overlay window
                     _overlayWindow.SetScale(scaleX, scaleY);
                     
-                    // OverlayWindow를 항상 최상위로 유지
                     BringOverlayToFront();
                     
-                    // Apply clipping to video views to ensure they don't render outside VideoPlayerHost
                     Dispatcher.BeginInvoke(new Action(() => ClipVideoViewsToPlayerHost()), DispatcherPriority.Normal);
                 }
                 catch (Exception ex)
@@ -349,7 +316,6 @@ namespace VideoEditor
 
         private void ClipVideoViewsToPlayerHost()
         {
-            // Find the PreviewViewbox element
             var previewViewbox = this.FindName("PreviewViewbox") as FrameworkElement;
             
             if (_mainViewModel?.ActiveVideoClips == null || previewViewbox == null)
@@ -358,16 +324,13 @@ namespace VideoEditor
             if (previewViewbox.ActualWidth <= 0 || previewViewbox.ActualHeight <= 0)
                 return;
 
-            // --- 여기부터 수정: DPI 스케일링 팩터 가져오기 ---
             var source = PresentationSource.FromVisual(this);
-            // 창이 아직 완전히 로드되지 않았을 경우를 대비한 예외 처리
             if (source == null || source.CompositionTarget == null) return;
 
             // M11 = 수평 DPI 배율, M22 = 수직 DPI 배율
             var dpiX = source.CompositionTarget.TransformToDevice.M11;
             var dpiY = source.CompositionTarget.TransformToDevice.M22;
 
-            // Get PreviewViewbox bounds in screen coordinates (WPF DIPs)
             var hostBoundsDIP = new Rect(
                 previewViewbox.PointToScreen(new Point(0, 0)),
                 new Size(previewViewbox.ActualWidth, previewViewbox.ActualHeight)
@@ -380,7 +343,6 @@ namespace VideoEditor
                 hostBoundsDIP.Width * dpiX,
                 hostBoundsDIP.Height * dpiY
             );
-            // --- 수정 끝 ---
 
             var hwndHosts = FindVisualChildren<System.Windows.Interop.HwndHost>(VideoPlayerHost).ToList();
 
@@ -420,18 +382,14 @@ namespace VideoEditor
                 }
             }
 
-            // Sort by TrackIndex: higher TrackIndex should be behind (rendered first)
-            // Lower TrackIndex should be in front (rendered last, on top)
             var sortedClips = hwndToClipMap.OrderBy(kvp => kvp.Value.TrackIndex).ToList();
 
-            // Get the OverlayWindow handle to position video windows below it
             IntPtr overlayHwnd = IntPtr.Zero;
             if (_overlayWindow != null && _overlayWindow.IsLoaded)
             {
                 overlayHwnd = new WindowInteropHelper(_overlayWindow).Handle;
             }
 
-            // Apply Z-order from back to front
             IntPtr insertAfter = overlayHwnd != IntPtr.Zero ? overlayHwnd : HWND_TOP;
             
             for (int i = sortedClips.Count - 1; i >= 0; i--)
@@ -443,7 +401,6 @@ namespace VideoEditor
                 insertAfter = hwnd;
             }
             
-            // Ensure OverlayWindow stays on top
             if (overlayHwnd != IntPtr.Zero)
             {
                 SetWindowPos(overlayHwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
@@ -473,7 +430,6 @@ namespace VideoEditor
                     // 물리적 픽셀을 기준으로 교차 영역 계산
                     var intersection = Rect.Intersect(hostBoundsPixels, hwndHostBoundsPixels);
 
-                    // Check if the HwndHost is completely outside VideoPlayerHost bounds
                     bool isCompletelyOutside = intersection.IsEmpty || intersection.Width <= 0 || intersection.Height <= 0;
                     
                     if (!isCompletelyOutside && intersection.Width > 0 && intersection.Height > 0)
@@ -522,13 +478,11 @@ namespace VideoEditor
 
         private void HideWindow(IntPtr parentHwnd)
         {
-            // Hide window completely by setting empty region
             IntPtr emptyRgn = CreateRectRgn(0, 0, 0, 0);
             if (emptyRgn != IntPtr.Zero)
             {
                 SetWindowRgn(parentHwnd, emptyRgn, true);
                 
-                // Also hide all child windows
                 EnumChildWindows(parentHwnd, (hwnd, lParam) =>
                 {
                     IntPtr childEmptyRgn = CreateRectRgn(0, 0, 0, 0);
@@ -541,7 +495,6 @@ namespace VideoEditor
             }
         }
 
-        // Public method to force immediate clipping update (called from ClipAdorner during drag)
         public void ForceClipVideoViews()
         {
             ClipVideoViewsToPlayerHost();
@@ -582,7 +535,6 @@ namespace VideoEditor
             if (_mainViewModel != null)
             {
                 _mainViewModel.ExportStarted -= MainViewModel_ExportStarted;
-                //_mainViewModel.ExportFinished -= MainViewModel_ExportFinished;
                 _mainViewModel.PropertyChanged -= MainViewModel_PropertyChanged;
                 if (_mainViewModel.VideoEditor != null)
                 {
@@ -594,11 +546,9 @@ namespace VideoEditor
             DataContext = _mainViewModel;
 
             _mainViewModel.ExportStarted += MainViewModel_ExportStarted;
-            //_mainViewModel.ExportFinished += MainViewModel_ExportFinished;
             _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
             _mainViewModel.VideoEditor.PropertyChanged += VideoEditor_PropertyChanged;
 
-            //videoView.MediaPlayer = _mainViewModel.PlayerViewModel.MainVideoPlayer;
             DrawTimelineRuler();
             System.Diagnostics.Debug.WriteLine("[Project] A new ViewModel has been initialized.");
         }
@@ -618,20 +568,6 @@ namespace VideoEditor
             }
         }
 
-        //private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
-        //{
-        //    if (e.OriginalSource is TextBox || e.OriginalSource is Slider)
-        //    {
-        //        return;
-        //    }
-
-        //    if (e.Key == Key.Left || e.Key == Key.Right)
-        //    {
-        //        _mainViewModel.VideoEditor.MoveSelectedClipsByKey(e.Key);
-        //        e.Handled = true;
-        //    }
-        //}
-
         private void VideoEditor_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(VideoEditorViewModel.PixelsPerSecond))
@@ -650,9 +586,9 @@ namespace VideoEditor
 
             _progressWindow.Closed += (s, args) =>
             {
-                this.IsEnabled = true; // MainWindow를 다시 활성화합니다.
-                this.Activate();       // MainWindow를 맨 앞으로 가져옵니다.
-                _progressWindow = null;  // 참조를 정리합니다.
+                this.IsEnabled = true;
+                this.Activate();
+                _progressWindow = null;
             };
 
             this.IsEnabled = false;
@@ -682,37 +618,30 @@ namespace VideoEditor
             bool? dialogResult = openFileDialog.ShowDialog();
             _mainViewModel.RestorePreviewObjectsAfterModal();
 
-            // Force complete resync: Stop all players and reinitialize them
             Common.UIDispatcher.InvokeAsync(async () =>
             {
-                // Stop all existing players first
                 _mainViewModel.PlayerViewModel.Stop();
                 
-                // Clear and force complete re-sync
                 _mainViewModel.ActiveVideoClips.Clear();
                 _mainViewModel.ActiveWpfOverlays.Clear();
                 
-                await Task.Delay(100); // Wait for cleanup
+                await Task.Delay(100);
                 
-                // Now perform full sync to recreate everything
                 _mainViewModel.SyncPlayersToTimeline();
             });
 
             if (dialogResult == true)
             {
-                // --- ▼ [추가] 유효성 검사 결과를 저장할 리스트 ▼ ---
                 var invalidFiles = new List<string>();
                 int addedCount = 0;
 
-                // --- ▼ [추가] 작업 중임을 나타내는 커서 변경 ▼ ---
                 this.Cursor = Cursors.Wait;
 
                 foreach (string filePath in openFileDialog.FileNames)
                 {
                     string extension = System.IO.Path.GetExtension(filePath).ToLowerInvariant();
-                    bool isValid = true; // 기본적으로 유효하다고 가정
+                    bool isValid = true; 
 
-                    // 비디오 파일 확장자인 경우에만 유효성 검사 수행
                     if (extension is ".mp4" or ".avi" or ".mkv" or ".mov" or ".wmv")
                     {
                         try
@@ -752,10 +681,8 @@ namespace VideoEditor
                     }
                 }
 
-                // --- ▼ [추가] 커서 복원 ▼ ---
                 this.Cursor = Cursors.Arrow;
 
-                // --- ▼ [추가] 손상된 파일이 있었을 경우 사용자에게 알림 ▼ ---
                 if (invalidFiles.Any())
                 {
                     string message = $"선택한 파일 중 다음 {invalidFiles.Count}개는 손상되었거나 지원하지 않는 형식으로, 목록에서 제외되었습니다:\n\n" +
@@ -783,7 +710,7 @@ namespace VideoEditor
             {
                 e.Effects = DragDropEffects.Move;
 
-                // 드래그 업데이트 간격 조절 (선택사항이지만 성능에 도움됨)
+                // 드래그 업데이트 간격 조절
                 if ((DateTime.Now - _lastDragUpdateTime).TotalMilliseconds < 16) // 16ms 간격
                 {
                     e.Handled = true;
@@ -791,21 +718,16 @@ namespace VideoEditor
                 }
                 _lastDragUpdateTime = DateTime.Now;
 
-                //Point position = e.GetPosition(TimelineCanvas);
-                //double deltaTime = (position.X - vm.VideoEditor.DragStartPoint.X) / vm.VideoEditor.PixelsPerSecond;
-                //int deltaTrack = (int)Math.Round((position.Y - vm.VideoEditor.DragStartPoint.Y) / 60.0);
-
                 Point position = e.GetPosition(TimelineCanvas);
                 double mouseDeltaX = position.X - vm.VideoEditor.DragStartPoint.X;
                 double timeDelta = mouseDeltaX / vm.VideoEditor.PixelsPerSecond;
                 int trackDelta = (int)Math.Round((position.Y - vm.VideoEditor.DragStartPoint.Y) / 60.0);
 
-                // --- 2. 스냅 로직 ---
-                const double SNAP_TOLERANCE_PX = 10; // 10픽셀 이내로 가까워지면 스냅
+                const double SNAP_TOLERANCE_PX = 10; 
                 double snapToleranceTime = SNAP_TOLERANCE_PX / vm.VideoEditor.PixelsPerSecond;
-                double bestSnapOffset = double.MaxValue; // 가장 가까운 스냅 지점과의 시간 차이
+                double bestSnapOffset = double.MaxValue;
 
-                // 스냅 대상 지점들 수집 (다른 클립들의 시작/끝, 재생 헤드, 타임라인 시작점)
+                // 스냅 대상 지점들 수집 
                 var snapPoints = new List<double> { 0.0, vm.CurrentTimelinePosition };
                 var otherClips = vm.VideoEditor.TimelineClips.Except(draggedClips);
                 foreach (var clip in otherClips)
@@ -822,12 +744,10 @@ namespace VideoEditor
                 // 가장 가까운 스냅 지점 찾기
                 foreach (double snapPoint in snapPoints.Distinct().OrderBy(p => p))
                 {
-                    // 드래그하는 클립의 '시작점'이 스냅 지점에 가까울 때
                     if (Math.Abs(desiredStartTime - snapPoint) < Math.Abs(bestSnapOffset))
                     {
                         bestSnapOffset = snapPoint - desiredStartTime;
                     }
-                    // 드래그하는 클립의 '끝점'이 스냅 지점에 가까울 때
                     if (Math.Abs(desiredEndTime - snapPoint) < Math.Abs(bestSnapOffset))
                     {
                         bestSnapOffset = snapPoint - desiredEndTime;
@@ -844,7 +764,7 @@ namespace VideoEditor
                     double snapLineX = (primaryClipOriginalState.OriginalStart + snappedTimeDelta) * vm.VideoEditor.PixelsPerSecond;
                     if (Math.Abs(desiredEndTime - (primaryClipOriginalState.OriginalStart + snappedTimeDelta + primaryClip.Duration)) > 0.001)
                     {
-                        snapLineX += primaryClip.Width; // 끝점에 스냅된 경우
+                        snapLineX += primaryClip.Width;
                     }
                     var snapLine = new Line
                     {
@@ -859,8 +779,6 @@ namespace VideoEditor
                     SnapIndicatorCanvas.Children.Add(snapLine);
                 }
 
-                // --- 3. 최종 위치 적용 ---
-                // 계산된 (또는 스냅으로 보정된) 위치를 모든 클립에 적용
                 foreach (var clip in draggedClips)
                 {
                     if (vm.VideoEditor.DraggedClipsOriginalState.TryGetValue(clip, out var originalState))
@@ -873,11 +791,8 @@ namespace VideoEditor
                     }
                 }
 
-                // Auto-scroll when dragging near edges
                 HandleTimelineAutoScroll(e);
 
-                // 드래그 중에도 눈금/폭은 즉시 반영되도록 총 길이 바인딩은 이미 ViewModel에서 업데이트됨
-                // 무거운 동기화는 드랍 완료 시에만 수행
             }
             else if (e.Data.GetDataPresent("Myvideo"))
             {
@@ -892,33 +807,27 @@ namespace VideoEditor
 
         private void HandleTimelineAutoScroll(DragEventArgs e)
         {
-            const double scrollMargin = 50; // Edge zone for auto-scroll
-            const double scrollSpeed = 15; // Pixels to scroll per update
-            const double verticalScrollSpeed = 10; // Vertical scroll speed
+            const double scrollMargin = 50;
+            const double scrollSpeed = 15;
+            const double verticalScrollSpeed = 10;
             
             Point positionInScrollViewer = e.GetPosition(TimelineScrollViewer);
             
-            // Horizontal auto-scroll
             if (positionInScrollViewer.X < scrollMargin && TimelineScrollViewer.HorizontalOffset > 0)
             {
-                // Scroll left
                 TimelineScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset - scrollSpeed);
             }
             else if (positionInScrollViewer.X > TimelineScrollViewer.ActualWidth - scrollMargin)
             {
-                // Scroll right
                 TimelineScrollViewer.ScrollToHorizontalOffset(TimelineScrollViewer.HorizontalOffset + scrollSpeed);
             }
             
-            // Vertical auto-scroll
             if (positionInScrollViewer.Y < scrollMargin && TimelineScrollViewer.VerticalOffset > 0)
             {
-                // Scroll up
                 TimelineScrollViewer.ScrollToVerticalOffset(TimelineScrollViewer.VerticalOffset - verticalScrollSpeed);
             }
             else if (positionInScrollViewer.Y > TimelineScrollViewer.ActualHeight - scrollMargin)
             {
-                // Scroll down
                 TimelineScrollViewer.ScrollToVerticalOffset(TimelineScrollViewer.VerticalOffset + verticalScrollSpeed);
             }
         }
@@ -967,17 +876,14 @@ namespace VideoEditor
             TimelineRulerCanvas.Width = totalWidth;
             TimelineCanvas.Width = totalWidth;
 
-            // Determine the visible time range
             double firstVisibleTime = TimelineScrollViewer.HorizontalOffset / pixelsPerSecond;
             double lastVisibleTime = (TimelineScrollViewer.HorizontalOffset + TimelineScrollViewer.ViewportWidth) / pixelsPerSecond;
 
-            // Add a buffer to each side to ensure smooth scrolling
-            firstVisibleTime = Math.Max(0, firstVisibleTime - 20); // 20 seconds buffer
+            firstVisibleTime = Math.Max(0, firstVisibleTime - 20);
             lastVisibleTime = Math.Min(totalDuration, lastVisibleTime + 20);
 
             var (majorTickInterval, minorTickInterval, timeFormat) = GetMajorTickInterval(pixelsPerSecond);
 
-            // Align the starting point to the nearest minor tick
             double startSec = Math.Floor(firstVisibleTime / minorTickInterval) * minorTickInterval;
             long startTick = (long)Math.Round(startSec / minorTickInterval);
             int ticksPerMajor = (int)Math.Round(majorTickInterval / minorTickInterval);
@@ -1022,10 +928,10 @@ namespace VideoEditor
         private (double major, double minor, string format) GetMajorTickInterval(double pixelsPerSecond)
         {
             double visibleWidth = TimelineScrollViewer.ActualWidth;
-            if (visibleWidth <= 0) visibleWidth = 1000; // Default width if not rendered yet
+            if (visibleWidth <= 0) visibleWidth = 1000;
 
             double visibleTime = visibleWidth / pixelsPerSecond;
-            double idealMajorTickInterval = visibleTime / 10; // 10 major ticks on screen
+            double idealMajorTickInterval = visibleTime / 10;
 
             var intervals = new[] { 0.1, 0.2, 0.5, 1, 5, 10, 30, 60, 180, 300, 600, 900, 1800, 3600 };
             var majorTick = intervals.FirstOrDefault(i => i >= idealMajorTickInterval);
@@ -1048,7 +954,6 @@ namespace VideoEditor
             // OverlayWindow를 항상 비디오 HwndHost 위에 유지
             BringOverlayToFront();
             
-            // Delay the initial update to ensure everything is laid out
             Dispatcher.BeginInvoke(new Action(() => 
             {
                 UpdateOverlayPosition(null, null);
@@ -1060,11 +965,9 @@ namespace VideoEditor
 
         private void FocusCheckTimer_Tick(object? sender, EventArgs e)
         {
-            // Periodically check if any window in our application is active
             var activeWindow = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
             bool isAnyWindowActive = activeWindow != null;
             
-            // If we were active and now we're not, hide overlays
             if (_wasApplicationActive && !isAnyWindowActive)
             {
                 System.Diagnostics.Debug.WriteLine("[FOCUS CHECK] App lost focus - hiding overlays");
@@ -1084,7 +987,6 @@ namespace VideoEditor
                     }
                 }
             }
-            // If we weren't active and now we are, restore overlays
             else if (!_wasApplicationActive && isAnyWindowActive)
             {
                 System.Diagnostics.Debug.WriteLine("[FOCUS CHECK] App gained focus - restoring overlays");
@@ -1121,8 +1023,6 @@ namespace VideoEditor
                 return;
             }
             
-            // Check if MainWindow or any owned window is active
-            // If MainWindow is active again OR OverlayWindow is active, it was a temporary deactivation
             bool isMainWindowActive = this.IsActive;
             bool isOwnedWindowActive = this.OwnedWindows.OfType<Window>().Any(w => w.IsActive);
             
@@ -1136,20 +1036,17 @@ namespace VideoEditor
                 return;
             }
             
-            // Check if any window from this application is currently focused
             var activeWindow = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
             System.Diagnostics.Debug.WriteLine($"[TIMER] Active app window: {activeWindow?.GetType().Name ?? "null"}");
             
             if (activeWindow != null)
             {
-                // Some window in our app is active, don't hide overlays
                 System.Diagnostics.Debug.WriteLine("[TIMER] App window is active - not hiding");
                 _switchSavedActiveWpfOverlays = null;
                 _switchWasOverlayVisible = false;
                 return;
             }
             
-            // No window from our app is active - user switched to another application
             if (_switchSavedActiveWpfOverlays == null && (_mainViewModel.ActiveWpfOverlays.Count > 0 || (_overlayWindow != null && _overlayWindow.IsVisible)))
             {
                 System.Diagnostics.Debug.WriteLine($"[TIMER] Hiding {_mainViewModel.ActiveWpfOverlays.Count} overlays");
@@ -1243,7 +1140,6 @@ namespace VideoEditor
 
         private void BringProgressWindowsToFront()
         {
-            // Find all owned windows and bring them to front (excluding OverlayWindow)
             foreach (Window ownedWindow in this.OwnedWindows)
             {
                 if (ownedWindow is OverlayWindow)
@@ -1339,7 +1235,6 @@ namespace VideoEditor
                         _playheadLine.X1 = newX;
                         _playheadLine.X2 = newX;
 
-                        // Keep playhead visible during playback (do not lock when paused/scrubbing)
                         if (_mainViewModel.IsTimelinePlaying && !_mainViewModel.IsScrubbing)
                         {
                             EnsurePlayheadVisible(newX);
@@ -1366,7 +1261,6 @@ namespace VideoEditor
                 Point position = e.GetPosition(canvas);
                 double clickedTimeSec = position.X / _mainViewModel.VideoEditor.PixelsPerSecond;
                 
-                // Ensure the time is not negative
                 clickedTimeSec = Math.Max(0, clickedTimeSec);
 
                 _mainViewModel.SeekTimeline(clickedTimeSec, isScrubbing: false);
@@ -1406,7 +1300,6 @@ namespace VideoEditor
         {
             if (Mouse.Captured == TimelineRulerCanvas)
             {
-                // Use property setter path which handles pause/resume safely during playback
                 UpdatePlayheadFromMouseEvent(e);
                 e.Handled = true;
             }
@@ -1417,7 +1310,6 @@ namespace VideoEditor
             if (Mouse.Captured == TimelineRulerCanvas)
             {
                 TimelineRulerCanvas.ReleaseMouseCapture();
-                // Let scrubbing timer finalize seek and resume playback
                 e.Handled = true;
             }
         }
@@ -1440,7 +1332,6 @@ namespace VideoEditor
             Point position = e.GetPosition(relativeTo);
             double clickedTimeSec = position.X / _mainViewModel.VideoEditor.PixelsPerSecond;
             
-            // Ensure the time is not negative
             clickedTimeSec = Math.Max(0, clickedTimeSec);
             
             _mainViewModel.CurrentTimelineTimeMs = (long)(clickedTimeSec * 1000);
@@ -1460,10 +1351,8 @@ namespace VideoEditor
 
         private void TimelineCanvas_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // Check if click was on empty space (not on a clip)
             if (e.OriginalSource == sender || e.OriginalSource == TimelineCanvas)
             {
-                // If Ctrl is not pressed, deselect all clips
                 if (!Keyboard.IsKeyDown(Key.LeftCtrl) && !Keyboard.IsKeyDown(Key.RightCtrl))
                 {
                     foreach (var clip in _mainViewModel.VideoEditor.TimelineClips)
@@ -1473,11 +1362,9 @@ namespace VideoEditor
                     _mainViewModel.VideoEditor.SelectedClip = null;
                 }
                 
-                // Start rectangle selection
                 _isSelectingWithRectangle = true;
                 _selectionStartPoint = e.GetPosition(TimelineCanvas);
                 
-                // Save current selection state if Ctrl is pressed
                 if (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl))
                 {
                     _clipsBeforeSelection = _mainViewModel.VideoEditor.TimelineClips
@@ -1489,7 +1376,6 @@ namespace VideoEditor
                     _clipsBeforeSelection.Clear();
                 }
                 
-                // Create selection rectangle if it doesn't exist
                 if (_selectionRectangle == null)
                 {
                     _selectionRectangle = new Rectangle
@@ -1508,7 +1394,6 @@ namespace VideoEditor
 
         private void TimelineCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
         {
-            // Scrub only when the ruler owns mouse capture
             if (_mainViewModel.IsScrubbing && Mouse.Captured == TimelineRulerCanvas)
             {
                 UpdatePlayheadFromMouseEvent(e);
@@ -1523,33 +1408,27 @@ namespace VideoEditor
                 return;
             }
             
-            // Handle rectangle selection
             if (_isSelectingWithRectangle && Mouse.Captured == TimelineCanvas)
             {
                 Point currentPoint = e.GetPosition(TimelineCanvas);
                 
-                // Calculate rectangle bounds
                 double left = Math.Min(_selectionStartPoint.X, currentPoint.X);
                 double top = Math.Min(_selectionStartPoint.Y, currentPoint.Y);
                 double width = Math.Abs(currentPoint.X - _selectionStartPoint.X);
                 double height = Math.Abs(currentPoint.Y - _selectionStartPoint.Y);
                 
-                // Only show rectangle if dragged at least a few pixels
                 if (width > 5 || height > 5)
                 {
-                    // Update selection rectangle
                     Canvas.SetLeft(_selectionRectangle, left);
                     Canvas.SetTop(_selectionRectangle, top);
                     _selectionRectangle.Width = width;
                     _selectionRectangle.Height = height;
                     
-                    // Add to SelectionCanvas if not already added
                     if (!SelectionCanvas.Children.Contains(_selectionRectangle))
                     {
                         SelectionCanvas.Children.Add(_selectionRectangle);
                     }
                     
-                    // Select clips within rectangle
                     UpdateClipSelection(left, top, width, height);
                 }
                 
@@ -1564,7 +1443,6 @@ namespace VideoEditor
             
             foreach (var clip in _mainViewModel.VideoEditor.TimelineClips)
             {
-                // Calculate clip bounds
                 double clipLeft = clip.StartPosition * _mainViewModel.VideoEditor.PixelsPerSecond;
                 double clipTop = clip.TrackIndex * 60;
                 double clipWidth = clip.Width;
@@ -1572,23 +1450,19 @@ namespace VideoEditor
                 
                 var clipRect = new Rect(clipLeft, clipTop, clipWidth, clipHeight);
                 
-                // Check if clip intersects with selection rectangle
                 bool intersects = selectionRect.IntersectsWith(clipRect);
                 
                 if (ctrlPressed)
                 {
-                    // Ctrl pressed: toggle selection
                     bool wasSelectedBefore = _clipsBeforeSelection.Contains(clip);
                     clip.IsSelected = wasSelectedBefore ? !intersects : intersects;
                 }
                 else
                 {
-                    // Normal selection: select only intersecting clips
                     clip.IsSelected = intersects;
                 }
             }
             
-            // Synchronize the ViewModel's internal selected clips list
             _mainViewModel.VideoEditor.SynchronizeSelectedClips();
         }
 
@@ -1612,16 +1486,13 @@ namespace VideoEditor
             }
             else if (_isSelectingWithRectangle)
             {
-                // End rectangle selection
                 _isSelectingWithRectangle = false;
                 
-                // Remove selection rectangle from canvas
                 if (_selectionRectangle != null && SelectionCanvas.Children.Contains(_selectionRectangle))
                 {
                     SelectionCanvas.Children.Remove(_selectionRectangle);
                 }
                 
-                // Synchronize selected clips in ViewModel
                 _mainViewModel.VideoEditor.SynchronizeSelectedClips();
                 
                 _clipsBeforeSelection.Clear();
@@ -1640,7 +1511,6 @@ namespace VideoEditor
             double newWidth = TimelineRulerCanvas.Width + e.HorizontalChange;
             double pixelsPerSecond = _mainViewModel.VideoEditor.PixelsPerSecond;
     
-            // 최소 너비 제어 (예: 10초에 해당하는 너비)
             double minWidth = 10 * pixelsPerSecond;
             if (newWidth < minWidth)
             {
@@ -1649,7 +1519,6 @@ namespace VideoEditor
 
             _currentTimelineDurationSec = newWidth / pixelsPerSecond;
     
-            // MainViewModel의 TotalTimelineDurationMs 업데이트
             _mainViewModel.TotalTimelineDurationMs = (long)(_currentTimelineDurationSec * 1000);
 
             DrawTimelineRuler();
@@ -1679,11 +1548,9 @@ namespace VideoEditor
 
         private void EnsurePlayheadVisible(double playheadX)
         {
-            // visible range in content coordinates
             double viewportLeft = TimelineScrollViewer.HorizontalOffset;
             double viewportRight = viewportLeft + TimelineScrollViewer.ViewportWidth;
 
-            // add margin so the head isn't glued to edge
             const double edgePadding = 40.0;
             double targetLeft = playheadX - edgePadding;
             double targetRight = playheadX + edgePadding;

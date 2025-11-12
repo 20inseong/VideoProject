@@ -73,7 +73,6 @@ namespace VideoEditor.ViewModels
 
         public event EventHandler<ExportStartedEventArgs>? ExportStarted;
         public event EventHandler? VideoClipZOrderChanged;
-        //public event EventHandler? ExportFinished;
         private Window? _mainWindow;
         private TranscriptionProgressWindow? _transcriptionProgressWindow;
         private CancellationTokenSource? _exportCts;
@@ -81,7 +80,6 @@ namespace VideoEditor.ViewModels
         public ObservableCollection<TimelineClipBase> ActiveVideoClips { get; } = new();
         public ObservableCollection<TimelineClipBase> ActiveWpfOverlays { get; } = new();
 
-        // Track when a video clip is being dragged in preview (to hide WPF overlays temporarily)
         private bool _isVideoClipBeingDraggedInPreview = false;
         private List<TimelineClipBase>? _wpfOverlaysHiddenDuringVideoDrag = null;
 
@@ -89,8 +87,8 @@ namespace VideoEditor.ViewModels
 
         private double _playerHostWidth = 1;
         private double _previousPlayerHostWidth = 1;
-        private double _referencePreviewWidth = 1;  // Fixed 16:9 preview reference width
-        private double _referencePreviewHeight = 1; // Fixed 16:9 preview reference height
+        private double _referencePreviewWidth = 1;
+        private double _referencePreviewHeight = 1;
         public double PlayerHostWidth
         { 
             get => _playerHostWidth;
@@ -291,7 +289,6 @@ namespace VideoEditor.ViewModels
 
             _ffmpegExportService = new FFmpegExportService();
             _projectService = new ProjectService();
-            //_emotionDetectService = new EmotionDetectTestDataService();
             string pythonExePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "Test", "python.exe");
             string pythonScriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "Common", "EmotionDetect.py");
             _emotionDetect = new EmotionDetect(pythonExePath, pythonScriptPath);
@@ -338,7 +335,6 @@ namespace VideoEditor.ViewModels
                         {
                             newClip.PropertyChanged += Clip_PropertyChanged;
                             
-                            // Initialize layout for the new clip if preview size has been established
                             if (_referencePreviewWidth > 1 && _referencePreviewHeight > 1)
                             {
                                 if (newClip is VideoClip videoClip && !videoClip.IsUserPositioned)
@@ -367,13 +363,11 @@ namespace VideoEditor.ViewModels
                     
                     UpdateTotalTimelineDuration();
 
-                    // Always refresh preview when clips are added or removed
                     if (!VideoEditor.TimelineClips.Any())
                     {
                         CurrentTimelinePosition = 0;
                     }
                     
-                    // Refresh the preview to show updated timeline
                     SyncPlayersToTimeline();
 
                     PlayPauseTimelineCommand.NotifyCanExecuteChanged();
@@ -451,7 +445,7 @@ namespace VideoEditor.ViewModels
 
                 targetTime = nextClip?.StartPosition ?? TotalTimelineDurationMs / 1000.0;
             }
-            else // "prev"
+            else
             {
                 // 현재 위치 바로 이전 클립의 시작점 찾기
                 var prevClip = VideoEditor.TimelineClips
@@ -500,19 +494,18 @@ namespace VideoEditor.ViewModels
                 string? videoPath = selectedClip.VideoPath;
                 double videoDuration = selectedClip.Duration;
                 const int fps = 30; // 초당 30프레임 기준
-                const int frameInterval = 120; // 120프레임마다(즉, 4초마다) 1프레임 추출
+                const int frameInterval = 120; // 120프레임마다 1프레임 추출
 
-                // 1단계: 프레임 추출
+                // 프레임 추출
                 StatusMessage = "분석을 위한 프레임 추출 중...";
                 OnPropertyChanged(nameof(StatusMessage));
 
-                // 임시 폴더를 초기화합니다. (이 로직은 EmotionDetect 클래스로 옮겨도 좋습니다.)
                 var tempFrameFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TempFramesDebug");
                 if (Directory.Exists(tempFrameFolder)) Directory.Delete(tempFrameFolder, true);
                 Directory.CreateDirectory(tempFrameFolder);
 
                 double intervalSeconds = frameInterval / (double)fps;
-                if (intervalSeconds <= 0) intervalSeconds = 1; // 0으로 나누는 오류 방지
+                if (intervalSeconds <= 0) intervalSeconds = 1; // 오류 방지
 
                 int totalSteps = (int)(videoDuration / intervalSeconds);
 
@@ -526,7 +519,7 @@ namespace VideoEditor.ViewModels
                 }
                 Debug.WriteLine("[Emotion Analysis] Frame extraction complete.");
 
-                // 2단계: Python AI 모델 실행
+                // AI 모델 실행
                 StatusMessage = "AI 모델로 감정 분석 중...";
                 OnPropertyChanged(nameof(StatusMessage));
 
@@ -544,7 +537,7 @@ namespace VideoEditor.ViewModels
                     throw new Exception("감정 분석 결과를 받지 못했습니다. Python 스크립트 실행 로그를 확인하세요.");
                 }
 
-                // 3단계: 결과 처리
+                // 결과 처리
                 selectedClip.EmotionAnalysisResults.Clear();
                 foreach (var result in analysisResults)
                 {
@@ -553,7 +546,7 @@ namespace VideoEditor.ViewModels
 
                 AnalysisProgress = 100;
                 selectedClip.IsEmotionAnalyzed = true;
-                selectedClip.ShowEmotionAnalysis = true; // 결과를 바로 표시
+                selectedClip.ShowEmotionAnalysis = true;
                 StatusMessage = "클립 감정 분석 완료.";
             }
             catch (Exception ex)
@@ -594,7 +587,6 @@ namespace VideoEditor.ViewModels
 
         public void RestorePreviewObjectsAfterModal()
         {
-            // Do NOT restore ActiveVideoClips directly; force a clean rebuild to avoid stale MediaPlayer handles
             _savedActiveVideoClips = null;
 
             if (_savedActiveWpfOverlays != null)
@@ -611,7 +603,6 @@ namespace VideoEditor.ViewModels
             }
             UIDispatcher.InvokeAsync(async () =>
             {
-                // Full re-sync: stop, clear view list, rebuild active players and views
                 PlayerViewModel.Stop();
                 _activeVisualClipPlayers.Clear();
                 _activeAudioPlayers.Clear();
@@ -771,7 +762,7 @@ namespace VideoEditor.ViewModels
                                 bitmapImage.StreamSource = memory;
                                 bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
                                 bitmapImage.EndInit();
-                                bitmapImage.Freeze(); // UI 스레드 외에서 생성했으므로 Freeze는 필수
+                                bitmapImage.Freeze();
                                 return bitmapImage;
                             }
                         }
@@ -850,7 +841,6 @@ namespace VideoEditor.ViewModels
                 return;
             }
 
-            // Pause playback before starting transcription UI
             if (IsTimelinePlaying)
             {
                 _timelineTimer.Stop();
@@ -858,7 +848,6 @@ namespace VideoEditor.ViewModels
                 IsTimelinePlaying = false;
             }
 
-            // Hide preview objects during script generation (transcription)
             HidePreviewObjectsForModal();
 
             _transcriptionProgressWindow = new TranscriptionProgressWindow
@@ -931,21 +920,18 @@ namespace VideoEditor.ViewModels
                 _transcriptionProgressWindow?.Close();
                 _transcriptionProgressWindow = null;
 
-                // Restore preview objects after work completes
                 RestorePreviewObjectsAfterModal();
             }
         }
 
 
 
-        // Store saved preview state for restoration after export
         private List<TimelineClipBase>? _savedActiveVideoClips;
         private List<TimelineClipBase>? _savedActiveWpfOverlays;
         private bool _wasOverlayVisible;
 
         private async Task StartExportProcessAsync()
         {
-            // Pause playback if currently playing before starting export
             if (IsTimelinePlaying)
             {
                 _timelineTimer.Stop();
@@ -970,19 +956,16 @@ namespace VideoEditor.ViewModels
                 FileName = "output.mp4"
             };
 
-            // Hide preview objects while selecting path; keep hidden if proceeding to render
             HidePreviewObjectsForModal();
             bool? dialogResult = saveFileDialog.ShowDialog(_mainWindow);
             if (dialogResult != true)
             {
-                // Restore only on cancel/close of dialog
                 RestorePreviewObjectsAfterModal();
                 _exportCts.Dispose();
                 _exportCts = null;
                 return;
             }
 
-            // Proceed to render: keep preview hidden until user clicks '확인' on progress window
             IsExporting = true;
             string outputPath = saveFileDialog.FileName;
             var progressViewModel = new ExportProgressViewModel(() => _exportCts.Cancel());
@@ -1002,7 +985,7 @@ namespace VideoEditor.ViewModels
                 if (success)
                 {
                     progressViewModel.StatusMessage = $"성공! 영상이 '{saveFileDialog.FileName}'에 저장되었습니다. 미리보기는 '확인' 버튼을 누르면 복원됩니다.";
-                    progressViewModel.IsFinished = true; // Do NOT restore here
+                    progressViewModel.IsFinished = true;
                 }
                 else
                 {
@@ -1010,7 +993,7 @@ namespace VideoEditor.ViewModels
                     {
                         progressViewModel.StatusMessage = $"오류: 렌더링에 실패했습니다.";
                     }
-                    progressViewModel.IsFinished = true; // Still wait for user to close window
+                    progressViewModel.IsFinished = true;
                 }
             }
             catch (Exception ex)
@@ -1026,11 +1009,9 @@ namespace VideoEditor.ViewModels
                 _exportCts = null;
                 IsExporting = false;
 
-                // NOTE: 오버레이 객체 복원은 완료 버튼 클릭 시 수행됨 (RestorePreviewObjects 메서드)
             }
         }
 
-        // Deprecated: use RestorePreviewObjectsAfterModal for robust rebuild
         public void RestorePreviewObjects()
         {
             RestorePreviewObjectsAfterModal();
@@ -1045,7 +1026,6 @@ namespace VideoEditor.ViewModels
                 return;
             }
             
-            // Stop playback if there are no clips on the timeline
             if (!VideoEditor.TimelineClips.Any())
             {
                 ExecuteStopTimeline();
@@ -1055,30 +1035,25 @@ namespace VideoEditor.ViewModels
 
             CurrentTimelinePosition += _timelineTimer.Interval.TotalSeconds;
 
-            // Check for end of timeline FIRST to prevent race conditions.
             if (CurrentTimelinePosition * 1000 >= TotalTimelineDurationMs)
             {
                 ExecuteStopTimeline();
-                return; // Stop processing this tick.
+                return;
             }
 
-            // If not the end, then sync players for the new position.
             if (!VideoEditor.IsDraggingClip) SyncPlayersToTimeline();
         }
 
         private void ResyncAndPlay()
         {
-            // 1. Ensure everything is paused and the timeline isn't running.
             _timelineTimer.Stop();
             PlayerViewModel.PauseAllPlayers();
-            IsTimelinePlaying = false; // Set to false temporarily
+            IsTimelinePlaying = false;
 
-            // 2. Seek all active players to the correct time while they are paused.
             SyncPlayersToTimeline();
 
-            // 3. Now that everyone is at the same starting line, start the race.
-            IsTimelinePlaying = true; // Set to true for the playback state
-            PlayerViewModel.ResumeAllPlayers(); // Use a general resume command
+            IsTimelinePlaying = true;
+            PlayerViewModel.ResumeAllPlayers();
             _timelineTimer.Start();
         }
 
@@ -1115,11 +1090,9 @@ namespace VideoEditor.ViewModels
             }
             else if (e.PropertyName == nameof(TimelineClipBase.X) || e.PropertyName == nameof(TimelineClipBase.Y))
             {
-                // Update reference position when user moves the clip
                 if (sender is TimelineClipBase clip && clip.IsUserPositioned && 
                     _referencePreviewWidth > 1 && _referencePreviewHeight > 1)
                 {
-                    // Since preview is now fixed at 1920x1080, reference values are the same as actual values
                     clip.ReferenceX = clip.X;
                     clip.ReferenceY = clip.Y;
                 }
@@ -1128,17 +1101,14 @@ namespace VideoEditor.ViewModels
                 // 재생 중 드래그 시 비디오가 UI 위로 나타나는 것을 방지
                 if (sender is VideoClip)
                 {
-                    // Force immediate clipping update without waiting for timer
                     VideoClipZOrderChanged?.Invoke(this, EventArgs.Empty);
                 }
             }
             else if (e.PropertyName == nameof(TimelineClipBase.RenderWidth) || e.PropertyName == nameof(TimelineClipBase.RenderHeight))
             {
-                // Update reference size when user resizes the clip
                 if (sender is TimelineClipBase clip && clip.IsUserPositioned && 
                     _referencePreviewWidth > 1 && _referencePreviewHeight > 1)
                 {
-                    // Since preview is now fixed at 1920x1080, reference values are the same as actual values
                     clip.ReferenceRenderWidth = clip.RenderWidth;
                     clip.ReferenceRenderHeight = clip.RenderHeight;
                 }
@@ -1163,8 +1133,6 @@ namespace VideoEditor.ViewModels
             {
                 if (sender is TimelineClipBase changedClip)
                 {
-                    // When speed changes, the duration changes, which might affect which clips are active.
-                    // A full resync is the safest way to ensure everything is correct.
                     SyncPlayersToTimeline();
                     UpdateTotalTimelineDuration();
                 }
@@ -1216,12 +1184,10 @@ namespace VideoEditor.ViewModels
             {
                 _wasPlayingBeforeInteraction = false;
                 
-                // Use Dispatcher to avoid blocking the current thread
                 Application.Current?.Dispatcher.InvokeAsync(() =>
                 {
                     try
                     {
-                        // Use ResyncAndPlay to ensure proper Z-order and player state
                         ResyncAndPlay();
                     }
                     catch (Exception ex)
@@ -1257,7 +1223,6 @@ namespace VideoEditor.ViewModels
 
         private void ExecutePlayPauseTimeline()
         {
-            // Don't allow playback if there are no clips on the timeline
             if (!VideoEditor.TimelineClips.Any())
             {
                 return;
@@ -1307,7 +1272,6 @@ namespace VideoEditor.ViewModels
 
         public void SyncPlayersToTimeline()
         {
-            // Prevent reentrant calls - if already syncing, skip this call
             if (_isSyncingPlayers)
             {
                 Debug.WriteLine("[SYNC] SyncPlayersToTimeline skipped - already syncing");
@@ -1326,11 +1290,9 @@ namespace VideoEditor.ViewModels
                     .Where(c => c.StartPosition <= CurrentTimelinePosition && (c.StartPosition + c.Duration) > CurrentTimelinePosition)
                     .ToList();
 
-                // --- Separate clips by type ---
                 var activeVideoClips = activeClipsAtCurrentTime.OfType<VideoClip>().OrderBy(c => c.TrackIndex).ToList();
                 var activeWpfOverlays = activeClipsAtCurrentTime.Where(c => c is ImageClip || c is TextClip).OrderBy(c => c.TrackIndex).ToList();
 
-                // --- Video Clips Management ---
                 var videoClipsToDeactivate = ActiveVideoClips.Except(activeVideoClips).ToList();
                 foreach (var clip in videoClipsToDeactivate)
                 {
@@ -1354,13 +1316,11 @@ namespace VideoEditor.ViewModels
                             double timeWithinClip = CurrentTimelinePosition - videoClip.StartPosition;
                             if (!string.IsNullOrEmpty(videoClip.VideoPath))
                             {
-                                // FIXED: Include SourceStartTime in the seek position
                                 double seekTime = videoClip.SourceStartTime + (timeWithinClip * videoClip.SpeedRatio);
                                 var media = PlayerViewModel.PrepareMedia(videoClip.VideoPath, seekTime, videoOnly: true, audioOnly: false);
                                 videoClip.PlayerInstance.Media = media;
                                 videoClip.PlayerInstance.SetRate((float)videoClip.SpeedRatio);
 
-                                // Pre-warm the player to initialize resources before adding to UI
                                 if (videoClip.PlayerInstance.Play())
                                 {
                                     videoClip.PlayerInstance.SetPause(true);
@@ -1371,7 +1331,6 @@ namespace VideoEditor.ViewModels
                     }
                 }
 
-            // --- WPF Overlays Management ---
             var wpfOverlaysToDeactivate = ActiveWpfOverlays.Except(activeWpfOverlays).ToList();
             
             foreach (var clip in activeWpfOverlays)
@@ -1387,7 +1346,6 @@ namespace VideoEditor.ViewModels
                 ActiveWpfOverlays.Remove(clip); 
             }
 
-            // --- Update Active Players (Playback state) ---
             bool playbackStateChanged = false;
             foreach (var videoClip in activeVideoClips)
             {
@@ -1398,7 +1356,6 @@ namespace VideoEditor.ViewModels
                     double timeWithinClip = CurrentTimelinePosition - videoClip.StartPosition;
                     if (!IsTimelinePlaying)
                     {
-                        // FIXED: Include SourceStartTime when seeking during scrubbing
                         double seekTime = videoClip.SourceStartTime + (timeWithinClip * videoClip.SpeedRatio);
                         player.Time = (long)(seekTime * 1000);
                         if (!player.IsPlaying) player.Play();
@@ -1417,15 +1374,13 @@ namespace VideoEditor.ViewModels
                 }
             }
             
-            // Force Z-order update when playback state changes to ensure proper layering
             if (playbackStateChanged)
             {
                 VideoClipZOrderChanged?.Invoke(this, EventArgs.Empty);
             }
 
-            // --- Audio Clips Management (Largely unchanged) ---
             var activeAudioSourceClips = activeClipsAtCurrentTime
-                 .Where(c => (c is VideoClip || c is AudioClip)) // Include muted clips; handle volume as 0 
+                 .Where(c => (c is VideoClip || c is AudioClip)) 
                 .ToList();
             var audioClipsToDeactivate = _activeAudioPlayers.Keys.Except(activeAudioSourceClips).ToList();
 
@@ -1532,26 +1487,19 @@ namespace VideoEditor.ViewModels
 
         public void TriggerVideoClipZOrderUpdate()
         {
-            // Trigger Z-order update by raising the event
-            // This will set _needsZOrderUpdate flag in MainWindow which will
-            // apply proper Z-ordering to HwndHost windows
             VideoClipZOrderChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void UpdateClipsForPlayerSizeChange()
         {
-            // Since VideoPlayerHost is now fixed at 1920x1080 inside a Viewbox,
-            // we use these fixed dimensions as the reference
             const double fixedPreviewWidth = 1920.0;
             const double fixedPreviewHeight = 1080.0;
             
-            // If this is the first initialization, store the reference preview size
             if (_referencePreviewWidth <= 1 || _referencePreviewHeight <= 1)
             {
                 _referencePreviewWidth = fixedPreviewWidth;
                 _referencePreviewHeight = fixedPreviewHeight;
                 
-                // Initialize all clips with this preview size
                 foreach (var clip in VideoEditor.TimelineClips)
                 {
                     if (clip is VideoClip videoClip)
@@ -1568,10 +1516,7 @@ namespace VideoEditor.ViewModels
                     }
                 }
                 return;
-            }
-            
-            // Since preview size is now fixed, no scaling is needed
-            // This method will only be called for the first initialization
+            }            
         }
 
         private void InitializeVideoClipLayout(VideoClip videoClip, double previewWidth, double previewHeight)
@@ -1597,13 +1542,11 @@ namespace VideoEditor.ViewModels
             x = (previewWidth - renderWidth) / 2;
             y = (previewHeight - renderHeight) / 2;
 
-            // Store reference values
             videoClip.ReferenceX = x;
             videoClip.ReferenceY = y;
             videoClip.ReferenceRenderWidth = renderWidth;
             videoClip.ReferenceRenderHeight = renderHeight;
             
-            // Apply values
             videoClip.X = x;
             videoClip.Y = y;
             videoClip.RenderWidth = renderWidth;
@@ -1616,10 +1559,8 @@ namespace VideoEditor.ViewModels
         {
             if (videoClip.SourceWidth <= 0 || videoClip.SourceHeight <= 0) return;
 
-            // If user has positioned the clip, scale from reference values
             if (videoClip.IsUserPositioned)
             {
-                // Scale position and size from reference values
                 videoClip.X = videoClip.ReferenceX * widthRatio;
                 videoClip.Y = videoClip.ReferenceY * heightRatio;
                 videoClip.RenderWidth = videoClip.ReferenceRenderWidth * widthRatio;
@@ -1627,7 +1568,6 @@ namespace VideoEditor.ViewModels
                 return;
             }
 
-            // For clips not yet positioned by user, recalculate centered layout
             InitializeVideoClipLayout(videoClip, previewWidth, previewHeight);
         }
 
@@ -1654,23 +1594,19 @@ namespace VideoEditor.ViewModels
             x = (previewWidth - renderWidth) / 2;
             y = (previewHeight - renderHeight) / 2;
 
-            // Store reference values
             imageClip.ReferenceX = x;
             imageClip.ReferenceY = y;
             imageClip.ReferenceRenderWidth = renderWidth;
             imageClip.ReferenceRenderHeight = renderHeight;
             
-            // Apply values
             imageClip.X = x;
             imageClip.Y = y;
             imageClip.RenderWidth = renderWidth;
             imageClip.RenderHeight = renderHeight;
             
-            // Store initial render size for CustomWidth/Height calculations
             imageClip.InitialRenderWidth = renderWidth;
             imageClip.InitialRenderHeight = renderHeight;
             
-            // Initialize CustomWidth/Height if not set
             if (imageClip.CustomWidth == 0 && imageClip.CustomHeight == 0)
             {
                 imageClip.CustomWidth = imageClip.SourceWidth;
@@ -1684,43 +1620,35 @@ namespace VideoEditor.ViewModels
         {
             if (imageClip.SourceWidth <= 0 || imageClip.SourceHeight <= 0) return;
 
-            // If user has positioned the clip, scale from reference values
             if (imageClip.IsUserPositioned)
             {
-                // Scale position and size from reference values
                 imageClip.X = imageClip.ReferenceX * widthRatio;
                 imageClip.Y = imageClip.ReferenceY * heightRatio;
                 imageClip.RenderWidth = imageClip.ReferenceRenderWidth * widthRatio;
                 imageClip.RenderHeight = imageClip.ReferenceRenderHeight * heightRatio;
                 
-                // Update InitialRenderWidth/Height to maintain custom size ratios
                 imageClip.InitialRenderWidth = imageClip.ReferenceRenderWidth * widthRatio;
                 imageClip.InitialRenderHeight = imageClip.ReferenceRenderHeight * heightRatio;
                 return;
             }
 
-            // For clips not yet positioned by user, recalculate centered layout
             InitializeImageClipLayout(imageClip, previewWidth, previewHeight);
         }
 
         private void InitializeTextClipLayout(TextClip textClip, double previewWidth, double previewHeight)
         {
-            // Text clips: 화면 하단 중앙에 배치
-            // RenderWidth/Height는 텍스트를 담을 영역의 크기
-            double renderWidth = previewWidth * 0.6; // 60% of preview width
-            double renderHeight = 150; // 고정 높이 (1080p 기준으로 적절한 크기)
+            double renderWidth = previewWidth * 0.6;
+            double renderHeight = 150;
             
             // X, Y는 좌상단 기준이므로 중앙 정렬을 위해 계산
             double x = (previewWidth - renderWidth) / 2; // 수평 중앙
             double y = previewHeight - renderHeight - 100; // 하단에서 100px 위
 
-            // Store reference values
             textClip.ReferenceX = x;
             textClip.ReferenceY = y;
             textClip.ReferenceRenderWidth = renderWidth;
             textClip.ReferenceRenderHeight = renderHeight;
             
-            // Apply values
             textClip.X = x;
             textClip.Y = y;
             textClip.RenderWidth = renderWidth;
@@ -1731,7 +1659,6 @@ namespace VideoEditor.ViewModels
 
         private void UpdateTextClipLayout(TextClip textClip, double previewWidth, double previewHeight, double widthRatio, double heightRatio)
         {
-            // If user has positioned the clip, scale from reference values
             if (textClip.IsUserPositioned)
             {
                 textClip.X = textClip.ReferenceX * widthRatio;
@@ -1741,13 +1668,11 @@ namespace VideoEditor.ViewModels
                 return;
             }
 
-            // For clips not yet positioned by user, recalculate default layout
             InitializeTextClipLayout(textClip, previewWidth, previewHeight);
         }
 
         public void Dispose()
         {
-            // Unsubscribe from LibVLC log BEFORE disposing PlayerViewModel (which disposes _libVLC)
             if (PlayerViewModel != null && PlayerViewModel._libVLC != null)
             {
                 PlayerViewModel._libVLC.Log -= OnLibVLCLog;
@@ -1772,11 +1697,10 @@ namespace VideoEditor.ViewModels
                     _performanceWarningTimer.Start();
                 }
 
-                // If we get more than 5 warnings in 10 seconds, show the message.
                 if (_performanceWarningCounter > 5)
                 {
                     ShowPerformanceWarning("재생 성능이 저하되었습니다. 프록시 미디어 사용을 고려해보세요.");
-                    _performanceWarningCounter = 0; // Reset after showing
+                    _performanceWarningCounter = 0;
                     _performanceWarningTimer.Stop();
                 }
             }
@@ -1786,7 +1710,7 @@ namespace VideoEditor.ViewModels
         {
             PerformanceWarningMessage = message;
             IsPerformanceWarningVisible = true;
-            await Task.Delay(5000); // Show the message for 5 seconds
+            await Task.Delay(5000);
             IsPerformanceWarningVisible = false;
         }
 

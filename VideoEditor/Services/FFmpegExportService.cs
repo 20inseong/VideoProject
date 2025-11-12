@@ -260,13 +260,7 @@ namespace VideoEditor.Services
                             double scaleY = OutputHeight / previewHeight;
 
                             double targetWidth, targetHeight;
-                            
-                            // CustomWidth/Height는 원본 픽셀 단위의 절대값
-                            // RenderWidth/Height는 미리보기에서의 표시 크기
-                            // 미리보기와 동일한 비율로 출력하려면:
-                            // 1. RenderWidth/Height를 출력 해상도로 스케일 (기본)
-                            // 2. CustomWidth/Height가 설정되어 있으면, 그 비율을 적용
-                            
+                                                        
                             if (ic.CustomWidth > 0 && ic.CustomHeight > 0 && ic.InitialRenderWidth > 0 && ic.InitialRenderHeight > 0)
                             {
                                 // CustomWidth/Height가 SourceWidth/Height 대비 몇 배인지 계산
@@ -344,10 +338,8 @@ namespace VideoEditor.Services
                     case AudioClip audioClip:
                         {
                             int fileIndex = inputFiles.IndexOf(audioClip.AudioPath);
-                            // <--- 수정됨: 속도 배율을 고려한 실제 원본 클립 길이 계산
                             double sourceDuration = audioClip.Duration * audioClip.SpeedRatio;
 
-                            // <--- 수정됨: atrim의 duration을 sourceDuration으로 변경
                             filterComplex.AppendLine($"[{fileIndex}:a] atrim=start={audioClip.SourceStartTime.ToString("F6", culture)}:duration={sourceDuration.ToString("F6", culture)},asetpts=PTS-STARTPTS, " +
                                 $"{BuildAtempoFilter(audioClip.SpeedRatio)}, volume={(audioClip.Volume / 100.0).ToString("F2", culture)}, " +
                                 $"adelay={(long)(audioClip.StartPosition * 1000)}|{(long)(audioClip.StartPosition * 1000)} [a_{clipId}];");
@@ -380,13 +372,13 @@ namespace VideoEditor.Services
             var videoClips = clips
                 .OfType<VideoClip>()
                 .Where(c => clipIdToProcessedStreamMap.ContainsKey(c.Id))
-                .OrderBy(c => c.TrackIndex) // 오름차순
+                .OrderBy(c => c.TrackIndex)
                 .ToList();
 
             // 2. 이미지와 텍스트 클립들을 함께 정렬 (TrackIndex 오름차순 - 낮은 번호부터)
             var overlayClips = clips
                 .Where(c => (c is ImageClip || c is TextClip) && clipIdToProcessedStreamMap.ContainsKey(c.Id))
-                .OrderBy(c => c.TrackIndex) // 오름차순으로 변경
+                .OrderBy(c => c.TrackIndex)
                 .ToList();
 
             // 1단계: 비디오 클립들 먼저 오버레이 (맨 아래)

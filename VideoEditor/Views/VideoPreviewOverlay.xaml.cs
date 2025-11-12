@@ -25,8 +25,6 @@ namespace VideoEditor.Views
 
         private void ApplyClipping()
         {
-            // Ensure the video content is clipped to the bounds of this UserControl
-            // This prevents HwndHost-based video from rendering outside the control bounds
             if (this.ActualWidth > 0 && this.ActualHeight > 0)
             {
                 var clipGeometry = new RectangleGeometry(new Rect(0, 0, this.ActualWidth, this.ActualHeight));

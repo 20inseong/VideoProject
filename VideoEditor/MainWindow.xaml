@@ -256,7 +256,6 @@
 
         <!-- 화면의 콘텐츠를 넣는 공간 -->
         <Grid Grid.Row="1">
-            <!-- Grid Rows -->
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -330,14 +329,12 @@
 
             <!-- Main Content Area -->
             <Grid Grid.Row="1" Margin="5">
-                <!-- 열 정의 -->
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="2*" />
                     <ColumnDefinition Width="6*" />
                     <ColumnDefinition Width="3*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- 행 정의 (오른쪽 공간 안에서만 적용) -->
                 <Grid.RowDefinitions>
                     <RowDefinition Height="7*" />
                     <RowDefinition Height="3*" />
@@ -366,9 +363,7 @@
 
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>
-                            <!-- 영상이 들어갈 공간 -->
                             <RowDefinition Height="Auto"/>
-                            <!-- 영상 조작 UI (StackPanel) -->
                         </Grid.RowDefinitions>
 
                         <!-- 16:9 비율을 유지하는 컨테이너 -->
@@ -377,7 +372,6 @@
                             <Viewbox Stretch="Uniform" x:Name="PreviewViewbox">
                                 <Grid x:Name="VideoPlayerHost" Width="1920" Height="1080" ClipToBounds="True">
                                     <Border Background="{Binding PlayerViewModel.VideoViewBackground}" ClipToBounds="True" />
-                                    <!-- Video clips inside Viewbox -->
                                     <views:VideoPreviewOverlay DataContext="{Binding}" ClipToBounds="True" IsHitTestVisible="False" />
                                 </Grid>
                             </Viewbox>
@@ -400,7 +394,6 @@
                                    Placement="Relative"
                                    AllowsTransparency="True">
 
-                                <!-- Popup 내부의 Grid가 비디오 영역과 동일한 크기를 갖도록 설정 -->
                                 <Grid Width="{Binding ElementName=PreviewViewbox, Path=ActualWidth}"
                                       Height="{Binding ElementName=PreviewViewbox, Path=ActualHeight}">
 
@@ -415,7 +408,6 @@
                                                 <Setter Property="BorderThickness" Value="2"/>
                                                 <Setter Property="Effect" Value="{x:Null}"/>
                                                 <Style.Triggers>
-                                                    <!-- MainWindow의 DataContext(MainViewModel)에 있는 HighlightedVisualClip이 TextClip일 때 활성화 -->
                                                     <DataTrigger Binding="{Binding DataContext.HighlightedVisualClip, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TypeToBoolConverter}, ConverterParameter={x:Type models:TextClip}}" Value="True">
                                                         <Setter Property="BorderBrush" Value="#FFD700"/>
                                                         <Setter Property="Effect">
@@ -495,11 +487,8 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <!-- 상단 메뉴 -->
                             <RowDefinition Height="40"/>
-                            <!-- 눈금자 -->
                             <RowDefinition Height="*"/>
-                            <!-- 타임라인 -->
                         </Grid.RowDefinitions>
 
                         <!-- 타임라인 상단 메뉴 -->
@@ -525,7 +514,7 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             
-                            <!-- 트랙 번호 헤더 영역 (빈 공간) -->
+                            <!-- 트랙 번호 헤더 영역 -->
                             <Border Grid.Column="0" Background="#3E3E42" BorderBrush="#2D2D30" BorderThickness="0,0,1,0"/>
                             
                             <ScrollViewer x:Name="RulerScrollViewer"
@@ -565,12 +554,10 @@
                         <Grid Grid.Row="2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="50"/>
-                                <!-- 트랙 번호 영역 -->
                                 <ColumnDefinition Width="*"/>
-                                <!-- 타임라인 영역 -->
                             </Grid.ColumnDefinitions>
                             
-                            <!-- 트랙 번호 레이블 (스크롤과 독립적) -->
+                            <!-- 트랙 번호 레이블 -->
                             <Border Grid.Column="0" Background="#3E3E42" BorderBrush="#2D2D30" BorderThickness="0,0,1,0">
                                 <ScrollViewer x:Name="TrackLabelsScrollViewer"
                                             VerticalScrollBarVisibility="Hidden"
@@ -624,7 +611,7 @@
                                     </b:EventTrigger>
                                 </b:Interaction.Triggers>
 
-                                <!-- 트랙 구분선들 (배경) -->
+                                <!-- 트랙 구분선들 -->
                                 <Canvas x:Name="TrackLinesCanvas" 
                                         Height="540"
                                         IsHitTestVisible="False"

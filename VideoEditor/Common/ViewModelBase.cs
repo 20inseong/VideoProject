@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace VideoEditor.Common
 {
-    public class ViewModelBase : INotifyPropertyChanged        //데이터가 변경되었음을 알리는데 사용되는 인터페이스
+    public class ViewModelBase : INotifyPropertyChanged 
     {
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -22,10 +22,10 @@ namespace VideoEditor.Common
             if (EqualityComparer<T>.Default.Equals(backingStore, value))
                 return false;
 
-            // 값이 다르다면 실제 변수(backingStore)의 값을 업데이트
+            // 값이 다르다면 실제 변수의 값을 업데이트
             backingStore = value;
 
-            // UI에 변경 사실을 알림 (OnPropertyChanged 호출)
+            // UI에 변경 사실을 알림
             OnPropertyChanged(propertyName);
 
             // 값이 변경되었음을 알림

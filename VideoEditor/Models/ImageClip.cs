@@ -30,7 +30,7 @@ namespace VideoEditor.Models
 
         // 사용자 지정 크기 (원본 크기 기준, 픽셀 단위)
         private double _customWidth = 0;
-        private bool _isUpdatingCustomSize = false; // 무한 루프 방지 플래그
+        private bool _isUpdatingCustomSize = false;
         
         public double CustomWidth
         {
@@ -54,7 +54,6 @@ namespace VideoEditor.Models
                             SetProperty(ref _customHeight, newHeight, nameof(CustomHeight));
                         }
                         
-                        // RenderWidth/Height 업데이트
                         UpdateRenderSizeFromCustomSize();
                     }
                 }
@@ -87,8 +86,6 @@ namespace VideoEditor.Models
                         {
                             SetProperty(ref _customWidth, newWidth, nameof(CustomWidth));
                         }
-                        
-                        // RenderWidth/Height 업데이트
                         UpdateRenderSizeFromCustomSize();
                     }
                 }
@@ -99,31 +96,26 @@ namespace VideoEditor.Models
             }
         }
 
-        // 초기 RenderWidth/Height 비율 저장 (미리보기 크기 기준)
         [JsonIgnore]
         public double InitialRenderWidth { get; set; }
         [JsonIgnore]
         public double InitialRenderHeight { get; set; }
 
-        // CustomWidth/Height가 변경되면 RenderWidth/Height를 비례적으로 조정
         private void UpdateRenderSizeFromCustomSize()
         {
             if (SourceWidth > 0 && SourceHeight > 0 && _customWidth > 0 && _customHeight > 0 && InitialRenderWidth > 0 && InitialRenderHeight > 0)
             {
-                // CustomWidth/Height가 SourceWidth/Height 대비 어느 정도 비율인지 계산
                 double widthRatio = _customWidth / SourceWidth;
                 double heightRatio = _customHeight / SourceHeight;
                 
-                // 초기 RenderWidth/Height에 비율을 적용
                 RenderWidth = InitialRenderWidth * widthRatio;
                 RenderHeight = InitialRenderHeight * heightRatio;
             }
         }
 
-        // RenderWidth/Height가 변경되면 CustomWidth/Height를 업데이트
         public void UpdateCustomSizeFromRenderSize()
         {
-            if (_isUpdatingCustomSize) return; // 이미 업데이트 중이면 무시
+            if (_isUpdatingCustomSize) return;
             
             if (SourceWidth > 0 && SourceHeight > 0 && InitialRenderWidth > 0 && InitialRenderHeight > 0 && RenderWidth > 0 && RenderHeight > 0)
             {
@@ -171,7 +163,6 @@ namespace VideoEditor.Models
                 InitialRenderHeight = this.InitialRenderHeight
             };
             
-            // Copy all base properties including duration/speed
             newClip.CopyBaseProperties(this);
             
             return newClip;

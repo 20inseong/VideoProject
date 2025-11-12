@@ -25,7 +25,6 @@ namespace VideoEditor.Common.Adorners
             _clip = clip;
             _visuals = new VisualCollection(this);
             
-            // Calculate aspect ratio from source dimensions
             if (_clip is VideoClip videoClip && videoClip.SourceWidth > 0 && videoClip.SourceHeight > 0)
             {
                 _aspectRatio = (double)videoClip.SourceWidth / videoClip.SourceHeight;
@@ -40,7 +39,7 @@ namespace VideoEditor.Common.Adorners
             }
             
             BuildAdornerHandles();
-            this.DataContext = _clip; // Set DataContext for binding
+            this.DataContext = _clip;
         }
 
         private void BuildAdornerHandles()
@@ -51,7 +50,6 @@ namespace VideoEditor.Common.Adorners
             _bottomRight = GetResizeThumb(Cursors.SizeNWSE, HorizontalAlignment.Right, VerticalAlignment.Bottom);
             _middle = GetMoveThumb(Cursors.SizeAll);
 
-            // Add drag started/completed handlers for video clip overlay hiding
             if (_clip is VideoClip)
             {
                 _topLeft.DragStarted += Resize_DragStarted;
@@ -83,7 +81,6 @@ namespace VideoEditor.Common.Adorners
 
         private void Resize_DragStarted(object sender, DragStartedEventArgs e)
         {
-            // Pause playback during resize to prevent performance issues
             Application.Current?.Dispatcher.Invoke(() =>
             {
                 if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
@@ -100,7 +97,6 @@ namespace VideoEditor.Common.Adorners
 
         private void Resize_DragCompleted(object sender, DragCompletedEventArgs e)
         {
-            // Resume playback if it was playing before resize
             Application.Current?.Dispatcher.Invoke(() =>
             {
                 if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
@@ -121,14 +117,13 @@ namespace VideoEditor.Common.Adorners
             {
                 Width = 10,
                 Height = 10,
-                BorderBrush = Brushes.Yellow, // Make border yellow for visibility
+                BorderBrush = Brushes.Yellow,
                 BorderThickness = new Thickness(1),
                 Cursor = cursor,
                 HorizontalAlignment = horizontalAlignment,
                 VerticalAlignment = verticalAlignment
             };
 
-            // Apply the custom style
             if (Application.Current.Resources.Contains("TransparentThumbStyle"))
             {
                 thumb.Style = (Style)Application.Current.Resources["TransparentThumbStyle"];
@@ -146,7 +141,6 @@ namespace VideoEditor.Common.Adorners
                 Background = Brushes.Transparent
             };
 
-            // Apply the custom style
             if (Application.Current.Resources.Contains("TransparentThumbStyle"))
             {
                 thumb.Style = (Style)Application.Current.Resources["TransparentThumbStyle"];
@@ -330,14 +324,12 @@ namespace VideoEditor.Common.Adorners
         
         private void ForceClipUpdate()
         {
-            // Force immediate clipping update for video clips during drag
             if (_clip is VideoClip)
             {
-                // Throttle updates to max 60fps (16ms interval)
                 var now = DateTime.Now;
                 if ((now - _lastClipUpdateTime).TotalMilliseconds < CLIP_UPDATE_THROTTLE_MS)
                 {
-                    return; // Skip this update, too soon
+                    return;
                 }
                 
                 _lastClipUpdateTime = now;
@@ -348,35 +340,31 @@ namespace VideoEditor.Common.Adorners
                     {
                         mainWindow.ForceClipVideoViews();
                     }
-                }, System.Windows.Threading.DispatcherPriority.Render); // Render priority instead of Send
+                }, System.Windows.Threading.DispatcherPriority.Render);
             }
         }
 
         private void Middle_DragStarted(object sender, DragStartedEventArgs e)
         {
-            // Store initial position when drag starts
             _initialX = _clip.X;
             _initialY = _clip.Y;
 
-            // Pause playback during position drag to prevent performance issues
             Application.Current?.Dispatcher.Invoke(() =>
             {
                 if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
                 {
                     mainViewModel.StopPlayback();
                     
-                    // If this is a VideoClip, notify MainViewModel to hide WPF overlays
                     if (_clip is VideoClip)
                     {
                         mainViewModel.StartVideoClipPreviewDrag();
                     }
                 }
                 
-                // Mark overlay interaction as active AND cancel any pending timer
                 if (Application.Current.MainWindow is MainWindow mainWindow)
                 {
                     mainWindow.SetOverlayInteractionActive(true);
-                    mainWindow.CancelDeactivationTimer(); // Cancel timer if already running
+                    mainWindow.CancelDeactivationTimer();
                 }
             });
         }
@@ -402,12 +390,10 @@ namespace VideoEditor.Common.Adorners
 
         private void Middle_DragCompleted(object sender, DragCompletedEventArgs e)
         {
-            // Resume playback if it was playing before position drag
             Application.Current?.Dispatcher.Invoke(() =>
             {
                 if (Application.Current.MainWindow?.DataContext is ViewModels.MainViewModel mainViewModel)
                 {
-                    // If this is a VideoClip, notify MainViewModel to restore WPF overlays
                     if (_clip is VideoClip)
                     {
                         mainViewModel.EndVideoClipPreviewDrag();
@@ -416,17 +402,15 @@ namespace VideoEditor.Common.Adorners
                     mainViewModel.ResumePlaybackIfNeeded();
                 }
                 
-                // Mark overlay interaction as inactive
                 if (Application.Current.MainWindow is MainWindow mainWindow)
                 {
                     mainWindow.SetOverlayInteractionActive(false);
                 }
             });
 
-            // Force final update when drag completes to ensure accurate clipping
             if (_clip is VideoClip)
             {
-                _lastClipUpdateTime = DateTime.MinValue; // Reset throttle
+                _lastClipUpdateTime = DateTime.MinValue;
                 Application.Current?.Dispatcher.InvokeAsync(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
@@ -439,10 +423,8 @@ namespace VideoEditor.Common.Adorners
 
         protected override Size MeasureOverride(Size constraint)
         {
-            // Ensure the adorned element is measured
             var desiredSize = base.MeasureOverride(constraint);
 
-            // Measure the thumbs
             foreach (UIElement thumb in _visuals)
             {
                 thumb.Measure(constraint);
@@ -452,26 +434,17 @@ namespace VideoEditor.Common.Adorners
 
         protected override Size ArrangeOverride(Size finalSize)
         {
-            // Arrange the adorned element
             base.ArrangeOverride(finalSize);
 
-            // Arrange the thumbs based on the adorned element's actual bounds
-            // The adorner uses local coordinates relative to the adorned element
-            // So we use 0,0 as the top-left corner
             double left = 0;
             double top = 0;
             double width = _clip.RenderWidth;
             double height = _clip.RenderHeight;
 
-            // Top-Left
             _topLeft.Arrange(new Rect(left, top, _topLeft.DesiredSize.Width, _topLeft.DesiredSize.Height));
-            // Top-Right
             _topRight.Arrange(new Rect(left + width - _topRight.DesiredSize.Width, top, _topRight.DesiredSize.Width, _topRight.DesiredSize.Height));
-            // Bottom-Left
             _bottomLeft.Arrange(new Rect(left, top + height - _bottomLeft.DesiredSize.Height, _bottomLeft.DesiredSize.Width, _bottomLeft.DesiredSize.Height));
-            // Bottom-Right
             _bottomRight.Arrange(new Rect(left + width - _bottomRight.DesiredSize.Width, top + height - _bottomRight.DesiredSize.Height, _bottomRight.DesiredSize.Width, _bottomRight.DesiredSize.Height));
-            // Middle (for dragging)
             _middle.Arrange(new Rect(left, top, width, height));
 
             return finalSize;
@@ -479,7 +452,6 @@ namespace VideoEditor.Common.Adorners
 
         protected override void OnRender(DrawingContext drawingContext)
         {
-            // Draw a transparent rectangle to ensure the adorner itself doesn't have an opaque background
             drawingContext.DrawRectangle(Brushes.Transparent, null, new Rect(RenderSize));
             base.OnRender(drawingContext);
         }

@@ -23,9 +23,8 @@
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top">
 
-                    <!-- This content is rendered in a separate window on top of the video -->
                     <AdornerDecorator>
-                        <Grid Background="#01000000"> <!-- Semi-transparent background to ensure hit-testing -->
+                        <Grid Background="#01000000"> 
                             <adorners:AdornerService.IsAdornerEnabled>
                                 <Binding Path="IsSelected" />
                             </adorners:AdornerService.IsAdornerEnabled>
@@ -44,7 +43,6 @@
             <Style TargetType="ContentPresenter">
                 <Setter Property="Canvas.Left" Value="{Binding X}" />
                 <Setter Property="Canvas.Top" Value="{Binding Y}" />
-                <!-- Set ZIndex based on TrackIndex to control video clip layering -->
                 <Setter Property="Canvas.ZIndex" Value="{Binding TrackIndex, Converter={StaticResource InverseTrackIndexConverter}}" />
             </Style>
         </ItemsControl.ItemContainerStyle>

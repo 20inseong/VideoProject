@@ -14,7 +14,7 @@ namespace VideoEditor.Common
                 TimeSpan timeSpan = TimeSpan.FromMilliseconds(milliseconds);
                 return timeSpan.ToString(@"hh\:mm\:ss\.ff");
             }
-            return "00:00:00"; // 기본값
+            return "00:00:00";
         }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
