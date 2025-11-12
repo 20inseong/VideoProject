@@ -402,12 +402,11 @@ namespace VideoEditor.Services
                         string alphaTag = $"&H{a:X2}&";
                         int fontSize = (int)Math.Max(10, Math.Round(m.FontSize * positionScaleY));
                         int align = 5; int ml = 10, mr = 10, mv = 10;
-                        string fontName = string.IsNullOrWhiteSpace(m.FontFamily) ? "Malgun Gothic" : m.FontFamily;
-                        if (fontName == "맑은 고딕") fontName = "Malgun Gothic";
-                        fontName = fontName.Replace("{", string.Empty).Replace("}", string.Empty);
+                        string fontName = ResolveAssFontName(m.FontFamily);
                         string start = ToAssTime(m.StartPosition);
                         string end = ToAssTime(m.StartPosition + m.Duration);
                         string ov = $"{{\\pos({posX:F2},{posY:F2})\\fn{fontName}\fs{fontSize}\\c{colorBgr}\\alpha{alphaTag}\\an{align}" + (Math.Abs(m.Rotation) > 0.01 ? $"\\frz{-m.Rotation:F1}" : "") + "}";
+                        ov = ov.Replace("\\fs{fontSize}", $"\\\\fs{fontSize}");
                         string safe = EscapeAssText(text);
                         sbAss.AppendLine($"Dialogue: 0,{start},{end},Default,,{ml},{mr},{mv},,{ov}{safe}");
                     }
@@ -833,5 +832,26 @@ namespace VideoEditor.Services
             text = text.Replace(NL, "\\N").Replace(NBSP, "\\h");
             return text;
         }
+
+        private static string ResolveAssFontName(string name)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(name)) return "Malgun Gothic";
+                var fam = System.Windows.Media.Fonts.SystemFontFamilies.FirstOrDefault(f =>
+                    f.Source.Equals(name, StringComparison.OrdinalIgnoreCase) ||
+                    f.FamilyNames.Values.Any(v => v.Equals(name, StringComparison.OrdinalIgnoreCase)));
+                if (fam != null)
+                {
+                    // Try get English display name via XmlLanguage
+                    var enXml = System.Windows.Markup.XmlLanguage.GetLanguage("en-US");
+                    if (fam.FamilyNames.TryGetValue(enXml, out var enName)) return enName;
+                    return fam.FamilyNames.Values.FirstOrDefault() ?? fam.Source;
+                }
+            }
+            catch { }
+            return name;
+        }
+
     }
 }
