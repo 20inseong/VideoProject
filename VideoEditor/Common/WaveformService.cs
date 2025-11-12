@@ -25,7 +25,7 @@ namespace VideoEditor.Common
                 const int headerSize = 44; 
                 if (wavBytes.Length <= headerSize) return waveformData;
 
-                int totalSamples = (wavBytes.Length - headerSize) / 2; ㄴ
+                int totalSamples = (wavBytes.Length - headerSize) / 2;
                 int samplesPerPoint = totalSamples / resolution;
                 if (samplesPerPoint == 0) samplesPerPoint = 1;
 
