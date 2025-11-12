@@ -60,7 +60,7 @@ namespace VideoEditor.Services
                 progressViewModel.StatusMessage = "내보내기 준비 중...";
                 var (inputArguments, filterComplex) = await BuildFFmpegArguments(clips, totalDurationSeconds, tempDirectory, cancellationToken, previewWidth, previewHeight);
 
-                var tempScriptPath = Path.Combine(tempDirectory, "filter_script.txt");
+                var tempScriptPath = Path.Combine(tempDirectory, $"filter_script_{DateTime.UtcNow:yyyyMMdd_HHmmss_fff}.txt");
                 await File.WriteAllTextAsync(tempScriptPath, filterComplex, cancellationToken);
 
                 string encoder = DetectHardwareEncoder();
@@ -220,6 +220,9 @@ namespace VideoEditor.Services
             // 회전으로 인한 크기 변화를 추적 (위치 보정에 사용)
             var rotatedSizeOffsets = new Dictionary<Guid, (double offsetX, double offsetY)>();
 
+            // 텍스트 클립 수집 (ASS로 렌더링)
+            var textClips = clips.OfType<TextClip>().ToList();
+
             foreach (var clip in clips)
             {
                 string clipId = clip.Id.ToString("N");
@@ -363,6 +366,70 @@ namespace VideoEditor.Services
             double positionScaleX = OutputWidth / previewWidth;
             double positionScaleY = OutputHeight / previewHeight;
 
+            // 텍스트 클립을 ASS로 작성하여 단일 subtitles 필터로 처리 (성능 개선)
+            string? assFilePath = null;
+            if (textClips.Count > 0)
+            {
+                var sbAss = new StringBuilder();
+                sbAss.AppendLine("[Script Info]");
+                sbAss.AppendLine("ScriptType: v4.00+");
+                sbAss.AppendLine("PlayResX: 1920");
+                sbAss.AppendLine("PlayResY: 1080");
+                sbAss.AppendLine("ScaledBorderAndShadow: yes");
+                sbAss.AppendLine();
+                sbAss.AppendLine("[V4+ Styles]");
+                sbAss.AppendLine("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding");
+                // 기본 스타일: 가운데 정렬(5), 굵게, 흰색, 얇은 외곽선
+                sbAss.AppendLine("Style: Default,Malgun Gothic,48,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,2,0,5,10,10,10,1");
+                sbAss.AppendLine();
+                sbAss.AppendLine("[Events]");
+                sbAss.AppendLine("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text");
+
+                // 텍스트 클립 그대로 사용 (병합 없음)
+                var ordered = textClips.OrderBy(t => t.StartPosition).ToList();
+
+                foreach (var m in ordered)
+                {
+                    // 최소 표시 시간 1.0s
+                    if (m.Duration < 1.0) m.Duration = 1.0;
+
+                    // 위치: 텍스트 박스 중앙
+                    double posX = (m.X + m.RenderWidth / 2.0) * positionScaleX;
+                    double posY = (m.Y + m.RenderHeight / 2.0) * positionScaleY;
+
+                    // 라인 래핑: 줄당 32자, 최대 2줄
+                    string text = m.Text?.Trim() ?? string.Empty;
+                    if (text.Length > 64)
+                    {
+                        text = text.Substring(0, 64);
+                    }
+                    text = WrapText(text, 32, 2);
+
+                    // 색상/투명도/폰트 크기
+                    var color = m.ForegroundColor;
+                    double op = m.Opacity > 1.0 ? m.Opacity / 100.0 : m.Opacity;
+                    op = Math.Clamp(op, 0.0, 1.0);
+                    byte a = (byte)Math.Clamp((int)Math.Round((1.0 - op) * 255.0), 0, 255);
+                    // 자막 태그: 색상은 &HBBGGRR, 알파는 &HAA&
+                    string colorBgr = $"&H{color.B:X2}{color.G:X2}{color.R:X2}";
+                    string alphaTag = $"&H{a:X2}&";
+                    int fontSize = (int)Math.Max(10, Math.Round(m.FontSize * positionScaleY));
+                    int align = 5; // Middle Center
+                    int ml = 10, mr = 10, mv = 10;
+
+                    string start = ToAssTime(m.StartPosition);
+                    string end = ToAssTime(m.StartPosition + m.Duration);
+
+                    // 이벤트 텍스트: 스타일 오버라이드 (회전 보정: 부호 반전)
+                    string ov = $"{{\\pos({posX:F2},{posY:F2})\\fs{fontSize}\\c{colorBgr}\\alpha{alphaTag}\\an{align}" + (Math.Abs(m.Rotation) > 0.01 ? $"\\frz{-m.Rotation:F1}" : "") + "}";
+                    string safe = EscapeAssText(text);
+                    sbAss.AppendLine($"Dialogue: 0,{start},{end},Default,,{ml},{mr},{mv},,{ov}{safe}");
+                }
+
+                assFilePath = Path.Combine(tempDirectory, "subs.ass");
+                await File.WriteAllTextAsync(assFilePath, sbAss.ToString(), cancellationToken);
+            }
+
             // 한글 폰트(맑은 고딕)를 사용하도록 수정합니다.
             string fontPath = "C:/Windows/Fonts/malgun.ttf".Replace(":", "\\:");
 
@@ -429,46 +496,22 @@ namespace VideoEditor.Services
                 }
                 else if (clip is TextClip textClip)
                 {
-                    // 텍스트를 이미지로 렌더링하여 오버레이
-                    var (textImagePath, textOffsetX, textOffsetY) = await RenderTextToImage(textClip, tempDirectory, textFileCounter, positionScaleX, positionScaleY);
-                    
-                    if (!string.IsNullOrEmpty(textImagePath))
-                    {
-                        // TextClip.X, Y는 텍스트 박스의 좌상단 위치
-                        // 실제 텍스트는 박스 내부에서 중앙 정렬되므로 오프셋을 더해야 함
-                        double targetX = (textClip.X * positionScaleX) + textOffsetX;
-                        double targetY = (textClip.Y * positionScaleY) + textOffsetY;
-                        
-                        Console.WriteLine($"[EXPORT OVERLAY] TextClip overlay position:");
-                        Console.WriteLine($"  - Original X/Y: {textClip.X:F2}, {textClip.Y:F2}");
-                        Console.WriteLine($"  - Scale X/Y: {positionScaleX:F4}, {positionScaleY:F4}");
-                        Console.WriteLine($"  - Offset X/Y: {textOffsetX:F2}, {textOffsetY:F2}");
-                        Console.WriteLine($"  - Target X/Y: {targetX:F2}, {targetY:F2}");
-                        
-                        string ffmpegX_text = targetX.ToString("F2", culture);
-                        string ffmpegY_text = targetY.ToString("F2", culture);
-                        
-                        string enable_text = $"enable='between(t,{textClip.StartPosition.ToString("F6", culture)},{(textClip.StartPosition + textClip.Duration).ToString("F6", culture)})'";
-                        
-                        // 이미지를 입력 파일로 추가
-                        int textImageIndex = inputFiles.Count;
-                        inputFiles.Add(textImagePath);
-                        inputArguments.Append($"-i \"{textImagePath}\" ");
-
-                        // 이미지를 비디오 스트림으로 변환하고 오버레이
-                        string textStreamId = $"text_img_{textFileCounter}";
-                        filterComplex.AppendLine($"[{textImageIndex}:v] loop=loop=-1:size=1,trim=duration={totalDurationSeconds.ToString("F6", culture)},setpts=PTS-STARTPTS [{textStreamId}];");
-                        filterComplex.AppendLine($"{lastVideoStream}[{textStreamId}] overlay=x={ffmpegX_text}:y={ffmpegY_text}:{enable_text} {nextVideoStream};");
-                        
-                        Console.WriteLine($"  - FFmpeg overlay: x={ffmpegX_text}:y={ffmpegY_text}");
-                        
-                        lastVideoStream = nextVideoStream;
-                        overlayCounter++;
-                    }
-                    
-                    textFileCounter++;
+                    // 텍스트 클립은 ASS 자막으로 일괄 처리하므로 여기서는 건너뜁니다.
+                    continue;
                 }
             }
+            // 최종 비디오
+            if (!string.IsNullOrEmpty(assFilePath))
+            {
+                // 단일 subtitles 필터로 자막 전체 적용 (Windows 경로 이스케이프 및 fontsdir 명시)
+                string nextVideoStream = $"[final_v_{overlayCounter}]";
+                var assEscaped = assFilePath.Replace("\\", "/").Replace(":", "\\:");
+                var fontsDir = "C\\:/Windows/Fonts";
+                filterComplex.AppendLine($"{lastVideoStream}subtitles=filename='{assEscaped}':fontsdir='{fontsDir}'{nextVideoStream};");
+                lastVideoStream = nextVideoStream;
+                overlayCounter++;
+            }
+
             filterComplex.AppendLine($"{lastVideoStream}trim=duration={totalDurationSeconds.ToString("F6", culture)}[final_v];");
             filterComplex.AppendLine($"{string.Join("", audioStreamsToMix)}amix=inputs={audioStreamsToMix.Count}:duration=first:dropout_transition=3[final_a];");
             return (inputArguments.ToString(), filterComplex.ToString());
@@ -532,9 +575,11 @@ namespace VideoEditor.Services
                 FileName = _ffmpegPath,
                 Arguments = arguments,
                 RedirectStandardError = true,
+                RedirectStandardOutput = false,
                 UseShellExecute = false,
                 CreateNoWindow = true,
-                StandardErrorEncoding = Encoding.UTF8
+                StandardErrorEncoding = Encoding.UTF8,
+                WorkingDirectory = Path.GetDirectoryName(_ffmpegPath) ?? AppDomain.CurrentDomain.BaseDirectory
             };
             using var process = new Process { StartInfo = pStartInfo };
             process.ErrorDataReceived += (s, e) =>
@@ -684,6 +729,7 @@ namespace VideoEditor.Services
                             double centerY = canvasHeight / 2.0;
                             
                             dc.PushTransform(new TranslateTransform(centerX, centerY));
+
                             dc.PushTransform(new RotateTransform(textClip.Rotation));
                             dc.PushOpacity(textClip.Opacity);
                             
@@ -738,6 +784,52 @@ namespace VideoEditor.Services
                 Console.WriteLine($"[EXPORT] Stack trace: {ex.StackTrace}");
                 return (null, 0, 0);
             }
+        }
+
+        private static string WrapText(string input, int maxPerLine, int maxLines)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+            var words = input.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            var lines = new List<string>();
+            var curr = new StringBuilder();
+            foreach (var w in words)
+            {
+                if (curr.Length + (curr.Length > 0 ? 1 : 0) + w.Length > maxPerLine)
+                {
+                    lines.Add(curr.ToString());
+                    curr.Clear();
+                    if (lines.Count >= maxLines) break;
+                }
+                if (curr.Length > 0) curr.Append(' ');
+                curr.Append(w);
+            }
+            if (lines.Count < maxLines && curr.Length > 0) lines.Add(curr.ToString());
+            return string.Join("\\N", lines);
+        }
+
+        private static string ToAssTime(double seconds)
+        {
+            if (seconds < 0) seconds = 0;
+            var ts = TimeSpan.FromSeconds(seconds);
+            return string.Format(CultureInfo.InvariantCulture, "{0}:{1:00}:{2:00}.{3:00}", (int)ts.TotalHours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
+        }
+
+        private static string EscapeAssText(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+            const string NL = "\uE000";   // placeholder for \N/\n
+            const string NBSP = "\uE001"; // placeholder for \h
+            // Preserve ASS control sequences first
+            text = text.Replace("\\N", NL).Replace("\\n", NL).Replace("\\h", NBSP);
+            // Remove a dangling backslash at line end or right before a newline placeholder
+            if (text.EndsWith("\\")) text = text.Substring(0, text.Length - 1);
+            text = text.Replace("\\" + NL, NL);
+
+            // Escape other special chars
+            text = text.Replace("\\", "\\\\").Replace("{", "\\{").Replace("}", "\\}");
+            // Restore preserved sequences
+            text = text.Replace(NL, "\\N").Replace(NBSP, "\\h");
+            return text;
         }
     }
 }

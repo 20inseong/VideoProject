@@ -406,6 +406,23 @@ namespace VideoEditor.ViewModels
 
             if (segments == null) return;
 
+            // 병합 없이 모든 구간을 개별 자막으로 생성, 최소 표시시간 1.0s 보장
+            var ordered = segments.OrderBy(s => s.Start).ToList();
+            var normalized = new System.Collections.Generic.List<TranscriptionSegment>();
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                var s = ordered[i];
+                var seg = new TranscriptionSegment { Start = s.Start, End = s.End, Text = s.Text };
+                if (seg.Duration.TotalSeconds < 1.0)
+                {
+                    // 다음 세그먼트 시작 전까지만 확장
+                    double maxEnd = i < ordered.Count - 1 ? ordered[i + 1].Start.TotalSeconds - 0.01 : (seg.Start + TimeSpan.FromSeconds(1.0)).TotalSeconds;
+                    double desiredEnd = Math.Max(seg.Start.TotalSeconds + 1.0, seg.End.TotalSeconds);
+                    seg.End = TimeSpan.FromSeconds(Math.Min(maxEnd, desiredEnd));
+                }
+                normalized.Add(seg);
+            }
+
             _mainViewModel.HidePreviewObjectsForModal();
             if (_mainViewModel.IsTimelinePlaying)
             {
@@ -413,7 +430,7 @@ namespace VideoEditor.ViewModels
             }
             _mainViewModel.HidePreviewObjectsForModal();
             var result = MessageBox.Show(
-                $"{segments.Count}개의 자막 클립을 타임라인에 추가하시겠습니까?",
+                $"{normalized.Count}개의 자막 클립을 타임라인에 추가하시겠습니까?",
                 "자막 생성 확인",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
@@ -421,7 +438,7 @@ namespace VideoEditor.ViewModels
 
             if (result == MessageBoxResult.No) return;
 
-            foreach (var segment in segments)
+            foreach (var segment in normalized)
             {
                 double newTextClipStart = transcriptionOwnerClip.StartPosition + segment.Start.TotalSeconds;
                 double newTextClipDuration = segment.Duration.TotalSeconds;
@@ -441,7 +458,7 @@ namespace VideoEditor.ViewModels
 
                 TimelineClips.Add(newTextClip);
             }
-            Debug.WriteLine($"[Subtitle Gen] {segments.Count}개의 자막 클립이 생성되었습니다.");
+            Debug.WriteLine($"[Subtitle Gen] {normalized.Count}개의 자막 클립이 생성되었습니다.");
         }
 
         private void ExecuteAddTextClip(double creationTime)
