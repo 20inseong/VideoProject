@@ -25,7 +25,10 @@ namespace VideoEditor.Services
 
         public FFmpegExportService()
         {
-            _ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "bin", "ffmpeg.exe");
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            var candidate1 = Path.Combine(baseDir, "ffmpeg", "bin", "ffmpeg.exe");
+            var candidate2 = Path.Combine(baseDir, "ffmpeg.exe");
+            _ffmpegPath = File.Exists(candidate1) ? candidate1 : candidate2;
         }
 
         public async Task<bool> ExportVideoAsync(
