@@ -264,6 +264,9 @@ namespace VideoEditor.ViewModels
         private readonly DispatcherTimer _scrubSeekTimer;
         private readonly uint _flatEqIndex;
         
+        private readonly Stopwatch _timelineStopwatch = new Stopwatch();
+        private TimeSpan _lastStopwatchElapsed = TimeSpan.Zero;
+
         private bool _isSyncingPlayers = false; // Prevent reentrant calls to SyncPlayersToTimeline
 
         private void ScrubSeekTimer_Tick(object? sender, EventArgs e)
@@ -1033,7 +1036,10 @@ namespace VideoEditor.ViewModels
                 return;
             }
 
-            CurrentTimelinePosition += _timelineTimer.Interval.TotalSeconds;
+            var elapsed = _timelineStopwatch.Elapsed;
+var delta = (elapsed - _lastStopwatchElapsed).TotalSeconds;
+_lastStopwatchElapsed = elapsed;
+if (delta > 0) CurrentTimelinePosition += delta;
 
             if (CurrentTimelinePosition * 1000 >= TotalTimelineDurationMs)
             {
@@ -1055,6 +1061,9 @@ namespace VideoEditor.ViewModels
             IsTimelinePlaying = true;
             PlayerViewModel.ResumeAllPlayers();
             _timelineTimer.Start();
+            _lastStopwatchElapsed = TimeSpan.Zero;
+            _timelineStopwatch.Restart();
+
         }
 
         private void Clip_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -1254,6 +1263,8 @@ namespace VideoEditor.ViewModels
 
             CurrentTimelinePosition = 0;
             IsTimelinePlaying = false;
+            _timelineStopwatch.Reset();
+
         }
 
         public void SeekTimeline(double timeSec, bool isScrubbing = false)
@@ -1265,6 +1276,9 @@ namespace VideoEditor.ViewModels
                 PlayerViewModel.PauseAllPlayers();
                 IsTimelinePlaying = false;
             }
+            _lastStopwatchElapsed = TimeSpan.Zero;
+            _timelineStopwatch.Restart();
+
 
             CurrentTimelinePosition = timeSec;
             SyncPlayersToTimeline();
