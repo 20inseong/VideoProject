@@ -417,11 +417,17 @@ namespace VideoEditor.Services
                     int align = 5; // Middle Center
                     int ml = 10, mr = 10, mv = 10;
 
+
+                    // 폰트 패밀리 오버라이드 (ASS \\fn 사용). 한글 폰트명 매핑
+                    string fontName = string.IsNullOrWhiteSpace(m.FontFamily) ? "Malgun Gothic" : m.FontFamily;
+                    if (fontName == "맑은 고딕") fontName = "Malgun Gothic";
+                    fontName = fontName.Replace("{", string.Empty).Replace("}", string.Empty);
+
                     string start = ToAssTime(m.StartPosition);
                     string end = ToAssTime(m.StartPosition + m.Duration);
 
-                    // 이벤트 텍스트: 스타일 오버라이드 (회전 보정: 부호 반전)
-                    string ov = $"{{\\pos({posX:F2},{posY:F2})\\fs{fontSize}\\c{colorBgr}\\alpha{alphaTag}\\an{align}" + (Math.Abs(m.Rotation) > 0.01 ? $"\\frz{-m.Rotation:F1}" : "") + "}";
+                    // 이벤트 텍스트: 스타일 오버라이드 (회전 보정: 부호 반전, 폰트 적용)
+                    string ov = $"{{\\pos({posX:F2},{posY:F2})\\fn{fontName}\\fs{fontSize}\\c{colorBgr}\\alpha{alphaTag}\\an{align}" + (Math.Abs(m.Rotation) > 0.01 ? $"\\frz{-m.Rotation:F1}" : "") + "}";
                     string safe = EscapeAssText(text);
                     sbAss.AppendLine($"Dialogue: 0,{start},{end},Default,,{ml},{mr},{mv},,{ov}{safe}");
                 }
